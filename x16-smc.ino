@@ -1,50 +1,106 @@
-// Commander X16 - ATTiny861 - ATX Power Control, Reset / NMI
+// Commander X16 ATX Power Control, Reset / NMI, PS/2
 //
 // By: Kevin Williams - TexElec.com
-//
-// Use Clockwise Pin Mapping when programming.
-//      -----
-//  9  =1    =   0
-//  8  =     =   1
-//  7  =  T  =   2 
-//  8  =  I  =  14
-// VCC =  N  =  GND
-// GND =  Y  =  VCC
-//  5  =  8  =  10
-//  4  =  6  =  11
-//  3  =  1  =  12
-// 15  =     =  13
-//      -----
-//
+//     Michael Steil
+//     Joe Burks
+
 #include <OneButton.h>
 #include <Wire.h>
 
-//#define ATTINY861
+#define DEBUG
+#define SERIAL_BPS 115200
 
+#if defined(__AVR_ATtiny861__)
+#define ATTINY861
+
+/*
+
+ATTINY861 Pinout
+
+     AVR Func         X16 Func   ArdIO   Port             Port   ArdIO   X16 Func    AVR Function
+                                              ----\_/----
+                                             | *         |
+ (SPI MOSI) (SDA)      I2C_SDA     9     PB0 | 1       20| PA0     0     RESB
+ (SPI MISO)            ACT_LED     8     PB1 | 2   A   19| PA1     1     NMIB
+  (SPI SCK) (SCL)      I2C_SCL     7     PB2 | 3   T   18| PA2     2     RESET_BTN
+                   PS2_KBD_DAT     6     PB3 | 4   t   17| PA3    14     NMI_BTN
+                                         VCC | 5   i   16| AGND
+                                         GND | 6   n   15| AVCC
+                   PS2_KBD_CLK     5     PB4 | 7   y   14| PA4    10     POWER_BTN
+                   PS2_MSE_DAT     4     PB5 | 8   8   13| PA5    11     POWER_ON
+                   PS2_MSE_CLK     3     PB6 | 9   6   12| PA6    12     POWER_OK       (TXD)
+  (SPI SS) (RST)                  15     PB7 |10   1   11| PA7    13     IRQB           (RXD)
+                                             |           |
+                                              -----------
+ */
+
+
+#define I2C_SDA_PIN       9
+#define I2C_SCL_PIN       7
+
+#define PS2_KBD_CLK       5
+#define PS2_KBD_DAT       6
+#define PS2_MSE_CLK       3
+#define PS2_MSE_DAT       4
+
+#define NMI_BUTTON_PIN    14
+#define RESET_BUTTON_PIN  2
+#define POWER_BUTTON_PIN  10
+
+#define RESB_PIN          0
+#define NMIB_PIN          1
+#define IRQB_PIN          13
+
+#define PWR_ON            11
+#define PWR_OK            12
+
+#define ACT_LED           8
+
+#else
+
+// If not ATtiny861, we expect ATMega328p
+#if !defined(__AVR_ATmega328P__)
+#error "X16 SMC only builds for ATtiny861 and ATmega328P"
+#endif
+
+#ifdef  DEBUG
+#define   USE_SERIAL_DEBUG
+#endif
 
 // Button definitions
-                               // ATTINY861 PIN
-#define PS2_KBD_CLK       A0   // 7
-#define PS2_KBD_DAT       A1   // 4
-#define PS2_MSE_CLK       A2   // 9
-#define PS2_MSE_DAT       A3   // 8
 
-#define I2C_SDA_PIN       A4   // 1
-#define I2C_SCL_PIN       A5   // 3
+#define PS2_KBD_CLK       A0
+#define PS2_KBD_DAT       A1
+#define PS2_MSE_CLK       A2
+#define PS2_MSE_DAT       A3
 
-#define NMI_BUTTON_PIN    2    // 17
-#define RESET_BUTTON_PIN  3    // 18
-#define POWER_BUTTON_PIN  4    // 14
+#define I2C_SDA_PIN       A4
+#define I2C_SCL_PIN       A5
 
-#define RESB_PIN          5    // 20
-#define NMIB_PIN          6    // 19
-#define IRQB_PIN          7    // 11
+#define NMI_BUTTON_PIN    2
+#define RESET_BUTTON_PIN  3
+#define POWER_BUTTON_PIN  4
 
-#define PWR_ON            8    // 13
-#define PWR_OK            9    // 12
+#define RESB_PIN          5
+#define NMIB_PIN          6
+#define IRQB_PIN          7
 
-#define ACT_LED           10   // 2   [PWM]
+#define PWR_ON            8
+#define PWR_OK            9
 
+#define ACT_LED           10
+
+#endif
+
+// Debug output macros
+#if defined(DEBUG) && defined(USE_SERIAL_DEBUG)
+#   define   DBG_PRINT(...) do { Serial.print(__VA_ARGS__); } while(0)
+#   define   DBG_PRINTLN(...) do { Serial.println(__VA_ARGS__); } while(0)
+#else
+    // Ensure that DBG_PRINT() with no ending semicolon doesn't compile when debugging is not enabled
+#   define DBG_PRINT(...) do {} while(0)
+#   define DBG_PRINTLN(...) do {} while(0)
+#endif
 
 #define PWR_ON_MIN             100
 #define PWR_ON_MAX             500
@@ -73,6 +129,10 @@ int	 I2C_Data[2] = {0, 0};
 bool I2C_Active = false;
 
 void setup() {
+#if defined(USE_SERIAL_DEBUG)
+  Serial.begin(SERIAL_BPS);
+#endif
+  DBG_PRINTLN("Commander X16 SMC Start");
 	//initialize i2C
 	Wire.begin(I2C_ADDR);								// Initialize I2C - Device Mode
 	Wire.onReceive(I2C_Receive);						// Used to Receive Data
