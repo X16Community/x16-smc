@@ -6,6 +6,7 @@
 
 #include <OneButton.h>
 #include <Wire.h>
+#include "ps2.h"
 
 #define DEBUG
 #define SERIAL_BPS 115200
@@ -124,6 +125,17 @@ OneButton POW_BUT(POWER_BUTTON_PIN, true, true);
 OneButton RES_BUT(RESET_BUTTON_PIN, true, true);
 OneButton NMI_BUT(NMI_BUTTON_PIN, true, true);
 
+PS2Port<> Keyboard(PS2_KBD_CLK, PS2_KBD_DAT);
+PS2Port<> Mouse(PS2_MSE_CLK, PS2_MSE_DAT);
+
+void keyboardClockIrq() {
+	Keyboard.onFallingClock();
+}
+
+void mouseClockIrq() {
+	Mouse.onFallingClock();
+}
+
 bool SYSTEM_POWERED = 0;							 	// default state - Powered off
 int	 I2C_Data[2] = {0, 0};
 bool I2C_Active = false;
@@ -160,6 +172,10 @@ void setup() {
 
 	pinMode(NMIB_PIN,OUTPUT);
 	digitalWrite(NMIB_PIN,HIGH);
+
+	// PS/2 host init
+	Keyboard.begin(keyboardClockIrq);
+	Mouse.begin(mouseClockIrq);
 }
 
 void loop() {
@@ -185,7 +201,7 @@ void Power_Button_Press() {
 	}
 }
 
-void I2C_Receive() {
+void I2C_Receive(int) {
 	int ct=0;
 	while (Wire.available()) {
 		if (ct<2) {								// read first two bytes only
