@@ -6,7 +6,6 @@
 
 #include <OneButton.h>
 #include <Wire.h>
-#include "ps2.h"
 
 #define DEBUG
 #define SERIAL_BPS 115200
@@ -70,16 +69,16 @@ ATTINY861 Pinout
 
 // Button definitions
 
-#define PS2_KBD_CLK       A0
+#define PS2_KBD_CLK       2
 #define PS2_KBD_DAT       A1
-#define PS2_MSE_CLK       A2
+#define PS2_MSE_CLK       3
 #define PS2_MSE_DAT       A3
 
 #define I2C_SDA_PIN       A4
 #define I2C_SCL_PIN       A5
 
-#define NMI_BUTTON_PIN    2
-#define RESET_BUTTON_PIN  3
+#define NMI_BUTTON_PIN    A0
+#define RESET_BUTTON_PIN  A2
 #define POWER_BUTTON_PIN  4
 
 #define RESB_PIN          5
@@ -120,6 +119,8 @@ ATTINY861 Pinout
 
 //I2C Pins
 #define I2C_ADDR              0x42  // I2C Device ID
+
+#include "ps2.h"
 
 OneButton POW_BUT(POWER_BUTTON_PIN, true, true);
 OneButton RES_BUT(RESET_BUTTON_PIN, true, true);

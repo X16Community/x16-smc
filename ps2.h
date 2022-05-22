@@ -36,7 +36,7 @@ public:
 		head(0), tail(0), curCode(0), parity(0), lastBitMillis(0), rxBitCount(0) {};
 
 	/// @brief Begin processing PS/2 traffic
-	void begin((void*)(irqFunc)()) {
+	void begin(void(*irqFunc)()) {
 		attachInterrupt(digitalPinToInterrupt(clkPin), irqFunc, FALLING);
 	}
 
@@ -89,7 +89,9 @@ public:
 					byte headNext = (head+1) & (size-1);
 					if (headNext != tail)
 					{
-						keycode[head] = (byte)(curCode);
+//						keycode[head] = (byte)(curCode);
+						DBG_PRINT("keycode: ");
+						DBG_PRINTLN((byte)(curCode), HEX);
 						head = headNext;
 					} // else Ring buffer overrun, drop the incoming code :(
 				rxBitCount = 0;
