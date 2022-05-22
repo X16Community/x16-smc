@@ -149,7 +149,7 @@ void setup() {
 	//initialize i2C
 	Wire.begin(I2C_ADDR);								// Initialize I2C - Device Mode
 	Wire.onReceive(I2C_Receive);						// Used to Receive Data
-	//Wire.onRequest(I2C_Send);							// Used to Send Data, may never be used
+	Wire.onRequest(I2C_Send);							// Used to Send Data, may never be used
 
 	POW_BUT.attachClick(Power_Button_Press);			// Should the Power off be long, or short?
 	POW_BUT.attachDuringLongPress(Power_Button_Press);	// Both for now
@@ -203,17 +203,24 @@ void Power_Button_Press() {
 }
 
 void I2C_Receive(int) {
+	DBG_PRINTLN("I2C_Receive");
 	int ct=0;
 	while (Wire.available()) {
 		if (ct<2) {								// read first two bytes only
-			I2C_Data[ct]=Wire.read();
+			byte c = Wire.read();
+			DBG_PRINTLN(c, HEX);
+			I2C_Data[ct] = c;
 			ct++;
 		}
 		else {
 			int nothing = Wire.read();			// eat extra data, should not be sent
 		}
 	}
-	I2C_Process();								// process received cmd
+	DBG_PRINT("ct: 0x");
+	DBG_PRINTLN(ct, HEX);
+	if (ct == 2) {
+		I2C_Process();							// process received cmd
+	}
 }
 
 //I2C Commands - Two Bytes per Command
@@ -224,6 +231,7 @@ void I2C_Receive(int) {
 //0x04 0x00-0xFF - Power LED Level (PWM)		// need to remove, not enough lines 
 //0x05 0x00-0xFF - Activity/HDD LED Level (PWM)
 void I2C_Process() {
+	DBG_PRINTLN("I2C_Process");
 	if (I2C_Data[0] == 1) {						// 1st Byte : Byte 1 - Power Events (Power off & Reboot)
 		switch (I2C_Data[1]) {
 			case 0:PowerOffSeq();				// 2nd Byte : 0 - Power Off
@@ -250,6 +258,13 @@ void I2C_Process() {
 	}
 	I2C_Data[0] = 0;
 	I2C_Data[1] = 0;
+}
+
+char *hello = "HELLO WORLD!";
+
+void I2C_Send() {
+	DBG_PRINTLN("I2C_Send");
+	Wire.write(hello[I2C_Data[0]] << 1);
 }
 
 void Reset_Button_Hold() {			

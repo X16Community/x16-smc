@@ -90,10 +90,10 @@ public:
 					if (headNext != tail)
 					{
 //						keycode[head] = (byte)(curCode);
-						DBG_PRINT("keycode: ");
-						DBG_PRINTLN((byte)(curCode), HEX);
 						head = headNext;
 					} // else Ring buffer overrun, drop the incoming code :(
+				DBG_PRINT("keycode: ");
+				DBG_PRINTLN((byte)(curCode), HEX);
 				rxBitCount = 0;
 				parity = 0;
 				curCode = 0;
