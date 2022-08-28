@@ -187,7 +187,6 @@ void KeyboardTick()
 
   if (kbd_init_state != OFF && SYSTEM_POWERED == 0)
   {
-    analogWrite(ACT_LED, 0);
     kbd_init_state = OFF;
     watchdog_armed = false;
     watchdog_timer = 255;
@@ -206,7 +205,6 @@ void KeyboardTick()
   PS2_CMD_STATUS kstatus = Keyboard.getCommandStatus();
   if (kstatus == PS2_CMD_STATUS::CMD_PENDING)
   {
-    analogWrite(ACT_LED, ((blink_counter >> 2) & 0x1) == 0 ? 0 : 255);
     return;
   }
   
@@ -222,7 +220,6 @@ void KeyboardTick()
       break;
 
     case POWERUP_BAT_WAIT:
-      //analogWrite(ACT_LED, ((blink_counter >> 4) & 0x1) == 0 ? 0 : 255);
       if (Keyboard.available()) {
         uint8_t b = Keyboard.next();
         if (b == BAT_OK)
@@ -256,14 +253,12 @@ void KeyboardTick()
 
 
     case KBD_SET_LEDS1:
-      analogWrite(ACT_LED, 255);
       Keyboard.sendPS2Command(SET_STATUS_INDICATORS);
       next_state = SET_LEDS1_ACK_WAIT;
       MOUSE_REARM_WATCHDOG();
       break;
 
     case SET_LEDS1_ACK_WAIT:
-      analogWrite(ACT_LED, ((blink_counter >> 5) & (blink_counter >> 3) & 0x1) == 0 ? 0 : 255);
       Keyboard.next();
       if (kstatus != PS2_CMD_STATUS::CMD_ACK) {
         next_state = FAILED;
@@ -275,23 +270,19 @@ void KeyboardTick()
       break;
 
     case SET_LEDS2_ACK_WAIT:
-      analogWrite(ACT_LED, ((blink_counter >> 5) & (blink_counter >> 4) & 0x1) == 0 ? 0 : 255);
       Keyboard.next();
       if (kstatus != PS2_CMD_STATUS::CMD_ACK) {
         next_state = FAILED;
       } else {
-        analogWrite(ACT_LED, 0);
         next_state = KBD_READY;
         MOUSE_DISARM_WATCHDOG();
       }
       break;
 
     case KBD_READY:
-      analogWrite(ACT_LED, ((blink_counter >> 7) & (blink_counter >> 5) & 0x1) == 0 ? 0 : 255);
       break;
 
     default:
-      analogWrite(ACT_LED, ((blink_counter >> 4) & 0x1) == 0 ? 0 : 255);
       // This is where the FAILED state will end up
       break;
   }
