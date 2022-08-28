@@ -6,7 +6,7 @@
 
 //#define ENABLE_NMI_BUT
 
-#include <OneButton.h>
+#include "smc_button.h"
 #include <Wire.h>
 #include "dbg_supp.h"
 #include "smc_pins.h"
@@ -36,10 +36,10 @@
 //I2C Pins
 #define I2C_ADDR              0x42  // I2C Device ID
 
-OneButton POW_BUT(POWER_BUTTON_PIN, true, true);
-OneButton RES_BUT(RESET_BUTTON_PIN, true, true);
+SmcButton POW_BUT(POWER_BUTTON_PIN);
+SmcButton RES_BUT(RESET_BUTTON_PIN);
 #if defined(ENABLE_NMI_BUT)
-  OneButton NMI_BUT(NMI_BUTTON_PIN, true, true);
+  SmcButton NMI_BUT(NMI_BUTTON_PIN);
 #endif
 
 PS2Port<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
