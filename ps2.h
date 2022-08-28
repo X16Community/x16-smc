@@ -111,7 +111,8 @@ class PS2Port
             // Protocol Error - parity mismatch
           }
 
-          //Hhost to device command response handler
+          bool suppress_scancode = false;
+          //Host to device command response handler
           if (commandStatus==PS2_CMD_STATUS::CMD_PENDING){
             if (curCode==PS2_CMD_STATUS::CMD_ERR){
               //Command error - Resend
@@ -120,7 +121,8 @@ class PS2Port
             else if (curCode==PS2_CMD_STATUS::CMD_ACK){
               if (outputSize==2){
                 //Send second byte
-                sendPS2Command(1, outputBuffer[1]);
+                sendPS2Command(outputBuffer[1]);
+                suppress_scancode = true;
               }
               else{
                 //Command ACK
@@ -129,11 +131,14 @@ class PS2Port
             }
           }
 
-          //Update input buffer
-          byte headNext = (head + 1) & (size - 1);
-          if (headNext != tail){
-            buffer[head] = (byte)(curCode);
-            head = headNext;
+          if (!suppress_scancode)
+          {
+            //Update input buffer
+            byte headNext = (head + 1) & (size - 1);
+            if (headNext != tail){
+              buffer[head] = (byte)(curCode);
+              head = headNext;
+            }
           }
           //Else Ring buffer overrun, drop the incoming code :(
           DBG_PRINT("keycode: ");

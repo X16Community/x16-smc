@@ -52,7 +52,6 @@ void keyboardClockIrq() {
 void mouseClockIrq() {
     Mouse.onFallingClock();
 }
-void MouseInitTick();
 
 bool SYSTEM_POWERED = 0;                                // default state - Powered off
 int  I2C_Data[3] = {0, 0, 0};
@@ -144,7 +143,8 @@ void loop() {
 #if defined(ENABLE_NMI_BUT)
     NMI_BUT.tick();
 #endif
-    MouseInitTick();
+    MouseTick();
+    KeyboardTick();
     
     if ((SYSTEM_POWERED == 1) && (!digitalRead(PWR_OK)))
     {
@@ -246,7 +246,7 @@ void I2C_Send() {
     // DBG_PRINTLN("I2C_Send");
     int nextKey = 0;
     if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
-      if (Keyboard.available()) {
+      if (kbd_init_state == KBD_READY && Keyboard.available()) {
           nextKey  = Keyboard.next();
           Wire.write(nextKey);
       }
@@ -293,7 +293,8 @@ void Reset_Button_Hold() {
         delay(RESB_HOLDTIME_MS);
         digitalWrite(RESB_PIN,HIGH);
         analogWrite(ACT_LED, 0);
-        mouse_init_state = 0;
+        mouse_init_state = MOUSE_INIT_STATE::OFF;
+        kbd_init_state = MOUSE_INIT_STATE::OFF;
     }
 }
 
