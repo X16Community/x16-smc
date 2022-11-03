@@ -59,7 +59,6 @@ bool I2C_Active = false;
 char echo_byte = 0;
 
 void setup() {  
-  Serial.begin(9600);
 #if defined(USE_SERIAL_DEBUG)
     Serial.begin(SERIAL_BPS);
 #endif
