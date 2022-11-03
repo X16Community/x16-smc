@@ -42,7 +42,7 @@ SmcButton RES_BUT(RESET_BUTTON_PIN);
   SmcButton NMI_BUT(NMI_BUTTON_PIN);
 #endif
 
-PS2Port<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
+PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
 PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 8> Mouse;
 
 void keyboardClockIrq() {
@@ -58,7 +58,8 @@ int  I2C_Data[3] = {0, 0, 0};
 bool I2C_Active = false;
 char echo_byte = 0;
 
-void setup() {
+void setup() {  
+  Serial.begin(9600);
 #if defined(USE_SERIAL_DEBUG)
     Serial.begin(SERIAL_BPS);
 #endif
@@ -135,8 +136,11 @@ void setup() {
     // PS/2 host init
     Keyboard.begin(keyboardClockIrq);
     Mouse.begin(mouseClockIrq);
+
+    Keyboard.processByteReceived(0x14);
 }
 
+volatile uint16_t counter=0;
 void loop() {
     POW_BUT.tick();                             // Check Button Status
     RES_BUT.tick();
@@ -144,7 +148,7 @@ void loop() {
     NMI_BUT.tick();
 #endif
     MouseTick();
-    KeyboardTick();
+    //KeyboardTick();
     
     if ((SYSTEM_POWERED == 1) && (!digitalRead(PWR_OK)))
     {
@@ -152,6 +156,14 @@ void loop() {
         //kill power if PWR_OK dies, and system on
         //error handling?
     }
+
+    uint8_t c = Keyboard.next();
+    if (c!=0 && counter==0){
+      Serial.print(c, HEX);
+      Serial.print(" ");
+    }
+    if (c==0x1c) counter = 100;
+    if (counter>0) counter--;
 
     // DEBUG: turn activity LED on if there are keys in the keybuffer
     delay(10);                                  // Short Delay, required by OneButton if code is short   

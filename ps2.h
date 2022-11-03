@@ -9,6 +9,17 @@ enum PS2_CMD_STATUS : uint8_t {
   CMD_ERR = 0xFE
 };
 
+enum PS2_MODIFIER_STATE : uint8_t {
+  LALT = 1,
+  LSHIFT = 2,
+  LCTRL = 4,
+  RSHIFT = 8,
+  RALT = 16,
+  RCTRL = 32,
+  LWIN = 64,
+  RWIN = 128
+};
+
 /// @brief PS/2 IO Port handler
 /// @tparam size Circular buffer size for incoming data, must be a power of 2 and not more than 256
 template<uint8_t clkPin, uint8_t datPin, uint8_t size = 16> // Single keycodes can be 4 bytes long. We want a little bit of margin here.
@@ -18,7 +29,7 @@ class PS2Port
     static_assert((size & (size - 1)) == 0, "Buffer size must be a power of 2");  // size must be a power of 2
     static_assert(digitalPinToInterrupt(clkPin) != NOT_AN_INTERRUPT);
 
-  private:
+  protected:
     volatile uint8_t head;
     volatile uint8_t tail;
     volatile uint8_t buffer[size];
@@ -49,9 +60,9 @@ class PS2Port
   public:
     PS2Port() :
       head(0), tail(0), curCode(0), parity(0), lastBitMillis(0), rxBitCount(0), ps2ddr(0), timerCountdown(0)
-      {
-        resetReceiver();
-      };
+    {
+      resetReceiver();
+    };
 
     /// @brief Begin processing PS/2 traffic
     void begin(void(*irqFunc)()) {
@@ -113,20 +124,20 @@ class PS2Port
 
           bool suppress_scancode = false;
           //Host to device command response handler
-          if (commandStatus==PS2_CMD_STATUS::CMD_PENDING){
-            if (curCode==PS2_CMD_STATUS::CMD_ERR){
+          if (commandStatus == PS2_CMD_STATUS::CMD_PENDING) {
+            if (curCode == PS2_CMD_STATUS::CMD_ERR) {
               //Command error - Resend
-              commandStatus=PS2_CMD_STATUS::CMD_ERR;
+              commandStatus = PS2_CMD_STATUS::CMD_ERR;
             }
-            else if (curCode==PS2_CMD_STATUS::CMD_ACK){
-              if (outputSize==2){
+            else if (curCode == PS2_CMD_STATUS::CMD_ACK) {
+              if (outputSize == 2) {
                 //Send second byte
                 sendPS2Command(outputBuffer[1]);
                 suppress_scancode = true;
               }
-              else{
+              else {
                 //Command ACK
-                commandStatus=PS2_CMD_STATUS::CMD_ACK;
+                commandStatus = PS2_CMD_STATUS::CMD_ACK;
               }
             }
           }
@@ -134,11 +145,7 @@ class PS2Port
           if (!suppress_scancode)
           {
             //Update input buffer
-            byte headNext = (head + 1) & (size - 1);
-            if (headNext != tail){
-              buffer[head] = (byte)(curCode);
-              head = headNext;
-            }
+            processByteReceived(curCode);
           }
           //Else Ring buffer overrun, drop the incoming code :(
           DBG_PRINT("keycode: ");
@@ -237,9 +244,9 @@ class PS2Port
       }
     };
 
-    void flush() {
+    virtual void flush() {
       head = tail = 0;
-      //lastBitMillis = 0;
+      lastBitMillis = 0;
     }
 
     void reset() {
@@ -311,13 +318,196 @@ class PS2Port
         parity = 0;
       }
 
-      else{
+      else {
         timerCountdown--;
       }
     }
 
-    uint8_t count(){
-      return (size+head-tail)&(size-1);
+    uint8_t count() {
+      return (size + head - tail) & (size - 1);
+      processByteReceived(size);
     }
 
+    virtual void processByteReceived(uint8_t value) {
+      byte headNext = (head + 1) & (size - 1);
+      if (headNext != tail) {
+        buffer[head] = (byte)(curCode);
+        head = headNext;
+      }
+    }
+
+};
+
+template<uint8_t clkPin, uint8_t datPin, uint8_t size>
+class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
+{
+  protected:
+    bool bufferClosed = false;      // Set to true on buffer full, and to false when buffer is empty again
+    uint8_t scancode_state = 0x00;  // Tracks the type and byte position of the scan code currently receiving (bits 4-7 = scan code type, bits 0-3 = number of bytes)
+    uint8_t modifier_state = 0x00;  // Always tracks modifier key state, even if buffer is full
+    uint8_t modifier_snap = 0x00;   // A copy of modifier_state is stored here on start of buffer full, used to compare what's changed when buffer is empty again
+    uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
+
+  public:
+
+    /**
+       Processes a scan code byte received from the keyboard
+    */
+    void processByteReceived(uint8_t value) {
+      if (bufferClosed && this->tail == this->head) {
+        // Buffer has been full, but is now empty - Before opening up the buffer, put modifier key state changes in the buffer
+        if (putModifiers()) {
+          // Successfully put all modifier key state changes, open buffer
+          bufferClosed = false;
+        }
+        else {
+          // All modifier key state changes didn't fit in the buffer, remove possible partial scan code stored in the buffer
+          bufferRemoveFromHead(scancode_state & 0x0f);
+        }
+
+        if (!bufferClosed) {
+          if (!bufferAdd(value)) {
+            bufferClosed = true;
+            bufferRemoveFromHead(scancode_state & 0x0f);
+          }
+        }
+
+        updateState(value);
+      }
+    }
+
+    /**
+       A state machine tracking type and length of current scan code
+    */
+    void updateState(uint8_t value) {
+      switch (scancode_state) {
+        case 0x00:    // Scan code begin
+          if (value == 0xf0) scancode_state = 0x11;   // Start of break code
+          else if (value == 0xe0) scancode_state = 0x21;  // Start of extended code
+          else if (value == 0xe1) scancode_state = 0x61;  // Start of Pause key code
+          else if (value == 0x12) modifier_state |= PS2_MODIFIER_STATE::LSHIFT;
+          else if (value == 0x59) modifier_state |= PS2_MODIFIER_STATE::RSHIFT;
+          else if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::LCTRL;
+          else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::LALT;
+          break;
+
+        case 0x11:    // After 0xf0 (break code)
+          scancode_state = 0x00;
+          if (value == 0x12) modifier_state &= ~PS2_MODIFIER_STATE::LSHIFT;
+          else if (value == 0x59) modifier_state &= ~PS2_MODIFIER_STATE::RSHIFT;
+          else if (value == 0x14) modifier_state &= ~PS2_MODIFIER_STATE::LCTRL;
+          else if (value == 0x11) modifier_state &= ~PS2_MODIFIER_STATE::LALT;
+          break;
+
+        case 0x21:    // After 0xe0 (extended code)
+          if (value == 0xf0) scancode_state = 0x32; // Extended break code
+          else if (value == 0x12) scancode_state = 0x42;  // PrtScr make code
+          else scancode_state = 0x00;
+
+          if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::RCTRL;
+          else if (value == 0x1f) modifier_state |= PS2_MODIFIER_STATE::LWIN;
+          else if (value == 0x27) modifier_state |= PS2_MODIFIER_STATE::RWIN;
+          else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::RALT;
+
+          break;
+
+        case 0x32:    // After 0xe0 0xf0 (extended break code)
+          if (value == 0x7c) scancode_state = 0x53;   // PrtScr break code
+          else scancode_state = 0x00;
+
+          if (value == 0x14) modifier_state &= ~PS2_MODIFIER_STATE::RCTRL;
+          else if (value == 0x1f) modifier_state &= ~PS2_MODIFIER_STATE::LWIN;
+          else if (value == 0x27) modifier_state &= ~PS2_MODIFIER_STATE::RWIN;
+          else if (value == 0x11) modifier_state &= ~PS2_MODIFIER_STATE::RALT;
+
+          break;
+
+        case 0x42:    // After 0xe0 0x12 (print screen make code)
+          scancode_state++;
+          break;
+
+        case 0x43:
+          scancode_state = 0x00;
+          break;
+
+        case 0x53:    // After 0xe0 0xf0 0x7c (print screen break code)
+        case 0x54:
+          scancode_state++;
+          break;
+
+        case 0x55:
+          scancode_state = 0x00;
+          break;
+
+        case 0x61:    // After 0xe1 (pause make code)
+        case 0x62:
+        case 0x63:
+        case 0x64:
+        case 0x65:
+        case 0x66:
+          scancode_state++;
+          break;
+
+        case 0x67:
+          scancode_state = 0x00;
+          break;
+      }
+    }
+
+    /**
+       Adds a byte to head of buffer
+       Returns true if successful, else false (if the buffer was full)
+    */
+    bool bufferAdd(uint8_t value) {
+      byte headNext = (this->head + 1) & (size - 1);
+      if (headNext != this->tail) {
+        this->buffer[this->head] = value;
+        this->head = headNext;
+        return true;
+      }
+      else {
+        return false;
+      }
+    }
+
+    /**
+       Removes a number of bytes from head of buffer
+       In:
+        removeCount: Number of bytes to remove
+    */
+    void bufferRemoveFromHead(uint8_t removeCount) {
+      if (this->count() < removeCount) return;
+      this->head = (this->head + size - removeCount) & (size - 1);
+    }
+
+    void flush(){
+      scancode_state = 0;
+      modifier_state = 0;
+      bufferClosed = false;
+      PS2Port<clkPin, datPin, size>::flush();
+    }
+
+    /**
+       Modifier key state changes are tracked when the
+       buffer is full to avoid "sticky" keys; this function
+       writes the these changes to the buffer
+    */
+    bool putModifiers() {
+      for (uint8_t i = 0; i < 8; i++) {
+        if ((modifier_state & (1 << i)) != (modifier_snap & (1 << i))) {
+          if (i >= 3) {
+            if (!bufferAdd(0xe0)) return false;
+            updateState(0xe0);
+          }
+          if (!(modifier_state & (1 << i))) {
+            if (!bufferAdd(0xf0)) return false;
+            updateState(0xf0);
+          }
+          if (!bufferAdd(modifier_codes[i])) return false;
+          updateState(modifier_codes[i]);
+          modifier_snap = (modifier_snap & ~(1 << i)) | (modifier_state & (1 << i));
+        }
+      }
+      return true;
+    }
 };
