@@ -364,16 +364,16 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           // All modifier key state changes didn't fit in the buffer, remove possible partial scan code stored in the buffer
           bufferRemoveFromHead(scancode_state & 0x0f);
         }
-
-        if (!bufferClosed) {
-          if (!bufferAdd(value)) {
-            bufferClosed = true;
-            bufferRemoveFromHead(scancode_state & 0x0f);
-          }
-        }
-
-        updateState(value);
       }
+
+      if (!bufferClosed) {
+        if (!bufferAdd(value)) {
+          bufferClosed = true;
+          bufferRemoveFromHead(scancode_state & 0x0f);
+        }
+      }
+      
+      updateState(value);
     }
 
     /**
@@ -484,7 +484,8 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       scancode_state = 0;
       modifier_state = 0;
       bufferClosed = false;
-      PS2Port<clkPin, datPin, size>::flush();
+      this->head = this->tail = 0;
+      this->lastBitMillis = 0;
     }
 
     /**
