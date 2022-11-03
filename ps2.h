@@ -246,7 +246,7 @@ class PS2Port
 
     virtual void flush() {
       head = tail = 0;
-      lastBitMillis = 0;
+      //lastBitMillis = 0;
     }
 
     void reset() {
@@ -484,7 +484,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       modifier_state = 0;
       bufferClosed = false;
       this->head = this->tail = 0;
-      this->lastBitMillis = 0;
+      //this->lastBitMillis = 0;
     }
 
     /**
