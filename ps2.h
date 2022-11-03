@@ -325,7 +325,6 @@ class PS2Port
 
     uint8_t count() {
       return (size + head - tail) & (size - 1);
-      processByteReceived(size);
     }
 
     virtual void processByteReceived(uint8_t value) {
