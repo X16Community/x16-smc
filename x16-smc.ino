@@ -305,8 +305,8 @@ void Reset_Button_Hold() {
         delay(RESB_HOLDTIME_MS);
         digitalWrite(RESB_PIN,HIGH);
         analogWrite(ACT_LED, 0);
-        mouse_init_state = MOUSE_INIT_STATE::OFF;
-        kbd_init_state = MOUSE_INIT_STATE::OFF;
+        mouse_init_state = MOUSE_INIT_STATE::START_RESET;
+        kbd_init_state = MOUSE_INIT_STATE::START_RESET;
     }
 }
 
