@@ -136,11 +136,8 @@ void setup() {
     // PS/2 host init
     Keyboard.begin(keyboardClockIrq);
     Mouse.begin(mouseClockIrq);
-
-    Keyboard.processByteReceived(0x14);
 }
 
-volatile uint16_t counter=0;
 void loop() {
     POW_BUT.tick();                             // Check Button Status
     RES_BUT.tick();
@@ -156,14 +153,6 @@ void loop() {
         //kill power if PWR_OK dies, and system on
         //error handling?
     }
-
-    uint8_t c = Keyboard.next();
-    if (c!=0 && counter==0){
-      Serial.print(c, HEX);
-      Serial.print(" ");
-    }
-    if (c==0x1c) counter = 100;
-    if (counter>0) counter--;
 
     // DEBUG: turn activity LED on if there are keys in the keybuffer
     delay(10);                                  // Short Delay, required by OneButton if code is short   
