@@ -495,7 +495,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     bool putModifiers() {
       for (uint8_t i = 0; i < 8; i++) {
         if ((modifier_state & (1 << i)) != (modifier_snap & (1 << i))) {
-          if (i >= 3) {
+          if (i > 3) {
             if (!bufferAdd(0xe0)) return false;
             updateState(0xe0);
           }
