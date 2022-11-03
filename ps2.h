@@ -382,7 +382,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       switch (scancode_state) {
         case 0x00:    // Scan code begin
           if (value == 0xf0) scancode_state = 0x11;   // Start of break code
-          else if (value == 0xf2) scancode_state = 0x71;  // Start of read ID return
+          else if (value == 0xab) scancode_state = 0x71;  // Start of two byte response to read ID command
           else if (value == 0xe0) scancode_state = 0x21;  // Start of extended code
           else if (value == 0xe1) scancode_state = 0x61;  // Start of Pause key code
           else if (value == 0x12) modifier_state |= PS2_MODIFIER_STATE::LSHIFT;
@@ -452,7 +452,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           scancode_state = 0x00;
           break;
 
-        case 0x71:    // After 0xf2 (two byte response to read ID command)
+        case 0x71:    // After 0xab (two byte response to read ID command)
           scancode_state++;
           break;
           
