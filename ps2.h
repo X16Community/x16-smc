@@ -84,7 +84,9 @@ class PS2Port
       if (curMillis >= (lastBitMillis + SCANCODE_TIMEOUT_MS))
       {
         // Haven't heard from device in a while, assume this is a new keycode
-        resetReceiver();
+        curCode = 0;
+        parity = 0;
+        rxBitCount = 0;
       }
       lastBitMillis = curMillis;
 
@@ -341,10 +343,10 @@ template<uint8_t clkPin, uint8_t datPin, uint8_t size>
 class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 {
   protected:
-    bool bufferClosed = false;      // Set to true on buffer full, and to false when buffer is empty again
-    uint8_t scancode_state = 0x00;  // Tracks the type and byte position of the scan code currently receiving (bits 4-7 = scan code type, bits 0-3 = number of bytes)
-    uint8_t modifier_state = 0x00;  // Always tracks modifier key state, even if buffer is full
-    uint8_t modifier_snap = 0x00;   // A copy of modifier_state is stored here on start of buffer full, used to compare what's changed when buffer is empty again
+    volatile bool bufferClosed = false;      // Set to true on buffer full, and to false when buffer is empty again
+    volatile uint8_t scancode_state = 0x00;  // Tracks the type and byte position of the scan code currently receiving (bits 4-7 = scan code type, bits 0-3 = number of bytes)
+    volatile uint8_t modifier_state = 0x00;  // Always tracks modifier key state, even if buffer is full
+    volatile uint8_t modifier_snap = 0x00;   // A copy of modifier_state is stored here on start of buffer full, used to compare what's changed when buffer is empty again
     uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
 
   public:
