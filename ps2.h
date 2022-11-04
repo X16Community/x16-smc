@@ -235,7 +235,7 @@ class PS2Port
     };
 
     /// @brief Returns the next available byte from the PS/2 port
-    uint8_t next() {
+    volatile uint8_t next() {
       if (available()) {
         uint8_t value = buffer[tail];
         tail = (tail + 1) & (size - 1);
@@ -336,7 +336,6 @@ class PS2Port
         head = headNext;
       }
     }
-
 };
 
 template<uint8_t clkPin, uint8_t datPin, uint8_t size>
@@ -346,8 +345,9 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     volatile bool bufferClosed = false;      // Set to true on buffer full, and to false when buffer is empty again
     volatile uint8_t scancode_state = 0x00;  // Tracks the type and byte position of the scan code currently receiving (bits 4-7 = scan code type, bits 0-3 = number of bytes)
     volatile uint8_t modifier_state = 0x00;  // Always tracks modifier key state, even if buffer is full
-    volatile uint8_t modifier_snap = 0x00;   // A copy of modifier_state is stored here on start of buffer full, used to compare what's changed when buffer is empty again
+    volatile uint8_t modifier_oldstate = 0x00;   // A copy of modifier_state is stored here on start of buffer full, used to compare what's changed when buffer is empty again
     uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
+    uint8_t bytecount=0;
 
   public:
 
@@ -355,7 +355,9 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
        Processes a scan code byte received from the keyboard
     */
     void processByteReceived(uint8_t value) {
-      if (bufferClosed && this->tail == this->head) {
+      bytecount++;
+
+      if (bufferClosed && this->count() == 0) {
         // Buffer has been full, but is now empty - Before opening up the buffer, put modifier key state changes in the buffer
         if (putModifiers()) {
           // Successfully put all modifier key state changes, open buffer
@@ -368,7 +370,10 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       }
 
       if (!bufferClosed) {
-        if (!bufferAdd(value)) {
+        if (bufferAdd(value)) {
+          modifier_oldstate=modifier_state;
+        }
+        else{
           bufferClosed = true;
           bufferRemoveFromHead(scancode_state & 0x0f);
         }
@@ -492,9 +497,9 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     }
 
     void flush(){
-      scancode_state = 0;
-      modifier_state = 0;
-      bufferClosed = false;
+      //scancode_state = 0;
+      //modifier_state = 0;
+      //bufferClosed = false;
       this->head = this->tail = 0;
       //this->lastBitMillis = 0;
     }
@@ -506,7 +511,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     */
     bool putModifiers() {
       for (uint8_t i = 0; i < 8; i++) {
-        if ((modifier_state & (1 << i)) != (modifier_snap & (1 << i))) {
+        if ((modifier_state & (1 << i)) != (modifier_oldstate & (1 << i))) {
           if (i > 3) {
             if (!bufferAdd(0xe0)) return false;
             updateState(0xe0);
@@ -517,7 +522,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           }
           if (!bufferAdd(modifier_codes[i])) return false;
           updateState(modifier_codes[i]);
-          modifier_snap = (modifier_snap & ~(1 << i)) | (modifier_state & (1 << i));
+          modifier_oldstate = (modifier_oldstate & ~(1 << i)) | (modifier_state & (1 << i));
         }
       }
       return true;
