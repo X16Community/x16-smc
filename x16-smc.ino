@@ -144,7 +144,7 @@ void loop() {
     NMI_BUT.tick();
 #endif
     MouseTick();
-    //KeyboardTick();
+    KeyboardTick();
     
     if ((SYSTEM_POWERED == 1) && (!digitalRead(PWR_OK)))
     {
