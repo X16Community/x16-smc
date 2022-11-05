@@ -46,7 +46,7 @@ class PS2Port
       flush();
     };
 
-    volatile resetInput(){
+    virtual resetInput(){
       curCode = 0;
       parity = 0;
       rxBitCount = 0;
