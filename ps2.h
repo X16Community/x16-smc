@@ -228,7 +228,7 @@ class PS2Port
     };
 
     /// @brief Returns the next available byte from the PS/2 port
-    volatile uint8_t next() {
+    virtual uint8_t next() {
       if (available()) {
         uint8_t value = buffer[tail];
         tail = (tail + 1) & (size - 1);
