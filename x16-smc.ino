@@ -5,6 +5,7 @@
 //     Joe Burks
 
 //#define ENABLE_NMI_BUT
+//#define KBDBUF_FULL_DBG
 
 #include "smc_button.h"
 #include <Wire.h>
@@ -60,6 +61,9 @@ char echo_byte = 0;
 
 void setup() {  
 #if defined(USE_SERIAL_DEBUG)
+    Serial.begin(SERIAL_BPS);
+#endif
+#if defined(KBDBUF_FULL_DBG)
     Serial.begin(SERIAL_BPS);
 #endif
 
@@ -152,6 +156,16 @@ void loop() {
         //kill power if PWR_OK dies, and system on
         //error handling?
     }
+
+#if defined(KBDBUF_FULL_DBG)
+    if (Keyboard.getByteCount()>19){
+      uint8_t c = Keyboard.next();
+      if (c!=0){
+        Serial.print(c, HEX);
+        Serial.print(" ");
+      }
+    }
+#endif
 
     // DEBUG: turn activity LED on if there are keys in the keybuffer
     delay(10);                                  // Short Delay, required by OneButton if code is short   

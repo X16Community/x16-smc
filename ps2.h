@@ -35,21 +35,19 @@ class PS2Port
     volatile PS2_CMD_STATUS commandStatus = PS2_CMD_STATUS::IDLE;
 
     void resetReceiver() {
+      resetInput();
+      outputSize = 0;
+      timerCountdown = 0;
+      flush();
+    };
+
+    virtual void resetInput(){
       pinMode(datPin, INPUT);
       pinMode(clkPin, INPUT);
       curCode = 0;
       parity = 0;
       rxBitCount = 0;
       ps2ddr = 0;
-      outputSize = 0;
-      timerCountdown = 0;
-      flush();
-    };
-
-    virtual resetInput(){
-      curCode = 0;
-      parity = 0;
-      rxBitCount = 0;
     }
 
   public:
@@ -217,7 +215,7 @@ class PS2Port
 
         case 10:
           //ACK
-          resetReceiver();    //Prepare host to receive device ACK or Resend (error) code
+          resetInput();    //Prepare host to receive device ACK or Resend (error) code
           break;
       }
     }
@@ -350,28 +348,48 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     volatile uint8_t modifier_state = 0x00;  // Always tracks modifier key state, even if buffer is full
     volatile uint8_t modifier_oldstate = 0x00;   // Previous modifier key state, used to compare what's changed during buffer full
     uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
+#if defined(KBDBUF_FULL_DBG)
+    uint8_t bytecount = 0;
+#endif
 
   public:
+
+#if defined(KBDBUF_FULL_DBG)
+    uint8_t getByteCount(){
+      return bytecount;
+    }
+
+    uint8_t getScancodeState(){
+      return scancode_state;
+    }
+#endif
 
     /**
        Processes a scan code byte received from the keyboard
     */
     void processByteReceived(uint8_t value) {
+      #if defined(KBDBUF_FULL_DBG)
+      if (bytecount<20) bytecount++;
+      #endif
+      
       if (!bufferClosed) {
-        if (bufferAdd(value)) {
-          modifier_oldstate=modifier_state;   // Successfully stored byte value in buffer
-        }
-        else{
+        if (!bufferAdd(value)) {
           bufferClosed = true;  // Buffer full
-          bufferRemoveFromHead(scancode_state & 0x0f);  // Remove possible partial scan code from head of buffer
+          bufferRemovePartialCode();
         }
       }
       
       updateState(value);
+
+      if (!bufferClosed) {
+        modifier_oldstate = modifier_state;
+      }
     }
 
     /**
        A state machine tracking type and length of current scan code
+       scancode_state bits 0-3 = Number of bytes stored in buffer since last complete scancode
+       scancode_state bits 4-7 = Type of scancode
     */
     void updateState(uint8_t value) {
       switch (scancode_state) {
@@ -475,13 +493,16 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     }
 
     /**
-       Removes bytes from head of buffer
-       Pass: 
-        removeCount - Number of bytes to remove
+       Removes partial scan code from head of buffer
     */
-    void bufferRemoveFromHead(uint8_t removeCount) {
-      if (this->count() < removeCount) return;
-      this->head = (this->head + size - removeCount) & (size - 1);
+    void bufferRemovePartialCode() {
+      if ((scancode_state & 0x0f) > this->count()){
+        flush();
+      }
+      else {
+        this->head = (this->head + size - (scancode_state & 0x0f)) & (size - 1);    // scancode_state bits 0-3 = number of bytes stored in buffer since last complete scancode
+      }
+      scancode_state = 0;
     }
 
     uint8_t next(){
@@ -492,10 +513,6 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
         if (putModifiers()) {
           // Successfully put all modifier key state changes that occurred during buffer closed; open buffer
           bufferClosed = false;
-        }
-        else {
-          // All modifier key state changes didn't fit in the buffer, remove possible partial scan code stored in the buffer
-          bufferRemoveFromHead(scancode_state & 0x0f);
         }
       }
       
@@ -512,9 +529,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 
     void resetInput() {
       PS2Port<clkPin,datPin,size>::resetInput();
-      
-      bufferRemoveFromHead(scancode_state & 0x0f);    // Remove possible partial scan code from head of buffer
-      scancode_state = 0;
+      bufferRemovePartialCode();
     }
 
 
@@ -524,18 +539,31 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
        writes the these changes to the buffer
     */
     bool putModifiers() {
+     
       for (uint8_t i = 0; i < 8; i++) {
         if ((modifier_state & (1 << i)) != (modifier_oldstate & (1 << i))) {
+          
           if (i > 3) {
-            if (!bufferAdd(0xe0)) return false;
-            updateState(0xe0);
+            if (!bufferAdd(0xe0)){
+              return false;
+            }
+            scancode_state = 0x21;
           }
+          
           if (!(modifier_state & (1 << i))) {
-            if (!bufferAdd(0xf0)) return false;
-            updateState(0xf0);
+            if (!bufferAdd(0xf0)){
+              bufferRemovePartialCode();
+              return false;
+            }
+            if (scancode_state == 0x21) scancode_state = 0x32; else scancode_state = 0x11;
           }
-          if (!bufferAdd(modifier_codes[i])) return false;
-          updateState(modifier_codes[i]);
+          
+          if (!bufferAdd(modifier_codes[i])){
+            bufferRemovePartialCode();
+            return false;
+          }
+          
+          scancode_state = 0;
           modifier_oldstate = (modifier_oldstate & ~(1 << i)) | (modifier_state & (1 << i));
         }
       }
