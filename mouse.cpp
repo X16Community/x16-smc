@@ -21,6 +21,7 @@ void MouseTick()
     mouse_init_state = OFF;
     watchdog_armed = false;
     watchdog_timer = 1023;
+    Mouse.reset();
     return;
   }
   if (watchdog_armed) {

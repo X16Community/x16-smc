@@ -3,16 +3,16 @@
 
 enum mouse_command : uint8_t
 {
-  RESET = 0xFF,
-  ACK = 0xFA,
-  BAT_OK = 0xAA,
-  BAT_FAIL = 0xFC,
-  MOUSE_ID = 0x00,
-  SET_SAMPLE_RATE = 0xF3,
-  READ_DEVICE_TYPE = 0xF2,
+  RESET = 0xFF,                   // Reset device
+  ACK = 0xFA,                     // Acknowledge
+  BAT_OK = 0xAA,                  // Basic Acceptance Test passed
+  BAT_FAIL = 0xFC,                // Basic Acceptance Test failed
+  MOUSE_ID = 0x00,                // Mouse identifier
+  SET_SAMPLE_RATE = 0xF3,         // Mouse sample rate command
+  READ_DEVICE_TYPE = 0xF2,        // Request device type
   SET_RESOLUTION = 0xE8,
   SET_SCALING = 0xE6,
-  SET_STATUS_INDICATORS = 0xED,
+  SET_STATUS_INDICATORS = 0xED,   // Set status indicators (keyboard LEDs)
   ENABLE = 0xF4
 };
 
