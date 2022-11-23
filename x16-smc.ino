@@ -157,6 +157,11 @@ void loop() {
         //error handling?
     }
 
+    if (Keyboard.getResetRequest()) {
+     Reset_Button_Hold();
+     Keyboard.ackResetRequest();
+    }
+
 #if defined(KBDBUF_FULL_DBG)
     if (Keyboard.getByteCount()>19){
       uint8_t c = Keyboard.next();

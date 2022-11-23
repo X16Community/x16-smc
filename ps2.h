@@ -347,7 +347,9 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     volatile uint8_t scancode_state = 0x00;  // Tracks the type and byte position of the scan code currently receiving (bits 4-7 = scan code type, bits 0-3 = number of bytes)
     volatile uint8_t modifier_state = 0x00;  // Always tracks modifier key state, even if buffer is full
     volatile uint8_t modifier_oldstate = 0x00;   // Previous modifier key state, used to compare what's changed during buffer full
+    volatile bool reset_request = false;
     uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
+    
 #if defined(KBDBUF_FULL_DBG)
     uint8_t bytecount = 0;
 #endif
@@ -421,6 +423,14 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           else if (value == 0x1f) modifier_state |= PS2_MODIFIER_STATE::LWIN;
           else if (value == 0x27) modifier_state |= PS2_MODIFIER_STATE::RWIN;
           else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::RALT;
+          else if (value == 0x71) {
+            if ((modifier_state & PS2_MODIFIER_STATE::LCTRL) | (modifier_state & PS2_MODIFIER_STATE::RCTRL)) {
+              if ((modifier_state & PS2_MODIFIER_STATE::LALT) | (modifier_state & PS2_MODIFIER_STATE::RALT)) {
+                // Ctrl+Alt+Delete => set reset request
+                reset_request = true;
+              }
+            }
+          }
 
           break;
 
@@ -569,4 +579,13 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       }
       return true;
     }
+
+  bool getResetRequest(){
+    return reset_request;
+  }
+
+  void ackResetRequest(){
+    reset_request = false;
+  }
+
 };
