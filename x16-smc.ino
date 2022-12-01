@@ -4,7 +4,7 @@
 //     Michael Steil
 //     Joe Burks
 
-//#define ENABLE_NMI_BUT
+#define ENABLE_NMI_BUT
 //#define KBDBUF_FULL_DBG
 
 #include "smc_button.h"
