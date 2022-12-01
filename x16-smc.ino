@@ -162,6 +162,11 @@ void loop() {
      Keyboard.ackResetRequest();
     }
 
+    if (Keyboard.getNMIRequest()) {
+      Reset_Button_Press();
+      Keyboard.ackNMIRequest();
+    }
+
 #if defined(KBDBUF_FULL_DBG)
     if (Keyboard.getByteCount()>19){
       uint8_t c = Keyboard.next();
@@ -193,7 +198,7 @@ void I2C_Receive(int) {
 
     int ct=0;
     while (Wire.available()) {
-        if (ct<3) {                             // read first two bytes only
+        if (ct<3) {                             // read first three bytes only
             byte c = Wire.read();
             I2C_Data[ct] = c;
             ct++;
@@ -202,7 +207,9 @@ void I2C_Receive(int) {
             Wire.read();                        // eat extra data, should not be sent
         }
     }
-    if (ct == 2 || ct == 3) {
+
+    if ((ct == 2 && I2C_Data[0] != 0x1a) || (ct == 3 && I2C_Data[0] == 0x1a)) {
+        // Offset 0x1a (Send two-byte command) requires three bytes, the other offsets require two bytes
         I2C_Process();                          // process received cmd
     }
 }

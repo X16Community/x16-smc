@@ -348,32 +348,15 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     volatile uint8_t modifier_state = 0x00;  // Always tracks modifier key state, even if buffer is full
     volatile uint8_t modifier_oldstate = 0x00;   // Previous modifier key state, used to compare what's changed during buffer full
     volatile bool reset_request = false;
+    volatile bool nmi_request = false;
     uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
     
-#if defined(KBDBUF_FULL_DBG)
-    uint8_t bytecount = 0;
-#endif
-
   public:
-
-#if defined(KBDBUF_FULL_DBG)
-    uint8_t getByteCount(){
-      return bytecount;
-    }
-
-    uint8_t getScancodeState(){
-      return scancode_state;
-    }
-#endif
 
     /**
        Processes a scan code byte received from the keyboard
     */
     void processByteReceived(uint8_t value) {
-      #if defined(KBDBUF_FULL_DBG)
-      if (bytecount<20) bytecount++;
-      #endif
-      
       if (!bufferClosed) {
         if (!bufferAdd(value)) {
           bufferClosed = true;  // Buffer full
@@ -473,6 +456,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 
         case 0x67:
           scancode_state = 0x00;
+          nmi_request = true;
           break;
 
         case 0x71:    // After 0xab (two byte response to read ID command)
@@ -535,11 +519,15 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       scancode_state = 0;
       modifier_state = 0;
       bufferClosed = false;
+      nmi_request = false;
+      reset_request = false;
     }
 
     void resetInput() {
       PS2Port<clkPin,datPin,size>::resetInput();
-      bufferRemovePartialCode();
+      if (!bufferClosed) {
+        bufferRemovePartialCode();
+      }
     }
 
 
@@ -580,12 +568,20 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       return true;
     }
 
-  bool getResetRequest(){
+  bool getResetRequest() {
     return reset_request;
   }
 
-  void ackResetRequest(){
+  void ackResetRequest() {
     reset_request = false;
+  }
+
+  bool getNMIRequest() {
+    return nmi_request;
+  }
+
+  void ackNMIRequest() {
+    nmi_request = false;
   }
 
 };
