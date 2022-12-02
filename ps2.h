@@ -434,6 +434,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 
         case 0x43:
           scancode_state = 0x00;
+          nmi_request = true;
           break;
 
         case 0x53:    // After 0xe0 0xf0 0x7c (print screen break code)
@@ -456,7 +457,6 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 
         case 0x67:
           scancode_state = 0x00;
-          nmi_request = true;
           break;
 
         case 0x71:    // After 0xab (two byte response to read ID command)
