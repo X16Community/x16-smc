@@ -4,7 +4,7 @@
 //     Michael Steil
 //     Joe Burks
 
-#define ENABLE_NMI_BUT
+//#define ENABLE_NMI_BUT
 //#define KBDBUF_FULL_DBG
 
 #include "smc_button.h"
@@ -129,12 +129,12 @@ void setup() {
     analogWrite(ACT_LED, 0);
 
     pinMode(RESB_PIN,OUTPUT);
-    digitalWrite(RESB_PIN,LOW);                 // Hold Reset on statup
+    digitalWrite(RESB_PIN,LOW);                 // Hold Reset on startup
 
-#if defined(ENABLE_NMI_BUT)
+//#if defined(ENABLE_NMI_BUT)
     pinMode(NMIB_PIN,OUTPUT);
     digitalWrite(NMIB_PIN,HIGH);
-#endif
+//#endif
 
     // PS/2 host init
     Keyboard.begin(keyboardClockIrq);

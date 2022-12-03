@@ -363,6 +363,13 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           bufferRemovePartialCode();
         }
       }
+      else {
+        if (!this->available() && scancode_state == 0x00) {
+          if (putModifiers()) {
+            bufferClosed = false;
+          }
+        }
+      }
       
       updateState(value);
 
@@ -496,21 +503,10 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       else {
         this->head = (this->head + size - (scancode_state & 0x0f)) & (size - 1);    // scancode_state bits 0-3 = number of bytes stored in buffer since last complete scancode
       }
-      scancode_state = 0;
     }
 
     uint8_t next(){
-      uint8_t value = PS2Port<clkPin,datPin,size>::next();
-
-      if (bufferClosed && this->count() == 0) {
-        // Buffer has been full, but is now empty - Before opening up the buffer, put modifier key state changes in the buffer
-        if (putModifiers()) {
-          // Successfully put all modifier key state changes that occurred during buffer closed; open buffer
-          bufferClosed = false;
-        }
-      }
-      
-      return value;
+      return PS2Port<clkPin,datPin,size>::next();
     }
 
     void flush(){
@@ -528,6 +524,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       if (!bufferClosed) {
         bufferRemovePartialCode();
       }
+      scancode_state = 0;
     }
 
 
