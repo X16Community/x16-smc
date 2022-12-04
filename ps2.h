@@ -395,6 +395,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           else if (value == 0x59) modifier_state |= PS2_MODIFIER_STATE::RSHIFT;
           else if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::LCTRL;
           else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::LALT;
+          else if (value == 0x84 && isCtrlAltDown()) nmi_request = true;
           break;
 
         case 0x11:    // After 0xf0 (break code)
@@ -434,15 +435,13 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           break;
 
         case 0x43:
-          if (value == 0x7c) {
-            // Prt Scr
-            nmi_request = true;
-            scancode_state = 0x00;
-          }
-          else{
-            // Extended code after Num Lock decorator
-            scancode_state = 0x00;
-          }
+          if (value == 0x71 && isCtrlAltDown()) reset_request = true;
+          else if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::RCTRL;
+          else if (value == 0x1f) modifier_state |= PS2_MODIFIER_STATE::LWIN;
+          else if (value == 0x27) modifier_state |= PS2_MODIFIER_STATE::RWIN;
+          else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::RALT;
+          
+          scancode_state = 0x00;
           break;        
 
         case 0x53:    // After 0xe0 0xf0 0x7c (print screen break code)
