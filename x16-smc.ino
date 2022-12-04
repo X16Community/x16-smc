@@ -131,10 +131,8 @@ void setup() {
     pinMode(RESB_PIN,OUTPUT);
     digitalWrite(RESB_PIN,LOW);                 // Hold Reset on startup
 
-//#if defined(ENABLE_NMI_BUT)
     pinMode(NMIB_PIN,OUTPUT);
     digitalWrite(NMIB_PIN,HIGH);
-//#endif
 
     // PS/2 host init
     Keyboard.begin(keyboardClockIrq);

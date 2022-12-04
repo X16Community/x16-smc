@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "mouse.h"
 #define SCANCODE_TIMEOUT_MS 50
 
 enum PS2_CMD_STATUS : uint8_t {
@@ -374,7 +375,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       updateState(value);
 
       if (!bufferClosed) {
-        modifier_oldstate = modifier_state;
+      modifier_oldstate = modifier_state;
       }
     }
 
@@ -383,7 +384,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
        scancode_state bits 0-3 = Number of bytes stored in buffer since last complete scancode
        scancode_state bits 4-7 = Type of scancode
     */
-    void updateState(uint8_t value) {
+    void updateState(uint8_t value) {      
       switch (scancode_state) {
         case 0x00:    // After complete scancode
           if (value == 0xf0) scancode_state = 0x11;   // Start of break code
@@ -406,22 +407,15 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 
         case 0x21:    // After 0xe0 (extended code)
           if (value == 0xf0) scancode_state = 0x32; // Extended break code
-          else if (value == 0x12) scancode_state = 0x42;  // PrtScr make code
+          else if (value == 0x12) scancode_state = 0x42;  // PrtScr make code or Num Lock decorator
           else scancode_state = 0x00;
 
           if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::RCTRL;
           else if (value == 0x1f) modifier_state |= PS2_MODIFIER_STATE::LWIN;
           else if (value == 0x27) modifier_state |= PS2_MODIFIER_STATE::RWIN;
           else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::RALT;
-          else if (value == 0x71) {
-            if ((modifier_state & PS2_MODIFIER_STATE::LCTRL) | (modifier_state & PS2_MODIFIER_STATE::RCTRL)) {
-              if ((modifier_state & PS2_MODIFIER_STATE::LALT) | (modifier_state & PS2_MODIFIER_STATE::RALT)) {
-                // Ctrl+Alt+Delete => set reset request
-                reset_request = true;
-              }
-            }
-          }
-
+          else if (value == 0x71 && isCtrlAltDown()) reset_request = true;
+          
           break;
 
         case 0x32:    // After 0xe0 0xf0 (extended break code)
@@ -435,14 +429,21 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 
           break;
 
-        case 0x42:    // After 0xe0 0x12 (print screen make code)
+        case 0x42:    // After 0xe0 0x12 (Prt Scr make code or Extended code after Num Lock decorator)
           scancode_state++;
           break;
 
         case 0x43:
-          scancode_state = 0x00;
-          nmi_request = true;
-          break;
+          if (value == 0x7c) {
+            // Prt Scr
+            nmi_request = true;
+            scancode_state = 0x00;
+          }
+          else{
+            // Extended code after Num Lock decorator
+            scancode_state = 0x00;
+          }
+          break;        
 
         case 0x53:    // After 0xe0 0xf0 0x7c (print screen break code)
         case 0x54:
@@ -581,4 +582,8 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     nmi_request = false;
   }
 
+  bool isCtrlAltDown() {
+    return ((modifier_state & PS2_MODIFIER_STATE::LCTRL) || (modifier_state & PS2_MODIFIER_STATE::RCTRL)) && ((modifier_state & PS2_MODIFIER_STATE::LALT) || (modifier_state & PS2_MODIFIER_STATE::RALT));
+  }
+  
 };
