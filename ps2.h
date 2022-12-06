@@ -344,7 +344,7 @@ template<uint8_t clkPin, uint8_t datPin, uint8_t size>
 class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 {
   protected:
-    volatile bool bufferClosed = false;      // Set to true on buffer full, and to false when buffer is empty again
+    volatile bool bufferOverrun = false;      // Set to true on buffer full, and to false when buffer is empty again
     volatile uint8_t scancode_state = 0x00;  // Tracks the type and byte position of the scan code currently receiving (bits 4-7 = scan code type, bits 0-3 = number of bytes)
     volatile uint8_t modifier_state = 0x00;  // Always tracks modifier key state, even if buffer is full
     volatile uint8_t modifier_oldstate = 0x00;   // Previous modifier key state, used to compare what's changed during buffer full
@@ -358,23 +358,23 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
        Processes a scan code byte received from the keyboard
     */
     void processByteReceived(uint8_t value) {
-      if (!bufferClosed) {
+      if (!bufferOverrun) {
         if (!bufferAdd(value)) {
-          bufferClosed = true;  // Buffer full
+          bufferOverrun = true;  // Buffer full
           bufferRemovePartialCode();
         }
       }
       else {
         if (!this->available() && scancode_state == 0x00) {
           if (putModifiers()) {
-            bufferClosed = false;
+            bufferOverrun = false;
           }
         }
       }
       
       updateState(value);
 
-      if (!bufferClosed) {
+      if (!bufferOverrun) {
       modifier_oldstate = modifier_state;
       }
     }
@@ -386,29 +386,33 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     */
     void updateState(uint8_t value) {      
       switch (scancode_state) {
-        case 0x00:    // After complete scancode
+        case 0x00:    // Start of new scan code
           if (value == 0xf0) scancode_state = 0x11;   // Start of break code
-          else if (value == 0xab) scancode_state = 0x71;  // Start of two byte response to read ID command
+          else if (value == 0xab) scancode_state = 0x91;  // Start of two byte response to read ID command
           else if (value == 0xe0) scancode_state = 0x21;  // Start of extended code
-          else if (value == 0xe1) scancode_state = 0x61;  // Start of Pause key code
+          else if (value == 0xe1) scancode_state = 0x81;  // Start of Pause key code
+          
           else if (value == 0x12) modifier_state |= PS2_MODIFIER_STATE::LSHIFT;
           else if (value == 0x59) modifier_state |= PS2_MODIFIER_STATE::RSHIFT;
           else if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::LCTRL;
           else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::LALT;
           else if (value == 0x84 && isCtrlAltDown()) nmi_request = true;
+          
           break;
 
         case 0x11:    // After 0xf0 (break code)
           scancode_state = 0x00;
+          
           if (value == 0x12) modifier_state &= ~PS2_MODIFIER_STATE::LSHIFT;
           else if (value == 0x59) modifier_state &= ~PS2_MODIFIER_STATE::RSHIFT;
           else if (value == 0x14) modifier_state &= ~PS2_MODIFIER_STATE::LCTRL;
           else if (value == 0x11) modifier_state &= ~PS2_MODIFIER_STATE::LALT;
+          
           break;
 
         case 0x21:    // After 0xe0 (extended code)
-          if (value == 0xf0) scancode_state = 0x32; // Extended break code
-          else if (value == 0x12) scancode_state = 0x42;  // PrtScr make code or Num Lock decorator
+          if (value == 0xf0) scancode_state = 0x32; // Extended break code or Shift+Extended make code
+          else if (value == 0x12) scancode_state = 0x42;  // PrtScr make code or NumLock+extended make code
           else scancode_state = 0x00;
 
           if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::RCTRL;
@@ -419,28 +423,25 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           
           break;
 
-        case 0x32:    // After 0xe0 0xf0 (extended break code)
+        case 0x32:    // After 0xe0 0xf0 (extended break code or Shift+Extended make code)
           if (value == 0x7c) scancode_state = 0x53;   // PrtScr break code
+          else if (value == 0x12) scancode_state = 0x63;  // Shift+Extended make code
+          else if ((modifier_state & PS2_MODIFIER_STATE::LSHIFT) || (modifier_state & PS2_MODIFIER_STATE::RSHIFT)) scancode_state = 0x73; // Shift+Extended break code (5 bytes)
           else scancode_state = 0x00;
 
           if (value == 0x14) modifier_state &= ~PS2_MODIFIER_STATE::RCTRL;
           else if (value == 0x1f) modifier_state &= ~PS2_MODIFIER_STATE::LWIN;
           else if (value == 0x27) modifier_state &= ~PS2_MODIFIER_STATE::RWIN;
           else if (value == 0x11) modifier_state &= ~PS2_MODIFIER_STATE::RALT;
-
+          
           break;
 
-        case 0x42:    // After 0xe0 0x12 (Prt Scr make code or Extended code after Num Lock decorator)
+        case 0x42:    // After 0xe0 0x12 (PrtScr make code or NumLock+extended make code)
           scancode_state++;
           break;
 
         case 0x43:
           if (value == 0x71 && isCtrlAltDown()) reset_request = true;
-          else if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::RCTRL;
-          else if (value == 0x1f) modifier_state |= PS2_MODIFIER_STATE::LWIN;
-          else if (value == 0x27) modifier_state |= PS2_MODIFIER_STATE::RWIN;
-          else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::RALT;
-          
           scancode_state = 0x00;
           break;        
 
@@ -453,27 +454,43 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           scancode_state = 0x00;
           break;
 
-        case 0x61:    // After 0xe1 (pause make code)
-        case 0x62:
-        case 0x63:
+        case 0x63:    // After 0xe0 0xf0 0x12 (Shift+extended make code, 5 bytes)
+          scancode_state++;
+          break;
+          
         case 0x64:
-        case 0x65:
-        case 0x66:
-          scancode_state++;
-          break;
-
-        case 0x67:
           scancode_state = 0x00;
-          break;
+          break;        
 
-        case 0x71:    // After 0xab (two byte response to read ID command)
+        case 0x73:    // After 0xe0 0xf0 ??, where ?? != 7c and Shift is held down (NumLock+Extended break code, 6 bytes)
+        case 0x74:
           scancode_state++;
           break;
           
-        case 0x72:
+        case 0x75:
           scancode_state = 0x00;
           break;
+
+        case 0x81:    // After 0xe1 (pause make code)
+        case 0x82:
+        case 0x83:
+        case 0x84:
+        case 0x85:
+        case 0x86:
+          scancode_state++;
+          break;
+
+        case 0x87:
+          scancode_state = 0x00;
+          break;
+
+        case 0x91:    // After 0xab (two byte response to read ID command)
+          scancode_state++;
+          break;
           
+        case 0x92:
+          scancode_state = 0x00;
+          break;
       }
     }
 
@@ -514,14 +531,14 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       
       scancode_state = 0;
       modifier_state = 0;
-      bufferClosed = false;
+      bufferOverrun = false;
       nmi_request = false;
       reset_request = false;
     }
 
     void resetInput() {
       PS2Port<clkPin,datPin,size>::resetInput();
-      if (!bufferClosed) {
+      if (!bufferOverrun) {
         bufferRemovePartialCode();
       }
       scancode_state = 0;
