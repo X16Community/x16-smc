@@ -534,6 +534,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           if (!(modifier_state & (1 << i))) {
             if (!bufferAdd(0xf0)){
               bufferRemovePartialCode();
+              scancode_state = 0x00;
               return false;
             }
             if (scancode_state == 0x21) scancode_state = 0x32; else scancode_state = 0x11;
@@ -541,10 +542,11 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           
           if (!bufferAdd(modifier_codes[i])){
             bufferRemovePartialCode();
+            scancode_state = 0x00;
             return false;
           }
           
-          scancode_state = 0;
+          scancode_state = 0x00;
           modifier_oldstate = (modifier_oldstate & ~(1 << i)) | (modifier_state & (1 << i));
         }
       }
