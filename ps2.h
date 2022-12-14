@@ -358,6 +358,15 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
        Processes a scan code byte received from the keyboard
     */
     void processByteReceived(uint8_t value) {
+      // If buffer_overrun is set, and if we are not in the middle of receiving a multi-byte scancode (indicated by scancode_state == 0),
+      // and if the buffer is empty again, we first output modifier key state changes that happened while the buffer was closed, 
+      // and then clear the buffer_overrun flag
+      if (buffer_overrun && !this->available() && scancode_state == 0x00) {
+        if (putModifiers()) {
+          buffer_overrun = false;
+        }
+      }
+      
       // Try adding value to buffer. On buffer full: (a) set buffer_overrun, and (b) remove a partial scancode from the head of the buffer
       if (!buffer_overrun) {
         if (!bufferAdd(value)) {
@@ -368,15 +377,6 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 
       // Update scancode state; this is always done, also while buffer_overrun is set
       updateState(value);
-
-      // If buffer_overrun is set, and if we are not in the middle of receiving a multi-byte scancode (indicated by scancode_state == 0),
-      // and if the buffer is empty again, we first output modifier key state changes that happened while the buffer was closed, 
-      // and then clear the buffer_overrun flag
-      if (buffer_overrun && !this->available() && scancode_state == 0x00) {
-        if (putModifiers()) {
-          buffer_overrun = false;
-        }
-      }
 
       // buffer_overrun not set means that there are no modifier key state changes to track; set oldstate = state
       if (!buffer_overrun) {
