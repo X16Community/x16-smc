@@ -459,10 +459,6 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           break;
 
         case 0x51:    // After 0xab (two byte response to read ID command)
-          scancode_state++;
-          break;
-          
-        case 0x52:
           scancode_state = 0x00;
           break;
       }
