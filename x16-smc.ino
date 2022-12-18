@@ -59,6 +59,12 @@ int  I2C_Data[3] = {0, 0, 0};
 bool I2C_Active = false;
 char echo_byte = 0;
 
+#define RESET_POLARITY_TIMOUT_MS 500
+bool RESET_POLARITY_CONFIRMED = false;
+uint32_t reset_polarity_timer;
+int RESET_ACTIVE = LOW;
+int RESET_INACTIVE = HIGH;
+
 void setup() {  
 #if defined(USE_SERIAL_DEBUG)
     Serial.begin(SERIAL_BPS);
@@ -129,7 +135,7 @@ void setup() {
     analogWrite(ACT_LED, 0);
 
     pinMode(RESB_PIN,OUTPUT);
-    digitalWrite(RESB_PIN,LOW);                 // Hold Reset on startup
+    digitalWrite(RESB_PIN, RESET_ACTIVE);                 // Hold Reset on startup
 
     pinMode(NMIB_PIN,OUTPUT);
     digitalWrite(NMIB_PIN,HIGH);
@@ -165,15 +171,14 @@ void loop() {
       Keyboard.ackNMIRequest();
     }
 
-#if defined(KBDBUF_FULL_DBG)
-    if (Keyboard.getByteCount()>19){
-      uint8_t c = Keyboard.next();
-      if (c!=0){
-        Serial.print(c, HEX);
-        Serial.print(" ");
+    if ((SYSTEM_POWERED == 1) && (RESET_POLARITY_CONFIRMED == false)) {
+      if ((millis()-reset_polarity_timer) > RESET_POLARITY_TIMOUT_MS) {
+        RESET_POLARITY_CONFIRMED = true;
+        RESET_ACTIVE = HIGH;
+        RESET_INACTIVE = LOW;
+        digitalWrite(RESB_PIN, RESET_INACTIVE);
       }
     }
-#endif
 
     // DEBUG: turn activity LED on if there are keys in the keybuffer
     delay(10);                                  // Short Delay, required by OneButton if code is short   
@@ -270,6 +275,8 @@ void I2C_Send() {
     // DBG_PRINTLN("I2C_Send");
     int nextKey = 0;
     if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
+      RESET_POLARITY_CONFIRMED = true;
+      
       if (kbd_init_state == KBD_READY && Keyboard.available()) {
           nextKey  = Keyboard.next();
           Wire.write(nextKey);
@@ -313,9 +320,9 @@ void Reset_Button_Hold() {
     Keyboard.flush();
     Mouse.reset();
     if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
-        digitalWrite(RESB_PIN,LOW);             // Press RESET
+        digitalWrite(RESB_PIN, RESET_ACTIVE);    // Press RESET
         delay(RESB_HOLDTIME_MS);
-        digitalWrite(RESB_PIN,HIGH);
+        digitalWrite(RESB_PIN, RESET_INACTIVE);
         analogWrite(ACT_LED, 0);
         mouse_init_state = MOUSE_INIT_STATE::START_RESET;
         kbd_init_state = MOUSE_INIT_STATE::START_RESET;
@@ -333,7 +340,7 @@ void Reset_Button_Press() {
 void PowerOffSeq() {
     digitalWrite(PWR_ON, HIGH);                 // Turn off supply
     SYSTEM_POWERED=0;                           // Global Power state Off
-    digitalWrite(RESB_PIN,LOW);
+    digitalWrite(RESB_PIN, RESET_ACTIVE);
     delay(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
 }
 
@@ -349,9 +356,10 @@ void PowerOnSeq() {
         // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
     }
     else {
-        SYSTEM_POWERED=1;                       // Global Power state On
         delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
-        digitalWrite(RESB_PIN,HIGH);            // Release Reset
+        SYSTEM_POWERED=1;                       // Global Power state On
+        reset_polarity_timer = millis();
+        digitalWrite(RESB_PIN, RESET_INACTIVE); // Release Reset
     }
 }
 
