@@ -344,10 +344,10 @@ template<uint8_t clkPin, uint8_t datPin, uint8_t size>
 class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 {
   protected:
-    volatile bool buffer_overrun = false;      // Set to true on buffer full, and to false when buffer is empty again
-    volatile uint8_t scancode_state = 0x00;  // Tracks the type and byte position of the scan code currently receiving (bits 4-7 = scan code type, bits 0-3 = number of bytes)
-    volatile uint8_t modifier_state = 0x00;  // Always tracks modifier key state, even if buffer is full
-    volatile uint8_t modifier_oldstate = 0x00;   // Previous modifier key state, used to compare what's changed during buffer full
+    volatile bool buffer_overrun = false;       // Set to true on buffer full, and to false when buffer is empty again
+    volatile uint8_t scancode_state = 0x00;     // Tracks the type and byte position of the scan code currently being received (bits 4-7 = scan code type, bits 0-3 = number of bytes)
+    volatile uint8_t modifier_state = 0x00;     // Always tracks modifier key state, even if buffer is full
+    volatile uint8_t modifier_oldstate = 0x00;  // Previous modifier key state, used to compare what's changed during buffer full
     volatile bool reset_request = false;
     volatile bool nmi_request = false;
     uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
@@ -398,11 +398,13 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           else if (value == 0xe0) scancode_state = 0x21;  // Start of extended code
           else if (value == 0xe1) scancode_state = 0x41;  // Start of Pause key code
 
-          // Update modifier key status and check for Ctrl+Alt+PrtScr/Restore => NMI
+          // Update modifier key status
           else if (value == 0x12) modifier_state |= PS2_MODIFIER_STATE::LSHIFT;
           else if (value == 0x59) modifier_state |= PS2_MODIFIER_STATE::RSHIFT;
           else if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::LCTRL;
           else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::LALT;
+
+          // Check Ctrl+Alt+PrtScr/Restore => NMI
           else if (value == 0x84 && isCtrlAltDown()) nmi_request = true;
           
           break;
@@ -424,11 +426,13 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           if (value == 0xf0) scancode_state = 0x32; // Extended break code
           else scancode_state = 0x00;
 
-          // Update modifier key status and check for Ctrl+Alt+Del => Reset
+          // Update modifier key status
           if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::RCTRL;
           else if (value == 0x1f) modifier_state |= PS2_MODIFIER_STATE::LWIN;
           else if (value == 0x27) modifier_state |= PS2_MODIFIER_STATE::RWIN;
           else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::RALT;
+          
+          // Check Ctrl+Alt+Del => Reset
           else if (value == 0x71 && isCtrlAltDown()) reset_request = true;
           
           break;

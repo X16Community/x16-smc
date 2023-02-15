@@ -33,6 +33,8 @@
 //Reset & NMI Lines
 #define RESB_HOLDTIME_MS       500
 #define NMI_HOLDTIME_MS        300
+#define RESET_ACTIVE   LOW
+#define RESET_INACTIVE HIGH
 
 //I2C Pins
 #define I2C_ADDR              0x42  // I2C Device ID
@@ -58,12 +60,6 @@ bool SYSTEM_POWERED = 0;                                // default state - Power
 int  I2C_Data[3] = {0, 0, 0};
 bool I2C_Active = false;
 char echo_byte = 0;
-
-#define RESET_POLARITY_TIMOUT_MS 500
-bool RESET_POLARITY_CONFIRMED = false;
-uint32_t reset_polarity_timer;
-int RESET_ACTIVE = LOW;
-int RESET_INACTIVE = HIGH;
 
 void setup() {  
 #if defined(USE_SERIAL_DEBUG)
@@ -171,15 +167,6 @@ void loop() {
       Keyboard.ackNMIRequest();
     }
 
-    if ((SYSTEM_POWERED == 1) && (RESET_POLARITY_CONFIRMED == false)) {
-      if ((millis()-reset_polarity_timer) > RESET_POLARITY_TIMOUT_MS) {
-        RESET_POLARITY_CONFIRMED = true;
-        RESET_ACTIVE = HIGH;
-        RESET_INACTIVE = LOW;
-        digitalWrite(RESB_PIN, RESET_INACTIVE);
-      }
-    }
-
     // DEBUG: turn activity LED on if there are keys in the keybuffer
     delay(10);                                  // Short Delay, required by OneButton if code is short   
 }
@@ -275,8 +262,6 @@ void I2C_Send() {
     // DBG_PRINTLN("I2C_Send");
     int nextKey = 0;
     if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
-      RESET_POLARITY_CONFIRMED = true;
-      
       if (kbd_init_state == KBD_READY && Keyboard.available()) {
           nextKey  = Keyboard.next();
           Wire.write(nextKey);
@@ -358,7 +343,6 @@ void PowerOnSeq() {
     else {
         delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
         SYSTEM_POWERED=1;                       // Global Power state On
-        reset_polarity_timer = millis();
         digitalWrite(RESB_PIN, RESET_INACTIVE); // Release Reset
     }
 }
