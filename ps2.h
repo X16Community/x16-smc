@@ -118,13 +118,8 @@ class PS2Port
 
           bool suppress_scancode = false;
           //Host to device command response handler
-<<<<<<< HEAD
-          if (commandStatus==PS2_CMD_STATUS::CMD_PENDING){
-            if (curCode==PS2_CMD_STATUS::CMD_ERR){
-=======
           if (commandStatus == PS2_CMD_STATUS::CMD_PENDING) {
             if (curCode == PS2_CMD_STATUS::CMD_ERR) {
->>>>>>> 9cbd5a9daf07a9b851af747123c53051b4e2bdd7
               //Command error - Resend
               commandStatus = PS2_CMD_STATUS::CMD_ERR;
             }
@@ -144,15 +139,7 @@ class PS2Port
           if (!suppress_scancode)
           {
             //Update input buffer
-<<<<<<< HEAD
-            byte headNext = (head + 1) & (size - 1);
-            if (headNext != tail){
-              buffer[head] = (byte)(curCode);
-              head = headNext;
-            }
-=======
             processByteReceived(curCode);
->>>>>>> 9cbd5a9daf07a9b851af747123c53051b4e2bdd7
           }
           //Else Ring buffer overrun, drop the incoming code :(
           DBG_PRINT("keycode: ");
