@@ -5,6 +5,7 @@
 //     Joe Burks
 
 //#define ENABLE_NMI_BUT
+//#define KBDBUF_FULL_DBG
 
 #include "smc_button.h"
 #include <Wire.h>
@@ -32,6 +33,8 @@
 //Reset & NMI Lines
 #define RESB_HOLDTIME_MS       500
 #define NMI_HOLDTIME_MS        300
+#define RESET_ACTIVE   LOW
+#define RESET_INACTIVE HIGH
 
 //I2C Pins
 #define I2C_ADDR              0x42  // I2C Device ID
@@ -42,7 +45,7 @@ SmcButton RES_BUT(RESET_BUTTON_PIN);
   SmcButton NMI_BUT(NMI_BUTTON_PIN);
 #endif
 
-PS2Port<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
+PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
 PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 8> Mouse;
 
 void keyboardClockIrq() {
@@ -58,8 +61,11 @@ int  I2C_Data[3] = {0, 0, 0};
 bool I2C_Active = false;
 char echo_byte = 0;
 
-void setup() {
+void setup() {  
 #if defined(USE_SERIAL_DEBUG)
+    Serial.begin(SERIAL_BPS);
+#endif
+#if defined(KBDBUF_FULL_DBG)
     Serial.begin(SERIAL_BPS);
 #endif
 
@@ -125,12 +131,10 @@ void setup() {
     analogWrite(ACT_LED, 0);
 
     pinMode(RESB_PIN,OUTPUT);
-    digitalWrite(RESB_PIN,LOW);                 // Hold Reset on statup
+    digitalWrite(RESB_PIN, RESET_ACTIVE);                 // Hold Reset on startup
 
-#if defined(ENABLE_NMI_BUT)
     pinMode(NMIB_PIN,OUTPUT);
     digitalWrite(NMIB_PIN,HIGH);
-#endif
 
     // PS/2 host init
     Keyboard.begin(keyboardClockIrq);
@@ -151,6 +155,16 @@ void loop() {
         PowerOffSeq();
         //kill power if PWR_OK dies, and system on
         //error handling?
+    }
+
+    if (Keyboard.getResetRequest()) {
+     Reset_Button_Hold();
+     Keyboard.ackResetRequest();
+    }
+
+    if (Keyboard.getNMIRequest()) {
+      Reset_Button_Press();
+      Keyboard.ackNMIRequest();
     }
 
     // DEBUG: turn activity LED on if there are keys in the keybuffer
@@ -174,7 +188,7 @@ void I2C_Receive(int) {
 
     int ct=0;
     while (Wire.available()) {
-        if (ct<3) {                             // read first two bytes only
+        if (ct<3) {                             // read first three bytes only
             byte c = Wire.read();
             I2C_Data[ct] = c;
             ct++;
@@ -183,7 +197,9 @@ void I2C_Receive(int) {
             Wire.read();                        // eat extra data, should not be sent
         }
     }
-    if (ct == 2 || ct == 3) {
+
+    if ((ct == 2 && I2C_Data[0] != 0x1a) || (ct == 3 && I2C_Data[0] == 0x1a)) {
+        // Offset 0x1a (Send two-byte command) requires three bytes, the other offsets require two bytes
         I2C_Process();                          // process received cmd
     }
 }
@@ -289,9 +305,9 @@ void Reset_Button_Hold() {
     Keyboard.flush();
     Mouse.reset();
     if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
-        digitalWrite(RESB_PIN,LOW);             // Press RESET
+        digitalWrite(RESB_PIN, RESET_ACTIVE);    // Press RESET
         delay(RESB_HOLDTIME_MS);
-        digitalWrite(RESB_PIN,HIGH);
+        digitalWrite(RESB_PIN, RESET_INACTIVE);
         analogWrite(ACT_LED, 0);
         mouse_init_state = MOUSE_INIT_STATE::START_RESET;
         kbd_init_state = MOUSE_INIT_STATE::START_RESET;
@@ -309,7 +325,7 @@ void Reset_Button_Press() {
 void PowerOffSeq() {
     digitalWrite(PWR_ON, HIGH);                 // Turn off supply
     SYSTEM_POWERED=0;                           // Global Power state Off
-    digitalWrite(RESB_PIN,LOW);
+    digitalWrite(RESB_PIN, RESET_ACTIVE);
     delay(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
 }
 
@@ -325,9 +341,9 @@ void PowerOnSeq() {
         // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
     }
     else {
-        SYSTEM_POWERED=1;                       // Global Power state On
         delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
-        digitalWrite(RESB_PIN,HIGH);            // Release Reset
+        SYSTEM_POWERED=1;                       // Global Power state On
+        digitalWrite(RESB_PIN, RESET_INACTIVE); // Release Reset
     }
 }
 

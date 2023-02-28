@@ -3,7 +3,7 @@
 #include "smc_pins.h"
 
 extern bool SYSTEM_POWERED;
-extern PS2Port<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
+extern PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
 extern PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 8> Mouse;
 
 MOUSE_INIT_STATE_T mouse_init_state = OFF;
