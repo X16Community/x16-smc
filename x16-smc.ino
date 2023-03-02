@@ -19,7 +19,7 @@
 #error "X16 SMC only builds for ATtiny861 and ATmega328P"
 #endif
 
-#define PWR_ON_MIN_MS          100
+#define PWR_ON_MIN_MS          10
 #define PWR_ON_MAX_MS          500
 // Hold PWR_ON low while computer is on.  High while off.
 // PWR_OK -> Should go high 100ms<->500ms after PWR_ON invoked.
@@ -54,6 +54,16 @@ void keyboardClockIrq() {
 
 void mouseClockIrq() {
     Mouse.onFallingClock();
+}
+
+void assertReset() {
+  pinMode(RESB_PIN,OUTPUT);
+  digitalWrite(RESB_PIN, RESET_ACTIVE);
+}
+
+void deassertReset() {
+    digitalWrite(RESB_PIN, RESET_INACTIVE);
+    pinMode(RESB_PIN,INPUT);
 }
 
 bool SYSTEM_POWERED = 0;                                // default state - Powered off
@@ -130,9 +140,8 @@ void setup() {
     pinMode(ACT_LED, OUTPUT);
     analogWrite(ACT_LED, 0);
 
-    pinMode(RESB_PIN,OUTPUT);
-    digitalWrite(RESB_PIN, RESET_ACTIVE);                 // Hold Reset on startup
-
+    assertReset();                 // Hold Reset on startup
+    
     pinMode(NMIB_PIN,OUTPUT);
     digitalWrite(NMIB_PIN,HIGH);
 
@@ -305,9 +314,9 @@ void Reset_Button_Hold() {
     Keyboard.flush();
     Mouse.reset();
     if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
-        digitalWrite(RESB_PIN, RESET_ACTIVE);    // Press RESET
+        assertReset();
         delay(RESB_HOLDTIME_MS);
-        digitalWrite(RESB_PIN, RESET_INACTIVE);
+        deassertReset();
         analogWrite(ACT_LED, 0);
         mouse_init_state = MOUSE_INIT_STATE::START_RESET;
         kbd_init_state = MOUSE_INIT_STATE::START_RESET;
@@ -325,8 +334,9 @@ void Reset_Button_Press() {
 void PowerOffSeq() {
     digitalWrite(PWR_ON, HIGH);                 // Turn off supply
     SYSTEM_POWERED=0;                           // Global Power state Off
-    digitalWrite(RESB_PIN, RESET_ACTIVE);
+    assertReset();
     delay(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
+    deassertReset();
 }
 
 void PowerOnSeq() {
@@ -343,7 +353,7 @@ void PowerOnSeq() {
     else {
         delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
         SYSTEM_POWERED=1;                       // Global Power state On
-        digitalWrite(RESB_PIN, RESET_INACTIVE); // Release Reset
+        deassertReset();
     }
 }
 
