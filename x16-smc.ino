@@ -340,6 +340,7 @@ void PowerOffSeq() {
 }
 
 void PowerOnSeq() {
+    assertReset();
     digitalWrite(PWR_ON, LOW);                  // turn on power supply
     unsigned long TimeDelta = 0;
     unsigned long StartTime = millis();         // get current time
@@ -353,8 +354,8 @@ void PowerOnSeq() {
     else {
         delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
         SYSTEM_POWERED=1;                       // Global Power state On
-        deassertReset();
     }
+    deassertReset();
 }
 
 void HardReboot() {                             // This never works via I2C... Why!!!
