@@ -19,7 +19,7 @@
 #error "X16 SMC only builds for ATtiny861 and ATmega328P"
 #endif
 
-#define PWR_ON_MIN_MS          10
+#define PWR_ON_MIN_MS          1
 #define PWR_ON_MAX_MS          500
 // Hold PWR_ON low while computer is on.  High while off.
 // PWR_OK -> Should go high 100ms<->500ms after PWR_ON invoked.
