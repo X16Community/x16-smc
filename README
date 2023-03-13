@@ -1,0 +1,3 @@
+Build with AVRA -  advanced AVR macro assembler
+
+Build command: avra -o bootloader.hex main.asm
