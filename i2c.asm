@@ -41,10 +41,11 @@ i2c_init:
     sts i2c_state,r16
     
     ; Setup CLK and SDA pins        <<< This code might very well be incorrect...
-    sbi PORTB,I2C_CLK               ; clk = high
-    sbi PORTB,I2C_SDA               ; sda = high
-    sbi DDRB,I2C_CLK                ; clk = output
-    cbi DDRB,I2C_SDA                ; clk = input
+    cbi PORTB,I2C_CLK               ; CLK = low
+    cbi PORTB,I2C_SDA               ; SDA = low
+    
+    cbi DDRB,I2C_CLK                ; CLK as output
+    cbi DDRB,I2C_SDA                ; SDA as output
 
     ; Setup USI control register
     ldi r16, 0b00101000             ; Set Two-Wire mode + Timer/Counter0 Compare Match
