@@ -14,8 +14,11 @@
 .equ I2C_SEND_WAIT     = 0x08
 
 .dseg
+
 i2c_state: .byte 1
 i2c_addr: .byte 1
+
+heartbeat: .byte 2
 
 .cseg
 
@@ -34,27 +37,72 @@ i2c_addr: .byte 1
 ; In.........: Nothing
 ; Out........: Nothing
 i2c_init:
+    ; Setup heartbeat counter
+    ldi r16,255
+    sts heartbeat,r16
+    ldi r16,10
+    sts heartbeat+1,r16
+
+    ; Set PORTA as output, and pin level = 0
     ldi r16,0xff
     out DDRA,r16
+    ldi r16,0
+    out PORTA,r16
     
     clr r16
     sts i2c_state,r16
-    
-    ; Setup CLK and SDA pins        <<< This code might very well be incorrect...
-    cbi PORTB,I2C_CLK               ; CLK = low
-    cbi PORTB,I2C_SDA               ; SDA = low
-    
-    cbi DDRB,I2C_CLK                ; CLK as output
-    cbi DDRB,I2C_SDA                ; SDA as output
+
+    ; Preload Data Register
+    ldi r16, 0xff
+    out USIDR,r16
+
+    ; CLK and SDA as output
+    sbi DDRB,I2C_CLK
+    sbi DDRB,I2C_SDA
+
+    ; Set CLK = 0 and SDA = 0
+    cbi PORTB,I2C_CLK
+    cbi PORTB,I2C_SDA
+
+    ; Set CLK and SDA as input
+    cbi DDRB,I2C_CLK
+    cbi DDRB,I2C_SDA
 
     ; Setup USI control register
-    ldi r16, 0b00101000             ; Set Two-Wire mode + Timer/Counter0 Compare Match
+    ldi r16, 0b00101000             ; Set Two-Wire mode
     out USICR,r16
 
-    ; Clear status register flags
+    ; Clear status register flags and set counter for 8 bits
     ldi r16, 0xf0
     out USISR,r16
     
+    ret
+
+i2c_heartbeat:
+    lds r16,heartbeat
+    cpi r16,0
+    brne i2c_heartbeat2
+    lds r17,heartbeat+1
+    cpi r17,0
+    breq i2c_heartbeat3
+    dec r17
+    sts heartbeat+1,r17
+
+i2c_heartbeat2:
+    dec r16
+    sts heartbeat,r16
+    ret
+
+i2c_heartbeat3:
+    in r16,PORTA
+    ldi r17,1
+    eor r16,r17
+    out PORTA,r16
+
+    ldi r16,255
+    sts heartbeat,r16
+    ldi r16,40
+    sts heartbeat+1,r16
     ret
 
 ;******************************************************************************
@@ -63,6 +111,8 @@ i2c_init:
 ; In.........: Nothing
 ; Out........: Nothing
 i2c_listen:
+    rcall i2c_heartbeat             ; Toggle PORTA pin 1 just to see we're alive
+
     in r16,USISR                    ; Get USI Status register
     
     ldi r17,i2c_state               ; Load r17 with i2c_state
@@ -81,14 +131,24 @@ i2c_listen2:
 i2c_start:
     i2c_sda_in                      ; Set SDA as input
 
+    in r16,PORTA                    ; Start flag set
+    ori r16,2
+    out PORTA,r16
+
 i2c_start_wait:
-    sbis PINB,I2C_SDA               ; Skip next line if SDA is high
-    rjmp i2c_start_wait             ; SDA is low, keep waiting...
-    sbic PINB,I2C_CLK               ; Skip next line if CLK is high
-    rjmp i2c_stop                   ; CLK is low, a stop condition
+    in r16,PINB                     ; Get pin values
+    andi r16,0b00000101             ; Clear all but SDA and CLK
+    cpi r16, 0b00000100             ; Check if CLK=1 and SDA=0
+    breq i2c_start_wait             ; Keep waiting
+    
+    sbrc r16, I2C_SDA               ; Skip next line if SDA = 0
+    rjmp i2c_stop                   ; SDA was 1 => stop condition
 
     ldi r16,I2C_CHECK_ADDRESS       ; We have a start condition, set state to check address
     sts i2c_state,r16
+
+    ldi r16,0b01101000
+    out USICR,r16
 
     ldi r16,0xf0                    ; Clear Start Condition and Overflow Flag by writing a 1
     out USISR,r16
@@ -110,9 +170,6 @@ i2c_overflow:
 
     ldi r16,I2C_ADDRESS_ACK         ; Yes. Next state is Address ACK
     sts i2c_state,r16
-    
-    in r17,USIDR                    ; Load r17 from Data Register
-    out PORTA,r17                   ; DEBUG: Show value on PORTA            <<<< I can't get this to display the device address that should be received from the master
 
     sts i2c_addr,r17                ; Store address in RAM location i2c_addr
 
