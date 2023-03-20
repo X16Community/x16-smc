@@ -31,9 +31,27 @@ main:
     out PORTA,r16
 
     rcall i2c_init
+
+    ldi r24,0
+    ldi r25,50
+
     sei
 
 loop:
+    cpi r24,0
+    brne loop3
+    cpi r25,0
+    brne loop2
+
+    cli
+    ;rcall i2c_init
+    sei
+
+loop2:
+    dec r25
+loop3:
+    dec r24
+
     rjmp loop
 
 .include "i2c.asm"
