@@ -1,26 +1,23 @@
-; Slave address
-.equ I2C_SLAVE_ADDRESS      = 0x44
+; Slave settings
+.equ I2C_SLAVE_ADDRESS         = 0x44
+.equ I2C_VERSION               = 0x01
 
 ; Pins
-.equ I2C_CLK                = 2
-.equ I2C_SDA                = 0
+.equ I2C_CLK                   = 2
+.equ I2C_SDA                   = 0
 
 ; I2C states
-.equ STATE_CHECK_ADDRESS    = 0x01
-.equ STATE_WAIT_SLAVE_ACK   = 0x02
-.equ STATE_RECEIVE_BYTE     = 0x03
-.equ STATE_WAIT_SLAVE_NACK  = 0x04
-.equ STATE_TRANSMIT_BYTE    = 0x05
-.equ STATE_PREP_MASTER_ACK  = 0x06
-.equ STATE_WAIT_MASTER_ACK  = 0x07
-
-.equ I2C_RECEIVE            = 0x00
-.equ I2C_SEND               = 0x01
+.equ STATE_CHECK_ADDRESS       = 0x01
+.equ STATE_WAIT_SLAVE_ACK      = 0x02
+.equ STATE_RECEIVE_BYTE        = 0x03
+.equ STATE_WAIT_SLAVE_NACK     = 0x04
+.equ STATE_TRANSMIT_BYTE       = 0x05
+.equ STATE_PREP_MASTER_ACK     = 0x06
+.equ STATE_WAIT_MASTER_ACK     = 0x07
 
 ; USICR values
-.equ I2C_CR_IDLE            = 0b10101000
-.equ I2C_CR_STOP            = 0b10101000
-.equ I2C_CR_ACTIVE          = 0b11111000
+.equ I2C_CR_IDLE               = 0b10101000
+.equ I2C_CR_ACTIVE             = 0b11111000
 
 ; USISR values
 .equ I2C_CLEAR_STARTFLAG       = 0b10000000
@@ -73,8 +70,8 @@ i2c_init:
     ; Pin setup
     cbi DDRB,I2C_SDA                ; SDA as input
     sbi DDRB,I2C_CLK                ; CLK as output, don't touch!
-    sbi PORTB,I2C_SDA               ; SDA = high, low only if SDA held low
-    sbi PORTB,I2C_CLK               ; CLK = high, low only if CLK held low
+    sbi PORTB,I2C_SDA               ; SDA = high, don't touch!
+    sbi PORTB,I2C_CLK               ; CLK = high, don't touch!
 
     ; Setup USI control & status register
     ldi r16, I2C_CR_IDLE
@@ -96,7 +93,6 @@ i2c_isr_start:
     
     ; Pin setup
     cbi DDRB,I2C_SDA                ; SDA as input
-    sbi PORTB,I2C_SDA               ; SDA = high to prevent driving the line
 
 i2c_isr_start2:
     ; Wait for CLK low (=start condition) or SDA high (=stop condition)
@@ -106,16 +102,14 @@ i2c_isr_start2:
     breq i2c_isr_start2
 
     ; Start or stop?
-    ldi r16,I2C_CR_ACTIVE           ; Default control value, for start condition
+    ldi r16,I2C_CR_ACTIVE           ; Control value after start condition detected
     sbrc r16,I2C_SDA                ; Skip next line if SDA is low (start condition)
-    ldi r16,I2C_CR_STOP             ; SDA was set, load control value for stop condition
+    ldi r16,I2C_CR_IDLE             ; Control value after stop condition detected
     out USICR,r16                   ; Write to control register
 
-    ; Clear start flag & configure to read byte 
+    ; Configure, clear all flags and count in byte
     ldi r16,(I2C_CLEAR_STARTFLAG | I2C_COUNT_BYTE)
     out USISR,r16
-
-    ; No pin setup change needed here, contiune to receive data
     
     reti
 
@@ -162,14 +156,12 @@ i2c_ack:
     clr r16
     out USIDR,r16
     
-    ; Pin setup
-    sbi DDRB,I2C_SDA                    ; SDA as output
-    
     ; Configure to send one bit
+    sbi DDRB,I2C_SDA                    ; SDA as output
     clr r16
-    out USIDR,r16
+    out USIDR,r16                       ; Clear Data Register (ACK=0)
     ldi r16,I2C_COUNT_BIT
-    out USISR,r16
+    out USISR,r16                       ; Set Status Register to count 1 bit
     reti
 
 ; Wait for slave ack
@@ -187,12 +179,10 @@ i2c_wait_slave_ack:
     ldi r16,STATE_RECEIVE_BYTE
     sts i2c_state,r16
     
-    ; Pin setup
-    cbi DDRB,I2C_SDA                    ; SDA as input
-    
     ; Configure to read a byte
+    cbi DDRB,I2C_SDA                    ; SDA as input
     ldi r16,I2C_COUNT_BYTE
-    out USISR,r16
+    out USISR,r16                       ; Set Status Register to count 1 byte
     reti
 
 ; Receive data
@@ -201,15 +191,28 @@ i2c_receive_byte:
     cpi r16,STATE_RECEIVE_BYTE
     brne i2c_transmit_byte
 
-    ; Just ACK and discard
+    ; Get byte from Data Register
+    in r16,USIDR
+
+    ; New offset?
+    lds r17,i2c_offset
+    cpi r17,0
+    brne i2c_receive_byte2
+    
+    ; Yes, set new offset
+    sts i2c_offset,r16
+    rjmp i2c_ack
+
+i2c_receive_byte2:
+    ; No, it's data
+    ; TODO: Not yet implemented
     rjmp i2c_ack
 
 ; Restart
 ;--------------------------------------------
 i2c_restart:
-    ; Restore pin setup
-    cbi DDRB,I2C_SDA                    ; SDA as input
-    sbi PORTB,I2C_SDA                   ; SDA = high
+    ; Ensure SDA is input
+    cbi DDRB,I2C_SDA
 
     ; Configure to listen for start condition
     ldi r16, I2C_CR_IDLE
@@ -229,16 +232,27 @@ i2c_transmit_byte2:
     ldi r16,STATE_PREP_MASTER_ACK
     sts i2c_state,r16
 
-    ; Load return value in Data Register
-    ldi r16,0x45                        ; Test value
-    out USIDR,r16
+    ; Get offset
+    lds r16, i2c_offset
 
-    ; Pin setup
-    sbi DDRB,I2C_SDA                    ; SDA as output
+    ; Load default value
+    ldi r17,0                           ; Return 0 if offset unkown
+
+    ; Offset 0x80 - API Version
+    cpi r16,0x80
+    brne i2c_transmit_byte3
+    ldi r17,I2C_VERSION
+
+    ; Offset 0x82 - Commit
+    ; TODO: Not yet implemented
+
+i2c_transmit_byte3:
+    out USIDR,r17                       ; Store value in Data Register
 
     ; Configure to send one byte
+    sbi DDRB,I2C_SDA                    ; SDA as output
     ldi r16,I2C_COUNT_BYTE
-    out USISR,r16
+    out USISR,r16                       ; Set Status Register to count 1 byte
     reti
 
 ; Prepare to receive master ack
@@ -251,21 +265,19 @@ i2c_prep_master_ack:
     ldi r16,STATE_WAIT_MASTER_ACK
     sts i2c_state,r16
 
-    ; Pin setup
-    cbi DDRB,I2C_SDA                    ; SDA as input
-
     ; Configure to receive one bit
+    cbi DDRB,I2C_SDA                    ; SDA as input
     ldi r16,I2C_COUNT_BIT
-    out USISR,r16
+    out USISR,r16                       ; Set Status Register to count 1 bit
     reti
 
 ; Wait for master ack
 ;--------------------------------------------
 i2c_wait_master_ack:    
     ; Get master ack/nack
-    in r16,USIDR
-    sbrc r16,7                          ; I2C is clocked in from MSB to LSB => Master response will be in bit 7
+    in r16,USIDR                        ; Read Data Register
+    sbrc r16,0                          ; Master response as bit 0, skip next line if ACK
     rjmp i2c_restart                    ; It was a NACK, goto restart
 
-    ; Master ACK => Transmit next
+    ; Master ACK, transmit next byte
     rjmp i2c_transmit_byte2
