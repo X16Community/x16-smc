@@ -10,26 +10,32 @@ I2C API
 -------+-----+----------------+-----------------------------------------------
 Offset | R/W | Name           | Description
 -------+-----+----------------+-----------------------------------------------
-0x80   |  W  | Transmit data  | Transmit batch of 8 firmware bytes and
-       |     |                | 1 checksum byte to the SMC.
-       |     |                | Checksum = 2-complement of sum of firmware
-       |     |                | bytes.
+0x80   |  R  | Version        | Get bootloader API version, 1 byte
+       |     |                | 01: Initial API version
        |     |                |
-0x81   |  R  | Commit         | Commit and store the 8 bytes transmitted to
-       |     |                | flash memory.
-       |     |                | Return values:
+0x81   |  W  | Transmit       | Send a packet of firmware data. A packet
+       |     |                | consists of 8 bytes to be written to flash
+       |     |                | memory and 1 checksum byte. The checksum is the
+       |     |                | two's complement of the sum of the previous
+       |     |                | bytes in the packet, and the sum of a packet's
+       |     |                | all 9 bytes should always be 0.
+       |     |                |
+0x82   |  R  | Commit         | Commit a packet to flash memory. The first
+       |     |                | commit is written to flash memory address
+       |     |                | 0x0000. The target address is moved forward 8
+       |     |                | bytes on each successful commit.
+       |     |                | Returns 1 byte. Possible return values are
        |     |                | 01: OK
-       |     |                | 02: Not enough data
-       |     |                | 03: Too much data
+       |     |                | 02: Packet size less than 9 bytes
+       |     |                | 03: Packet size greater than 9 bytes
        |     |                | 04: Checksum error
        |     |                | 05: Address out of range
        |     |                |
-0x82   |  W  | Close          | Clear remainder of flash with 0xFF and reset SMC
+0x83   |  W  | Close          | Clear remainder of flash memory with 0xFF 
+       |     |                | and reboot the SMC.
        |     |                |
-0x83   |  W  | Abort          | Abort and reset SMC. Data already written to the
-       |     |                | flash can't be restored.
-       |     |                |
-0x84   |  R  | Version        | Get API version, 1 byte
+0x84   |  W  | Abort          | Abort and reboot the SMC. Data already written
+       |     |                | to the flash memory can't be restored.
 -------+-----+----------------+-------------------------------------------------
  
 X16 CLIENT SOFTWARE FUNCTION
