@@ -1,6 +1,5 @@
 ; Slave settings
 .equ I2C_SLAVE_ADDRESS         = 0x44
-.equ I2C_VERSION               = 0x01
 
 ; Pins
 .equ I2C_CLK                   = 2
@@ -39,6 +38,9 @@ i2c_echo_buf: .byte 1
 ; Program segment
 ;******************************************************************************
 .cseg
+
+; Import macros
+.include "commands.asm"
 
 ;******************************************************************************
 ; Function...: i2c_init
@@ -185,29 +187,6 @@ i2c_wait_slave_ack:
     out USISR,r16                       ; Set Status Register to count 1 byte
     reti
 
-; Receive data
-;--------------------------------------------
-i2c_receive_byte:
-    cpi r16,STATE_RECEIVE_BYTE
-    brne i2c_transmit_byte
-
-    ; Get byte from Data Register
-    in r16,USIDR
-
-    ; New offset?
-    lds r17,i2c_offset
-    cpi r17,0
-    brne i2c_receive_byte2
-    
-    ; Yes, set new offset
-    sts i2c_offset,r16
-    rjmp i2c_ack
-
-i2c_receive_byte2:
-    ; No, it's data
-    ; TODO: Not yet implemented
-    rjmp i2c_ack
-
 ; Restart
 ;--------------------------------------------
 i2c_restart:
@@ -221,11 +200,48 @@ i2c_restart:
     out USISR,r16
     reti
 
+; Receive data
+;--------------------------------------------
+i2c_receive_byte:
+    cpi r16,STATE_RECEIVE_BYTE
+    brne i2c_transmit_byte
+
+    ; Get byte from Data Register
+    in r16,USIDR
+
+    ; New offset?
+    lds r17,i2c_offset
+    cpi r17,0
+    brne i2c_receive_byte3
+    
+    ; Yes, set new offset
+    sts i2c_offset,r16
+
+    ; 0x83 Close
+    cpi r17,0x83
+    brne i2c_receive_byte2
+    CMD_CLOSE
+
+i2c_receive_byte2:
+    ; 0x84 Reboot
+    cpi r17,0x84
+    brne i2c_ack
+    CMD_REBOOT
+    rjmp i2c_ack
+
+i2c_receive_byte3:
+    ; Offset 0x81 Transmit data packet
+    cpi r17,0x81
+    brne i2c_ack
+    CMD_RECEIVE_PACKET
+    rjmp i2c_ack
+
 ; Transmit byte
 ;--------------------------------------------
 i2c_transmit_byte:
     cpi r16,STATE_TRANSMIT_BYTE
-    brne i2c_prep_master_ack
+    breq i2c_transmit_byte2
+    rjmp i2c_prep_master_ack
 
 i2c_transmit_byte2:
     ; Set next state
@@ -241,12 +257,15 @@ i2c_transmit_byte2:
     ; Offset 0x80 - API Version
     cpi r16,0x80
     brne i2c_transmit_byte3
-    ldi r17,I2C_VERSION
+    CMD_RETURN_VERSION_ID
 
     ; Offset 0x82 - Commit
-    ; TODO: Not yet implemented
-
 i2c_transmit_byte3:
+    cpi r17,0x82
+    brne i2c_transmit_byte4
+    CMD_COMMIT
+
+i2c_transmit_byte4:
     out USIDR,r17                       ; Store value in Data Register
 
     ; Configure to send one byte
