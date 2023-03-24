@@ -20,7 +20,7 @@
 #endif
 
 #define PWR_ON_MIN_MS          1
-#define PWR_ON_MAX_MS          500
+#define PWR_ON_MAX_MS          750
 // Hold PWR_ON low while computer is on.  High while off.
 // PWR_OK -> Should go high 100ms<->500ms after PWR_ON invoked.
 //           Any longer or shorter is considered a fault.
@@ -352,6 +352,7 @@ void PowerOnSeq() {
         // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
     }
     else {
+        Keyboard.reset();
         delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
         SYSTEM_POWERED=1;                       // Global Power state On
     }
