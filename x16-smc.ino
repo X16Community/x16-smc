@@ -4,7 +4,7 @@
 //     Michael Steil
 //     Joe Burks
 
-//#define ENABLE_NMI_BUT
+#define ENABLE_NMI_BUT
 //#define KBDBUF_FULL_DBG
 
 #include "smc_button.h"
@@ -122,14 +122,14 @@ void setup() {
     Wire.onReceive(I2C_Receive);                        // Used to Receive Data
     Wire.onRequest(I2C_Send);                           // Used to Send Data, may never be used
 
-    POW_BUT.attachClick(Power_Button_Press);            // Should the Power off be long, or short?
-    POW_BUT.attachDuringLongPress(Power_Button_Press);  // Both for now
+    POW_BUT.attachClick(DoPowerToggle);            // Should the Power off be long, or short?
+    POW_BUT.attachDuringLongPress(DoPowerToggle);  // Both for now
 
-    RES_BUT.attachClick(Reset_Button_Press);            // Short Click = NMI, Long Press = Reset
-    RES_BUT.attachDuringLongPress(Reset_Button_Hold);   // Actual Reset Call
+    RES_BUT.attachClick(DoReset);            // Short Click = NMI, Long Press = Reset
+    RES_BUT.attachDuringLongPress(DoReset);   // Actual Reset Call
 
 #if defined(ENABLE_NMI_BUT)
-    NMI_BUT.attachClick(Reset_Button_Press);            // NMI Call is the same as short Reset
+    NMI_BUT.attachClick(DoNMI);            // NMI Call is the same as short Reset
     NMI_BUT.attachClick(HardReboot);                  // strangely, this works fine via NMI push, but fails via I2C?
 #endif
 
@@ -167,12 +167,12 @@ void loop() {
     }
 
     if (Keyboard.getResetRequest()) {
-     Reset_Button_Hold();
+     DoReset();
      Keyboard.ackResetRequest();
     }
 
     if (Keyboard.getNMIRequest()) {
-      Reset_Button_Press();
+      DoNMI();
       Keyboard.ackNMIRequest();
     }
 
@@ -180,7 +180,7 @@ void loop() {
     delay(10);                                  // Short Delay, required by OneButton if code is short   
 }
 
-void Power_Button_Press() {
+void DoPowerToggle() {
     if (SYSTEM_POWERED == 0) {                  // If Off, turn on
         PowerOnSeq();
     }
@@ -231,13 +231,13 @@ void I2C_Process() {
     }
     if (I2C_Data[0] == 2) {                     // 1st Byte : Byte 2 - Reset Event(s)
         switch (I2C_Data[1]) {
-            case 0:Reset_Button_Hold();         // 2nd Byte : 0 - Reset button Press
+            case 0:DoReset();         // 2nd Byte : 0 - Reset button Press
                 break;
         }
     }
     if (I2C_Data[0] == 3) {                     // 1st Byte : Byte 3 - NMI Event(s)
         switch (I2C_Data[1]) {
-            case 0:Reset_Button_Press();        // 2nd Byte : 0 - NMI button Press
+            case 0:DoNMI();        // 2nd Byte : 0 - NMI button Press
                 break;
         }
     }
@@ -310,7 +310,7 @@ void I2C_Send() {
     }
 }
 
-void Reset_Button_Hold() {
+void DoReset() {
     Keyboard.flush();
     Mouse.reset();
     if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
@@ -323,7 +323,7 @@ void Reset_Button_Hold() {
     }
 }
 
-void Reset_Button_Press() {
+void DoNMI() {
     if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
         digitalWrite(NMIB_PIN,LOW);             // Press NMI
         delay(NMI_HOLDTIME_MS);
