@@ -125,12 +125,11 @@ void setup() {
     POW_BUT.attachClick(DoPowerToggle);            // Should the Power off be long, or short?
     POW_BUT.attachDuringLongPress(DoPowerToggle);  // Both for now
 
-    RES_BUT.attachClick(DoReset);            // Short Click = NMI, Long Press = Reset
-    RES_BUT.attachDuringLongPress(DoReset);   // Actual Reset Call
+    RES_BUT.attachClick(DoReset);
+    RES_BUT.attachDuringLongPress(DoReset);
 
 #if defined(ENABLE_NMI_BUT)
-    NMI_BUT.attachClick(DoNMI);            // NMI Call is the same as short Reset
-    NMI_BUT.attachClick(HardReboot);                  // strangely, this works fine via NMI push, but fails via I2C?
+    NMI_BUT.attachClick(DoNMI);
 #endif
 
     pinMode(PWR_OK, INPUT);
