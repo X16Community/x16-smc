@@ -16,42 +16,52 @@ The bootloader is made in AVR assembly for the AVRA assembler.
 Build command: avra -o bootloader.hex main.asm
 
 
+VERSION ID
+
+The bootloader version ID is stored in flash memory at the
+start of the bootloader section.
+
+-------------+-------+---------------------
+Byte address | Value | Description
+-------------+-------+---------------------
+0x1E00       | 0x8a  | Magic number
+             |       |
+0x1E01       | ver   | API Version ID
+             |       | 01: Initial version
+
+
 I2C API
  
 -------+-----+----------------+-----------------------------------------------
 Offset | R/W | Name           | Description
 -------+-----+----------------+-----------------------------------------------
-0x80   |  R  | Version        | Get bootloader API version, 1 byte
-       |     |                | 01: Initial API version
+0x80   |  W  | Transmit       | Send a data packet. A packet consists of 8 bytes
+       |     |                | to be written to flash memory and 1 checksum
+       |     |                | byte. The checksum byte is the two's complement
+       |     |                | of the sum of the previous bytes in the packet.
        |     |                |
-0x81   |  W  | Transmit       | Send a packet of firmware data. A packet
-       |     |                | consists of 8 bytes to be written to flash
-       |     |                | memory and 1 checksum byte. The checksum is the
-       |     |                | two's complement of the sum of the previous
-       |     |                | bytes in the packet, and the sum of a packet's
-       |     |                | all 9 bytes should always be 0.
-       |     |                |
-0x82   |  R  | Commit         | Commit a packet to flash memory. The first
+0x81   |  R  | Commit         | Commit a packet to flash memory. The first
        |     |                | commit is written to flash memory address
        |     |                | 0x0000. The target address is moved forward 8
        |     |                | bytes on each successful commit.
        |     |                | Returns 1 byte. Possible return values are
-       |     |                | 01: OK
-       |     |                | 02: Packet size less than 9 bytes
-       |     |                | 03: Packet size greater than 9 bytes
+       |     |                | 00: OK, packet stored in RAM buffer
+       |     |                | 01: OK, RAM buffer written to flash mem
+       |     |                | 02: Packet size not 9 bytes
        |     |                | 04: Checksum error
-       |     |                | 05: Address out of range
+       |     |                | 05: Overwriting bootloader section
        |     |                |
-0x83   |  W  | Close          | Clear remainder of flash memory with 0xFF 
-       |     |                | and reboot the SMC.
+0x82   |  W  | Flush          | Write remaining buffer data to flash
+       |     |                | memory, intended to be called once after
+       |     |                | all packets have been committed
        |     |                |
-0x84   |  W  | Abort          | Abort and reboot the SMC. Data already written
-       |     |                | to the flash memory can't be restored.
+0x83   |  W  | Abort          | Reboot the ATTiny
 -------+-----+----------------+-------------------------------------------------
  
 X16 CLIENT SOFTWARE FUNCTION
  
 Stage 1 - Prepare
+- Check that a bootloader is present and that the client supports the bootloader API version
 - Reserve an 8 kB RAM buffer, and clear it with value 0xff
 - Read and parse HEX file into RAM buffer
 - Cancel on HEX file errors:
@@ -62,6 +72,7 @@ Stage 1 - Prepare
 Stage 2 - Transmit
 - Transmit 8 bytes + 1 checksum byte
 - Commit
-- Retransmit if error response. Abort after 10 attempts.10
+- Retransmit if error response. Abort after 10 attempts.
 - Repeat until all data is transmitted
-- Close
+- Flush
+- Reboot

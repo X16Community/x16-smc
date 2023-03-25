@@ -1,7 +1,7 @@
 ; Slave settings
 .equ I2C_SLAVE_ADDRESS         = 0x44
 
-; Pins
+; I2C Pins
 .equ I2C_CLK                   = 2
 .equ I2C_SDA                   = 0
 
@@ -14,25 +14,14 @@
 .equ STATE_PREP_MASTER_ACK     = 0x06
 .equ STATE_WAIT_MASTER_ACK     = 0x07
 
-; USICR values
-.equ I2C_CR_IDLE               = 0b10101000
-.equ I2C_CR_ACTIVE             = 0b11111000
+; USICR - Control Register values
+.equ I2C_IDLE                  = 0b10101000
+.equ I2C_ACTIVE                = 0b11111000
 
-; USISR values
+; USISR - Status register values
 .equ I2C_CLEAR_STARTFLAG       = 0b10000000
 .equ I2C_COUNT_BYTE            = 0b01110000
 .equ I2C_COUNT_BIT             = 0b01111110
-
-;******************************************************************************
-; Data segment
-;******************************************************************************
-.dseg
-
-i2c_state: .byte 1
-i2c_offset: .byte 1
-i2c_ddr: .byte 1
-i2c_echo_buf: .byte 1
-
 
 ;******************************************************************************
 ; Program segment
@@ -64,10 +53,8 @@ i2c_init:
     ;
     ;   Pin | DDR | PORT | Notes
     ;   ----+-----+------+------------------------------------------------------
-    ;   SDA |  0  |  1   | DDR=0 => Pin not driven. DDR=1 => Pin driven by USIDR
-    ;       |     |      | or PORT=low
-    ;   CLK |  1  |  1   | PORT=1 => Pin not driven. PORT=0 => Held low; The
-    ;       |     |      | USI module will never hold the line if DDR=0
+    ;   SDA |  0  |  1   | DDR selects input or output, value set by USIDR
+    ;   CLK |  1  |  1   | DDR=1 enables the USI module to hold the CLK
 
     ; Pin setup
     cbi DDRB,I2C_SDA                ; SDA as input
@@ -76,7 +63,7 @@ i2c_init:
     sbi PORTB,I2C_CLK               ; CLK = high, don't touch!
 
     ; Setup USI control & status register
-    ldi r16, I2C_CR_IDLE
+    ldi r16, I2C_IDLE
     out USICR,r16
     ldi r16,I2C_COUNT_BYTE
     out USISR,r16
@@ -90,8 +77,7 @@ i2c_init:
 ; Out........: Nothing
 i2c_isr_start:
     ; Set next state
-    ldi r16,STATE_CHECK_ADDRESS
-    sts i2c_state,r16
+    ldi i2c_state,STATE_CHECK_ADDRESS
     
     ; Pin setup
     cbi DDRB,I2C_SDA                ; SDA as input
@@ -104,9 +90,9 @@ i2c_isr_start2:
     breq i2c_isr_start2
 
     ; Start or stop?
-    ldi r16,I2C_CR_ACTIVE           ; Control value after start condition detected
+    ldi r16,I2C_ACTIVE              ; Control value after start condition detected
     sbrc r16,I2C_SDA                ; Skip next line if SDA is low (start condition)
-    ldi r16,I2C_CR_IDLE             ; Control value after stop condition detected
+    ldi r16,I2C_IDLE                ; Control value after stop condition detected
     out USICR,r16                   ; Write to control register
 
     ; Configure, clear all flags and count in byte
@@ -121,29 +107,25 @@ i2c_isr_start2:
 ; In.........: Nothing
 ; Out........: Nothing
 i2c_isr_overflow:
-    ; Get current state
-    lds r16,i2c_state
-
 ; Check address
 ;--------------------------------------------
-cpi r16,STATE_CHECK_ADDRESS
+    cpi i2c_state,STATE_CHECK_ADDRESS
     brne i2c_wait_slave_ack
 
     in r16,USIDR                        ; Fetch address + R/W bit put on the bus by the master
     mov r17,r16                         ; Copy address + R/W bit to r17
 
     lsr r16                             ; Right shift value so we're left with just the address
-    cpi r16,I2C_SLAVE_ADDRESS           ; Talking to us?
+    cpi r16,I2C_SLAVE_ADDRESS           ; Talking to me?
     brne i2c_restart                    ; Not matching address => restart
 
 i2c_address_match:
     ; Store address + r/w bit, we're really only interested in the R/W bit
-    sts i2c_ddr,r17
+    mov i2c_ddr,r17
 
-    ; Clear internal offset if master write
-    clr r16
-    sbrs r17,0                          ; Skip next line if master read
-    sts i2c_offset,r16                  ; It was master write => set internal offset to 0
+    ; Clear internal offset/command if master write
+    sbrs i2c_ddr,0                      ; Skip next line if master read
+    clr i2c_command                     ; It was master write => set internal offset to 0
 
     ; Fallthrough to send ack
 
@@ -151,17 +133,13 @@ i2c_address_match:
 ;--------------------------------------------
 i2c_ack:
     ; Set next state
-    ldi r16,STATE_WAIT_SLAVE_ACK
-    sts i2c_state,r16
+    ldi i2c_state,STATE_WAIT_SLAVE_ACK
 
-    ; Clear Data Register to send ACK
-    clr r16
-    out USIDR,r16
+    ; Clear Data Register bit 7 to send ACK
+    cbi USIDR,7
     
     ; Configure to send one bit
     sbi DDRB,I2C_SDA                    ; SDA as output
-    clr r16
-    out USIDR,r16                       ; Clear Data Register (ACK=0)
     ldi r16,I2C_COUNT_BIT
     out USISR,r16                       ; Set Status Register to count 1 bit
     reti
@@ -169,17 +147,15 @@ i2c_ack:
 ; Wait for slave ack
 ;--------------------------------------------
 i2c_wait_slave_ack:
-    cpi r16,STATE_WAIT_SLAVE_ACK
+    cpi i2c_state,STATE_WAIT_SLAVE_ACK
     brne i2c_receive_byte
 
     ; If master is reading, jump to transmit byte
-    lds r16,i2c_ddr
-    sbrc r16,0
+    sbrc i2c_ddr,0
     rjmp i2c_transmit_byte2
 
     ; Next state is receive a byte
-    ldi r16,STATE_RECEIVE_BYTE
-    sts i2c_state,r16
+    ldi i2c_state,STATE_RECEIVE_BYTE
     
     ; Configure to read a byte
     cbi DDRB,I2C_SDA                    ; SDA as input
@@ -194,7 +170,7 @@ i2c_restart:
     cbi DDRB,I2C_SDA
 
     ; Configure to listen for start condition
-    ldi r16, I2C_CR_IDLE
+    ldi r16, I2C_IDLE
     out USICR,r16
     ldi r16,I2C_COUNT_BYTE
     out USISR,r16
@@ -203,35 +179,33 @@ i2c_restart:
 ; Receive data
 ;--------------------------------------------
 i2c_receive_byte:
-    cpi r16,STATE_RECEIVE_BYTE
+    cpi i2c_state,STATE_RECEIVE_BYTE
     brne i2c_transmit_byte
 
     ; Get byte from Data Register
     in r16,USIDR
 
-    ; New offset?
-    lds r17,i2c_offset
-    cpi r17,0
+    ; New offset/command?
+    cpi i2c_command,0
     brne i2c_receive_byte3
-    
-    ; Yes, set new offset
-    sts i2c_offset,r16
+    mov i2c_command,r16
 
-    ; 0x83 Close
-    cpi r17,0x83
+    ; 0x82 Close
+    cpi i2c_command,0x82
     brne i2c_receive_byte2
-    CMD_CLOSE
+    CMD_FLUSH
+    rjmp i2c_ack
 
 i2c_receive_byte2:
-    ; 0x84 Reboot
-    cpi r17,0x84
+    ; 0x83 Reboot
+    cpi i2c_command,0x83
     brne i2c_ack
     CMD_REBOOT
     rjmp i2c_ack
 
 i2c_receive_byte3:
-    ; Offset 0x81 Transmit data packet
-    cpi r17,0x81
+    ; Offset 0x80 Transmit data packet
+    cpi i2c_command,0x80
     brne i2c_ack
     CMD_RECEIVE_PACKET
     rjmp i2c_ack
@@ -239,33 +213,22 @@ i2c_receive_byte3:
 ; Transmit byte
 ;--------------------------------------------
 i2c_transmit_byte:
-    cpi r16,STATE_TRANSMIT_BYTE
-    breq i2c_transmit_byte2
-    rjmp i2c_prep_master_ack
+    cpi i2c_state,STATE_TRANSMIT_BYTE
+    brne i2c_prep_master_ack
 
 i2c_transmit_byte2:
     ; Set next state
-    ldi r16,STATE_PREP_MASTER_ACK
-    sts i2c_state,r16
-
-    ; Get offset
-    lds r16, i2c_offset
+    ldi i2c_state,STATE_PREP_MASTER_ACK
 
     ; Load default value
     ldi r17,0                           ; Return 0 if offset unkown
 
-    ; Offset 0x80 - API Version
-    cpi r16,0x80
+    ; Offset 0x81 - Commit
+    cpi i2c_command,0x81
     brne i2c_transmit_byte3
-    CMD_RETURN_VERSION_ID
-
-    ; Offset 0x82 - Commit
-i2c_transmit_byte3:
-    cpi r17,0x82
-    brne i2c_transmit_byte4
     CMD_COMMIT
 
-i2c_transmit_byte4:
+i2c_transmit_byte3:
     out USIDR,r17                       ; Store value in Data Register
 
     ; Configure to send one byte
@@ -277,12 +240,11 @@ i2c_transmit_byte4:
 ; Prepare to receive master ack
 ;--------------------------------------------
 i2c_prep_master_ack:
-    cpi r16,STATE_PREP_MASTER_ACK
+    cpi i2c_state,STATE_PREP_MASTER_ACK
     brne i2c_wait_master_ack
 
     ; Set next state
-    ldi r16,STATE_WAIT_MASTER_ACK
-    sts i2c_state,r16
+    ldi i2c_state,STATE_WAIT_MASTER_ACK
 
     ; Configure to receive one bit
     cbi DDRB,I2C_SDA                    ; SDA as input

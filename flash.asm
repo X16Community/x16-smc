@@ -7,11 +7,7 @@
 
 flash_buf:          .byte PAGE_SIZE
 flash_zp_buf:       .byte PAGE_SIZE
-
-flash_bufindex:     .byte 1
-flash_packetsize:   .byte 1
-flash_targetaddr:   .byte 2
-flash_checksum:     .byte 1
+flash_echo:         .byte 1
 
 ;******************************************************************************
 ; Program segment
@@ -92,22 +88,5 @@ flash_spm:
 
     out SPMCSR, r17                 ; Perform SPM
     spm
-
-    ret
-
-;******************************************************************************
-; Function...: flash_targetaddr_in_zp
-; Description: Checks if flash_targetaddr is in zero page, i.e. the first 64
-;              bytes
-; In.........: Nothing
-; Out........: Carry bit, 0=in zp, 1=not in zp
-flash_targetaddr_in_zp:
-    ; Let's do a 16 bit comparison: flash_targetaddr - 0x0040
-    lds r17,flash_targetaddr
-    cpi r17,0x40                    ; Compare low 8 bits: addrL - 0x40 => CL=0 else CL=1
-
-    clr r17                         
-    lds r18,flash_targetaddr+1
-    cpc r18,r17                     ; Compare high 8 bits, taking into account carry from first operation
 
     ret

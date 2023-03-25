@@ -1,136 +1,131 @@
-.equ CMD_VERSION               = 0x01
-
 ;******************************************************************************
-; Function...: CMD_RETURN_VERSION_ID
-; Description: Returns current API version ID
-; In.........: Nothing
-; Out........: r17 API version ID
-.macro CMD_RETURN_VERSION_ID
-    ldi r17, CMD_VERSION
-.endmacro
+; These functions are implemented as macros so that they can be inlined
+; in the I2C ISR functions. By doing this we can save a pair of rcall/ret for
+; each function, saving some flash memory space (4 bytes/function).
+;******************************************************************************
 
 ;******************************************************************************
 ; Function...: CMD_RECEIVE_PACKET
-; Description: Stores one byte of a firmware update packet (total 9 bytes)
-;              into a RAM buffer
-; In.........: r16 Byte value
-; Out........: Nohting
+; Description: Receives a packet byte and stores it into a RAM buffer. This
+;              function keeps track of and updates the pointer to the
+;              head of the RAM buffer, the current packet size and the
+;              checksum of the current packet.
+; In.........: r16 byte value
+; Out........: Nothing
 .macro CMD_RECEIVE_PACKET
-    ; Set pointer to start of default target RAM buffer
-    ldi YL,low(flash_buf)
-    ldi YH,high(flash_buf)
+    ; Move buffer head into Y register
+    movw YH:YL, packet_headH:packet_headL
 
-    ; Are we in flash mem zero page?
-    rcall flash_targetaddr_in_zp
-    brcs cmd_receive_packet2                    ; Carry set => we're not in zero page
+    ; Check packet size
+    cpi packet_size,10
+    brsh cmd_receive_byte_exit                          ; 11th byte or more - packet overflow, an error state
+    cpi packet_size,9
+    breq cmd_receive_byte3                              ; 10th byte - packet overflow, an error state
+    cpi packet_size,8                                                                                
+    breq cmd_receive_byte2                              ; 9th byte is the checksum
+                                                            
+    ; Store byte in buffer
+    st Y+,r16                                           ; Store byte
+    movw packet_headH:packet_headL, YH:YL               ; Update head pointer
 
-    ; Target address in zero page, use the special zero page buffer
-    ldi YL,low(flash_zp_buf)
-    ldi YH,high(flash_zp_buf)
+    ; Update checksum
+cmd_receive_byte2:
+    add checksum,r16                                    ; Add without carry
 
-cmd_receive_packet2:
-    ; Y = Y + buffer index
-    lds r18,flash_bufindex
-    add YL,r18
-    clr r18
-    adc YH,r18
+    ; Increment packet size
+cmd_receive_byte3:
+    inc packet_size
 
-    ; Packet size < 8?
-    lds r17,flash_packetsize
-    cpi r17,8
-    brsh cmd_receive_packet3
-
-    st Y,r16                                    ; Store value in buffer
-    
-    inc r18                                     ; Increase buffer index
-    sts flash_bufindex,r18
-
-cmd_receive_packet3:
-    ; Packet size < 9?
-    cpi r17,9
-    brsh cmd_receive_packet4
-
-    lds r18,flash_checksum
-    add r16,r18
-    sts flash_checksum,r16
-
-cmd_receive_packet4:
-    ; Packet size < 10?
-    cpi r17,10
-    brsh cmd_receive_packet_exit
-    
-    inc r17
-    sts flash_packetsize,r17
-
-cmd_receive_packet_exit:
-
+cmd_receive_byte_exit:
 .endmacro
+ 
+ ; Out: r17 error code
+;******************************************************************************
+; Function...: CMD_COMMIT
+; Description: Receives a packet byte and stores it into a RAM buffer. This
 
+; In.........: r16 byte value
+; Out........: r17 Commit response value:
+;                  0x00 = OK, packet stored in RAM buffer
+;                  0x01 = OK, buffer written to flash memory
+;                  0x02 = Invalid packet size, not equal to 9
+;                  0x03 = Checksum error
+;                  0x04 = Target address overflows into bootloader section (0x1E00..)
 .macro CMD_COMMIT
-    ; Packet size = 9?
+    ; Move target address into Z
+    movw ZH:ZL,target_addrH:target_addrL
+
+    ; Verify packet
     ldi r17,2
-    lds r16,flash_packetsize
-    cpi r16,9
+    cpi packet_size,9                                   ; Packet size == 8?
     brne cmd_commit_err
-
-    ; Checksum = 0?
     ldi r17,3
-    lds r16,flash_checksum
-    cpi r16,0
+    cpi checksum,0                                      ; Checksum == 0?
     brne cmd_commit_err
-
-    ; Target address < 0x1e00?
-    lds r17,4
-    lds r16,flash_targetaddr+1
-    cpi r16,0x1e
+    ldi r17,4
+    mov r16,target_addrH
+    cpi r16,0x1e                                        ; Target address >= 0x1E00 (in bootloader area)?
     brsh cmd_commit_err
 
-    ; Last packet in page?
-    lds r16,flash_bufindex
-    cpi r16,0x40
-    brne cmd_commit_ok                          ; We don't yet have a complete page
-
-    ; Zero page?
-    rcall flash_targetaddr_in_zp
-    brcc cmd_commit_ok                          ; Yes, nothing more to do now
-
-    ; Write buffer to flash
-    lds ZL,flash_targetaddr
-    lds ZH,flash_targetaddr
+    ; Page not full, increment packet count and prepare for next packet
+    inc packet_count
+    cpi packet_count,16
+    brne cmd_commit_ok
+ 
+cmd_commit_write:
+    ; Write buffer to flash mem
     rcall flash_write_buf
 
-    ; Increase target address
-    lds r18,flash_targetaddr
-    ldi r19,8
-    add r18,r19
-    sts flash_targetaddr,r18
-    lds r18,flash_targetaddr
-    clr r19
-    adc r18,r19
-    sts flash_targetaddr+1,r18
+    ; Update target addr
+    adiw ZH:ZL,32
+    adiw ZH:ZL,32
+    mov target_addrH:target_addrL, ZH:ZL
 
-    ; Load return value = OK
+    ; Reset buffer pointer
+    ldi r16,low(flash_buf)
+    ldi r17,high(flash_buf)
+    movw packet_headH:packet_headL, r17:r16
+
+    ; Reset packet count
+    ldi packet_count,8                                  ; Restart from 8 as 0..7 reserved for the first flash mem page
+    
+    ldi r17,1
+    rjmp cmd_commit_ok2
+ 
 cmd_commit_ok:
     ldi r17,0
+cmd_commit_ok2:
+    movw packet_tailH:packet_tailL, packet_headH:packet_headL
     rjmp cmd_commit_exit
 
 cmd_commit_err:
-    clr r16
-    sts flash_packetsize,r16
-    sts flash_checksum,r16
-    lds r16,flash_bufindex
-    andi r16,0b11111000
-    sts flash_bufindex,r16
+    ; Rewind
+    movw packet_headH:packet_headL,packet_tailH:packet_tailL
 
 cmd_commit_exit:
+    clr packet_size
+    clr checksum
+
 .endmacro
 
-.macro CMD_CLOSE
-    lds ZL,flash_targetaddr
-    lds ZH,flash_targetaddr
-    rcall flash_write_buf
+;******************************************************************************
+; Function...: CMD_FLUSH
+; Description: Writes any data in the RAM buffer to flash memory; intended to
+;              be called after all packets have been committed to ensure we
+;              don't miss anything.
+; In.........: Nothing
+; Out........: Nothing
+.macro CMD_FLUSH
+    ; Not yet implemented
 .endmacro
 
+;******************************************************************************
+; Function...: CMD_REBOOT
+; Description: Writes flash_zp_buf to flash memory, setting up the first
+;              page of flash memory and then reboots the ATTiny using
+;              the Watchdog Timer
+; In.........: Nothing
+; Out........: Nothing
 .macro CMD_REBOOT
+    ; Not yet implemented
 .endmacro
-
