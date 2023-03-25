@@ -21,11 +21,11 @@
 
 
 ;******************************************************************************
-; Program segment
+; Interrupt vectors - only here during testing
 ;******************************************************************************
 .cseg
+.org 0x0000
 
-; Interrupt vectors - only here during testing
     rjmp main               ; 1. Reset
     reti                    ; 2.
     reti                    ; 3.
@@ -33,8 +33,8 @@
     reti                    ; 5. 
     reti                    ; 6.
     reti                    ; 7.
-    rjmp i2c_isr_start      ; 8. USI Start
-    rjmp i2c_isr_overflow   ; 9. USI Overflow
+    reti                    ; 8. USI Start
+    reti                    ; 9. USI Overflow
     reti                    
     reti
     reti
@@ -45,7 +45,13 @@
     reti
     reti
     reti
-    reti
+
+
+;******************************************************************************
+; Program segment
+;******************************************************************************
+.cseg
+.org 0x0f00     ; = byte address 0x1E00
 
 version_id:
     .db 0x8a, 0x01
@@ -54,18 +60,47 @@ main:
     cli
     
     ; Init global variables
-    ldi r16,LOW(flash_buf)
-    ldi r17,HIGH(flash_buf)
-    movw packet_tailH:packet_tailL, r17:r16, 
-    movw packet_headH:packet_headL, packet_tailH:packet_tailL
-    
-    ldi r16,0x00
-    ldi r17,0x10
-    movw target_addrH:target_addrL, r17:r16
+    ldi YL,LOW(flash_zp_buf)
+    ldi YH,HIGH(flash_zp_buf)
+    movw packet_tailH:packet_tailL, YH:YL
+    movw packet_headH:packet_headL, YH:YL
 
     clr packet_size
-    ldi packet_count,8
+    clr packet_count
     clr checksum
+
+    ; Backup zero page
+    rcall flash_backup_zeropage
+
+    ; Setup USI Start and Overflow vectors
+    ldi YL,low(flash_buf)                               ; Pointer to start of default buffer
+    ldi YH,high(flash_buf)
+    
+    ldi r16,0x18                                        ; Fill buffer with opcode for RETI instruction to disable all interrupts
+    ldi r17,0x95
+    ldi r18,19
+    rcall flash_fillbuffer
+
+    subi YL,12*2                                        ; Rewind Y pointer 12 words to I2C ISR start vector location
+
+    ldi r16, low(0b1100000000000000 + i2c_isr_start - 1  - 7)    ; Store opcode for RJMP i2c_isr_start
+    st Y+,r16
+    ldi r16, high(0b1100000000000000 + i2c_isr_start - 1  - 7)
+    st Y+,r16
+
+    ldi r16, low(0b1100000000000000 + i2c_isr_overflow - 1 - 8) ; Store opcode for RJMP i2c_isr_overflow
+    st Y+,r16
+    ldi r16, high(0b1100000000000000 + i2c_isr_overflow - 1 - 8)
+    st Y+,r16
+
+    clr ZL
+    clr ZH
+    rcall flash_write_buf                               ; Write buffer
+
+    ; Set target address to start of second page = 0x0040
+    ldi r16,0x40
+    clr r17
+    movw target_addrH:target_addrL, r17:r16
 
     ; Init I2C handler
     rcall i2c_init

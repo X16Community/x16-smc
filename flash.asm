@@ -18,9 +18,8 @@ flash_echo:         .byte 1
 ; Function...: flash_backup_zeropage
 ; Description: Backups flash memory zero page (64 bytes) to the RAM buffer
 ;              flash_zp_buf
-; In.........: YL:YH Pointer to RAM buffer where backup is stored
+; In.........: YH:YL Pointer to RAM buffer where backup is stored
 ; Out........: Nothing
-; Affects....: r16, r17, Y, Z
 flash_backup_zeropage:
     ldi r16,PAGE_SIZE               ; Init counter
     
@@ -37,9 +36,8 @@ flash_backup_zeropage_loop:
 ;******************************************************************************
 ; Function...: flash_write_buf
 ; Description: Writes flash_buf (64 bytes) to flash memory
-; In.........: ZL:ZH Flash memory target address (in bytes, not words)
+; In.........: ZH:ZL Flash memory target address (in bytes, not words)
 ; Out........: Nothing
-; Affects....: r16, r17, r19, Y, Z
 flash_write_buf:
     ldi YL,low(flash_buf)           ; Y = RAM buffer pointer
     ldi YH,high(flash_buf)
@@ -48,10 +46,9 @@ flash_write_buf:
 ;******************************************************************************
 ; Function...: flash_write
 ; Description: Writes one page (64 bytes) to flash memory
-; In.........: YL:YH Pointer to RAM buffer holding values to be written
-;              ZL:ZH Flash memory target address (in bytes, not words)
+; In.........: YH:YL Pointer to RAM buffer holding values to be written
+;              ZH:ZL Flash memory target address (in bytes, not words)
 ; Out........: Nothing
-; Affects....: r16, r17, r19, Y, Z
 flash_write:
     ; Erase page
     ldi r17, (1<<PGERS) + (1<<SPMEN)
@@ -80,7 +77,6 @@ flash_write_loop:
 ; In.........: r17 Value to be written to SPMCSR before operation, selecting
 ;                  SPM command
 ; Out........: Nothing
-; Affects....: r19
 flash_spm:
     in r19, SPMCSR                  ; Wait for SPM not busy (SPMEN=0)
     sbrc r19, SPMEN
@@ -89,4 +85,18 @@ flash_spm:
     out SPMCSR, r17                 ; Perform SPM
     spm
 
+    ret
+
+;******************************************************************************
+; Function...: flash_fillbuffer
+; Description: Fills RAM buffer
+; In.........: YH:YL   Pointer to RAM where fill starts
+;              r17:r16 Fill value
+;              r18     Number of words to fill
+; Out........: Nothing
+flash_fillbuffer:
+    st Y+,r16
+    st Y+,r17
+    dec r18
+    brne flash_fillbuffer
     ret

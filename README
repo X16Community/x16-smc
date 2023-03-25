@@ -16,6 +16,13 @@ The bootloader is made in AVR assembly for the AVRA assembler.
 Build command: avra -o bootloader.hex main.asm
 
 
+FUSE SETTINGS
+
+Low fuse      0x61
+High fuse     0xdf
+Extended fuse 0xfe
+
+
 VERSION ID
 
 The bootloader version ID is stored in flash memory at the

@@ -39,7 +39,6 @@ cmd_receive_byte3:
 cmd_receive_byte_exit:
 .endmacro
  
- ; Out: r17 error code
 ;******************************************************************************
 ; Function...: CMD_COMMIT
 ; Description: Receives a packet byte and stores it into a RAM buffer. This
@@ -67,11 +66,16 @@ cmd_receive_byte_exit:
     cpi r16,0x1e                                        ; Target address >= 0x1E00 (in bootloader area)?
     brsh cmd_commit_err
 
-    ; Page not full, increment packet count and prepare for next packet
+    ldi r17,0                                           ; Load default OK return value
+
+    ; Do we have a full page?
     inc packet_count
     cpi packet_count,16
-    brne cmd_commit_ok
- 
+    breq cmd_commit_write
+    cpi packet_count,8
+    breq cmd_commit_fullpage
+    rjmp cmd_commit_ok
+
 cmd_commit_write:
     ; Write buffer to flash mem
     rcall flash_write_buf
@@ -81,25 +85,25 @@ cmd_commit_write:
     adiw ZH:ZL,32
     mov target_addrH:target_addrL, ZH:ZL
 
-    ; Reset buffer pointer
-    ldi r16,low(flash_buf)
-    ldi r17,high(flash_buf)
-    movw packet_headH:packet_headL, r17:r16
-
     ; Reset packet count
     ldi packet_count,8                                  ; Restart from 8 as 0..7 reserved for the first flash mem page
     
+    ; Load return value
     ldi r17,1
-    rjmp cmd_commit_ok2
  
+cmd_commit_fullpage:
+    ; Reset buffer pointer
+    ldi r18,low(flash_buf)
+    ldi r19,high(flash_buf)
+    movw packet_headH:packet_headL, r19:r18
+
 cmd_commit_ok:
-    ldi r17,0
-cmd_commit_ok2:
+    ; Move buffer tail to head
     movw packet_tailH:packet_tailL, packet_headH:packet_headL
     rjmp cmd_commit_exit
 
 cmd_commit_err:
-    ; Rewind
+    ; Rewind buffer head to tail
     movw packet_headH:packet_headL,packet_tailH:packet_tailL
 
 cmd_commit_exit:
@@ -127,5 +131,16 @@ cmd_commit_exit:
 ; In.........: Nothing
 ; Out........: Nothing
 .macro CMD_REBOOT
-    ; Not yet implemented
+    cli
+    
+    ; Set target address = 0x0000
+    clr ZL
+    clr ZH
+
+    ; Set pointer to zero page backup buffer
+    ldi YL,low(flash_zp_buf)
+    ldi YH,high(flash_zp_buf)
+
+    ; Write buffer to flash mem
+    rcall flash_write
 .endmacro
