@@ -190,15 +190,8 @@ i2c_receive_byte:
     brne i2c_receive_byte3
     mov i2c_command,r16
 
-    ; 0x82 Close
+    ; 0x82 Reboot
     cpi i2c_command,0x82
-    brne i2c_receive_byte2
-    CMD_FLUSH
-    rjmp i2c_ack
-
-i2c_receive_byte2:
-    ; 0x83 Reboot
-    cpi i2c_command,0x83
     brne i2c_ack
     CMD_REBOOT
     rjmp i2c_ack
