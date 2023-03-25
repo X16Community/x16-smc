@@ -272,7 +272,8 @@ void I2C_Send() {
     if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
       if (kbd_init_state == KBD_READY && Keyboard.available()) {
           nextKey  = Keyboard.next();
-          Wire.write(nextKey);
+          if (nextKey == 0xAA) { kbd_init_state = MOUSE_INIT_STATE::START_RESET; } //Reset the keyboard if hotplugged Adrian Black
+          else { Wire.write(nextKey); }
       }
       else {
           Wire.write(0);
@@ -291,8 +292,9 @@ void I2C_Send() {
       if (Mouse.count()>2){
           uint8_t buf[3];  
           buf[0] = Mouse.next();
-      
-          if ((buf[0] & 0xc8) == 0x08){
+          if (buf[0] == 0xaa) { mouse_init_state = MOUSE_INIT_STATE::START_RESET; } //reset mouse if hotplugged Adrian Black
+          else {
+           if ((buf[0] & 0xc8) == 0x08){
               //Valid first byte - Send mouse data packet
               buf[1] = Mouse.next();
               buf[2] = Mouse.next();
@@ -300,8 +302,11 @@ void I2C_Send() {
           }
           else{
               //Invalid first byte - Discard, and return a 0
+              mouse_init_state = MOUSE_INIT_STATE::START_RESET; // reset the mouse if the response is invalid Adrian Black
               Wire.write(0);
           }
+          }
+          
       }
       else{
           Wire.write(0);
