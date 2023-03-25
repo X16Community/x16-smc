@@ -107,9 +107,8 @@ main:
 
     sei
 
-loop:
-    ; Do nothing
-    rjmp loop
+wait:
+    rjmp wait
 
 .include "i2c.asm"
 .include "flash.asm"

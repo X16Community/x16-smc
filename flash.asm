@@ -53,7 +53,7 @@ flash_write:
     ; Erase page
     ldi r17, (1<<PGERS) + (1<<SPMEN)
     rcall flash_spm                 ; Perform erase
-    
+
     ; Copy data from RAM buffer pointed to by Y into SPM temp buffer
     ldi r16, PAGE_SIZE              ; Init counter
 flash_write_loop:
@@ -65,7 +65,7 @@ flash_write_loop:
     subi ZL,-2                      ; Z = Z - (-2) => Z = Z + 2
     subi r16,2                      ; counter = counter - 2
     brne flash_write_loop           ; Check if we're done
- 
+
     ; Write page
     subi ZL,PAGE_SIZE               ; Restore flash memory address to its start value
     ldi r17, (1<<PGWRT) + (1<<SPMEN)
@@ -78,9 +78,16 @@ flash_write_loop:
 ;                  SPM command
 ; Out........: Nothing
 flash_spm:
+
+flash_spm2:
     in r19, SPMCSR                  ; Wait for SPM not busy (SPMEN=0)
     sbrc r19, SPMEN
-    rjmp flash_spm
+    rjmp flash_spm2
+
+flash_spm3:
+    in r19, EECR
+    sbrc r19, EEPE
+    rjmp flash_spm3
 
     out SPMCSR, r17                 ; Perform SPM
     spm

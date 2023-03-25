@@ -131,16 +131,22 @@ cmd_commit_exit:
 ; In.........: Nothing
 ; Out........: Nothing
 .macro CMD_REBOOT
-    cli
+    ; Write current buffer to flash
+    cpi packet_count,9
+    brlo cmd_reboot2
+
+    movw ZH:ZL,target_addrH:target_addrL
+    rcall flash_write_buf
     
-    ; Set target address = 0x0000
+    ; Write zero page
+cmd_reboot2:
     clr ZL
     clr ZH
-
-    ; Set pointer to zero page backup buffer
     ldi YL,low(flash_zp_buf)
     ldi YH,high(flash_zp_buf)
-
-    ; Write buffer to flash mem
     rcall flash_write
+
+cmd_reboot3:
+    ; TODO: Setup Watchdog Timer to reset
+    rjmp cmd_reboot3
 .endmacro
