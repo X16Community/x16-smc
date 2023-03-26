@@ -42,7 +42,7 @@ I2C API
 -------+-----+----------------+-----------------------------------------------
 Offset | R/W | Name           | Description
 -------+-----+----------------+-----------------------------------------------
-0x80   |  W  | Transmit       | Send a data packet. A packet consists of 8 bytes
+0x80   |  W  | Transmit       | Send data packet. A packet consists of 8 bytes
        |     |                | to be written to flash memory and 1 checksum
        |     |                | byte. The checksum byte is the two's complement
        |     |                | of the sum of the previous bytes in the packet.
