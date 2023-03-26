@@ -69,7 +69,7 @@ flash_write_loop:
     ; Write page
     subi ZL,PAGE_SIZE               ; Restore flash memory address to its start value
     ldi r17, (1<<PGWRT) + (1<<SPMEN)
-    rjmp flash_spm                 ; Perform write
+    rjmp flash_spm                  ; Perform write
 
 ;******************************************************************************
 ; Function...: flash_spm
@@ -78,19 +78,22 @@ flash_write_loop:
 ;                  SPM command
 ; Out........: Nothing
 flash_spm:
-
-flash_spm2:
     in r19, SPMCSR                  ; Wait for SPM not busy (SPMEN=0)
     sbrc r19, SPMEN
-    rjmp flash_spm2
+    rjmp flash_spm
 
-flash_spm3:
-    in r19, EECR
+flash_spm2:
+    in r19, EECR                    ; Wait for EEPROM not busy
     sbrc r19, EEPE
-    rjmp flash_spm3
+    rjmp flash_spm2
 
     out SPMCSR, r17                 ; Perform SPM
     spm
+
+flash_spm3:
+    in r19, SPMCSR                  ; Wait for SPM to finish
+    and r19,r17
+    brne flash_spm3
 
     ret
 

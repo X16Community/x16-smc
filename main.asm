@@ -83,19 +83,19 @@ main:
 
     subi YL,12*2                                        ; Rewind Y pointer 12 words to I2C ISR start vector location
 
-    ldi r16, low(0b1100000000000000 + i2c_isr_start - 1  - 7)    ; Store opcode for RJMP i2c_isr_start
+    ldi r16, low(0b1100000000000000 + i2c_isr_start - 1  - 7)    ; Store opcode for RJMP i2c_isr_start (at word address 0x0007)
     st Y+,r16
     ldi r16, high(0b1100000000000000 + i2c_isr_start - 1  - 7)
     st Y+,r16
 
-    ldi r16, low(0b1100000000000000 + i2c_isr_overflow - 1 - 8) ; Store opcode for RJMP i2c_isr_overflow
+    ldi r16, low(0b1100000000000000 + i2c_isr_overflow - 1 - 8) ; Store opcode for RJMP i2c_isr_overflow (at word address (0x0008)
     st Y+,r16
     ldi r16, high(0b1100000000000000 + i2c_isr_overflow - 1 - 8)
     st Y+,r16
 
-    clr ZL
+    clr ZL                                              ; Set target addess to 0x0000
     clr ZH
-    rcall flash_write_buf                               ; Write buffer
+    rcall flash_write_buf                               ; Write buffer that contains vector table for the bootloader to flash memory
 
     ; Set target address to start of second page = 0x0040
     ldi r16,0x40

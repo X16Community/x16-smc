@@ -41,15 +41,16 @@ cmd_receive_byte_exit:
  
 ;******************************************************************************
 ; Function...: CMD_COMMIT
-; Description: Receives a packet byte and stores it into a RAM buffer. This
-
-; In.........: r16 byte value
-; Out........: r17 Commit response value:
+; Description: Confirm and request that the current packet is written to
+;              flash memory
+; In.........: Nothing
+; Out........: r17 Response value:
 ;                  0x00 = OK, packet stored in RAM buffer
 ;                  0x01 = OK, buffer written to flash memory
 ;                  0x02 = Invalid packet size, not equal to 9
 ;                  0x03 = Checksum error
-;                  0x04 = Target address overflows into bootloader section (0x1E00..)
+;                  0x04 = Reserved for future use
+;                  0x05 = Target address overflows into bootloader section (0x1E00..)
 .macro CMD_COMMIT
     ; Move target address into Z
     movw ZH:ZL,target_addrH:target_addrL
@@ -61,7 +62,7 @@ cmd_receive_byte_exit:
     ldi r17,3
     cpi checksum,0                                      ; Checksum == 0?
     brne cmd_commit_err
-    ldi r17,4
+    ldi r17,5
     mov r16,target_addrH
     cpi r16,0x1e                                        ; Target address >= 0x1E00 (in bootloader area)?
     brsh cmd_commit_err
@@ -86,7 +87,7 @@ cmd_commit_write:
     mov target_addrH:target_addrL, ZH:ZL
 
     ; Reset packet count
-    ldi packet_count,8                                  ; Restart from 8 as 0..7 reserved for the first flash mem page
+    ldi packet_count,8                                  ; Restart from 8, as 0..7 reserved for the first flash mem page
     
     ; Load return value
     ldi r17,1
@@ -113,17 +114,6 @@ cmd_commit_exit:
 .endmacro
 
 ;******************************************************************************
-; Function...: CMD_FLUSH
-; Description: Writes any data in the RAM buffer to flash memory; intended to
-;              be called after all packets have been committed to ensure we
-;              don't miss anything.
-; In.........: Nothing
-; Out........: Nothing
-.macro CMD_FLUSH
-    ; Not yet implemented
-.endmacro
-
-;******************************************************************************
 ; Function...: CMD_REBOOT
 ; Description: Writes flash_zp_buf to flash memory, setting up the first
 ;              page of flash memory and then reboots the ATTiny using
@@ -146,7 +136,8 @@ cmd_reboot2:
     ldi YH,high(flash_zp_buf)
     rcall flash_write
 
-cmd_reboot3:
+cmd_reboot4:
+    ; TODO: Release I2C clock and ACK
     ; TODO: Setup Watchdog Timer to reset
-    rjmp cmd_reboot3
+    rjmp cmd_reboot4
 .endmacro

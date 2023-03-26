@@ -55,7 +55,8 @@ Offset | R/W | Name           | Description
        |     |                | 00: OK, packet stored in RAM buffer
        |     |                | 01: OK, RAM buffer written to flash mem
        |     |                | 02: Packet size not 9 bytes
-       |     |                | 04: Checksum error
+       |     |                | 03: Checksum error
+       |     |                | 04: Reserved (may bevome write to flash failed)
        |     |                | 05: Overwriting bootloader section
        |     |                |
 0x82   |  W  | Reboot         | Reboot the ATTiny. Before reboot any buffered
@@ -78,5 +79,4 @@ Stage 2 - Transmit
 - Commit
 - Retransmit if error response. Abort after 10 attempts.
 - Repeat until all data is transmitted
-- Flush
 - Reboot
