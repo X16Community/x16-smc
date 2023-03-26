@@ -56,7 +56,7 @@ Offset | R/W | Name           | Description
        |     |                | 01: OK, RAM buffer written to flash mem
        |     |                | 02: Packet size not 9 bytes
        |     |                | 03: Checksum error
-       |     |                | 04: Reserved (may bevome write to flash failed)
+       |     |                | 04: Reserved (may become write to flash failed)
        |     |                | 05: Overwriting bootloader section
        |     |                |
 0x82   |  W  | Reboot         | Reboot the ATTiny. Before reboot any buffered
