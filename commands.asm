@@ -82,7 +82,7 @@ cmd_receive_byte_exit:
 
     ; Verify packet
     ldi r17,2
-    cpi packet_size,9                                   ; Packet size == 8?
+    cpi packet_size,9                                   ; Packet size == 9?
     brne cmd_commit_err
     ldi r17,3
     cpi checksum,0                                      ; Checksum == 0?
