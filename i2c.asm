@@ -175,7 +175,13 @@ i2c_wait_slave_ack:
     cpi i2c_state,STATE_WAIT_SLAVE_ACK
     brne i2c_receive_byte
 
+    ; Reboot?
+    cpi i2c_command,0x82
+    brne i2c_wait_slave_ack2
+    CMD_REBOOT
+
     ; If master is reading, jump to transmit byte
+i2c_wait_slave_ack2:
     sbrc i2c_ddr,0
     rjmp i2c_transmit_byte2
 
@@ -212,17 +218,12 @@ i2c_receive_byte:
 
     ; New offset/command?
     cpi i2c_command,0
-    brne i2c_receive_byte3
+    brne i2c_receive_byte2
     mov i2c_command,r16
-
-    ; 0x82 Reboot
-    cpi i2c_command,0x82
-    brne i2c_ack
-    CMD_REBOOT
     rjmp i2c_ack
 
-i2c_receive_byte3:
     ; Offset 0x80 Transmit data packet
+i2c_receive_byte2:
     cpi i2c_command,0x80
     brne i2c_ack
     CMD_RECEIVE_PACKET

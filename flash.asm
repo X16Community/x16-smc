@@ -40,25 +40,6 @@ flash_echo:         .byte 1
 .cseg
 
 ;******************************************************************************
-; Function...: flash_backup_zeropage
-; Description: Backups flash memory zero page (64 bytes) to the RAM buffer
-;              flash_zp_buf
-; In.........: YH:YL Pointer to RAM buffer where backup is stored
-; Out........: Nothing
-flash_backup_zeropage:
-    ldi r16,PAGE_SIZE               ; Init counter
-    
-    clr ZL                          ; Z = Flash memory address 0x0000
-    clr ZH
-
-flash_backup_zeropage_loop:
-    lpm r17,Z+                      ; Read one byte, increase Z
-    st Y+,r17                       ; Store byte in buffer, increase Y
-    subi r16,1                      ; Decrease counter
-    brne flash_backup_zeropage_loop ; Check if we're done
-    ret
-
-;******************************************************************************
 ; Function...: flash_write_buf
 ; Description: Writes flash_buf (64 bytes) to flash memory
 ; In.........: ZH:ZL Flash memory target address (in bytes, not words)

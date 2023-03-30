@@ -119,9 +119,17 @@ cmd_commit_write:
  
 cmd_commit_fullpage:
     ; Reset buffer pointer
-    ldi r18,low(flash_buf)
-    ldi r19,high(flash_buf)
-    movw packet_headH:packet_headL, r19:r18
+    ldi YL,low(flash_buf)
+    ldi YH,high(flash_buf)
+    movw packet_headH:packet_headL, YH:YL
+
+    ; Fill buffer with 0xFF
+    mov r19,r17
+    ldi r16,0xff
+    ldi r17,0xff
+    ldi r18,PAGE_SIZE/2
+    rcall flash_fillbuffer
+    mov r17,r19
 
 cmd_commit_ok:
     ; Move buffer tail to head
@@ -146,6 +154,17 @@ cmd_commit_exit:
 ; In.........: Nothing
 ; Out........: Nothing
 .macro CMD_REBOOT
+    ; Disable interrupts
+    cli
+
+    ; Disable I2C
+    cbi DDRB,I2C_CLK
+    cbi DDRB,I2C_SDA
+    cbi PORTB,I2C_CLK
+    cbi PORTB,I2C_SDA
+    clr r16
+    out USICR,r16
+    
     ; Write current buffer to flash
     cpi packet_count,9
     brlo cmd_reboot2
@@ -153,8 +172,18 @@ cmd_commit_exit:
     movw ZH:ZL,target_addrH:target_addrL
     rcall flash_write_buf
     
-    ; Write zero page
 cmd_reboot2:
+    ; Erase rest of flash mem
+    adiw ZH:ZL,32
+    adiw ZH:ZL,32
+    cpi ZH,0x1e
+    brsh cmd_reboot3
+    ldi r17, (1<<PGERS) + (1<<SPMEN)
+    rcall flash_spm
+    rjmp cmd_reboot2
+
+    ; Write zero page to flash
+cmd_reboot3:
     clr ZL
     clr ZH
     ldi YL,low(flash_zp_buf)
@@ -162,7 +191,6 @@ cmd_reboot2:
     rcall flash_write
 
 cmd_reboot4:
-    ; TODO: Release I2C clock and ACK
-    ; TODO: Setup Watchdog Timer to reset
+    ; TODO: Reset
     rjmp cmd_reboot4
 .endmacro

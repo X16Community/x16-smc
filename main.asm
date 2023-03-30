@@ -85,8 +85,8 @@ main:
     cli
     
     ; Init global variables
-    ldi YL,LOW(flash_zp_buf)
-    ldi YH,HIGH(flash_zp_buf)
+    ldi YL,low(flash_zp_buf)
+    ldi YH,high(flash_zp_buf)
     movw packet_tailH:packet_tailL, YH:YL
     movw packet_headH:packet_headL, YH:YL
 
@@ -94,8 +94,11 @@ main:
     clr packet_count
     clr checksum
 
-    ; Backup zero page
-    rcall flash_backup_zeropage
+    ; Clear zero page buffer
+    ldi r16,0xff
+    ldi r17,0xff
+    ldi r18,PAGE_SIZE/2
+    rcall flash_fillbuffer
 
     ; Setup USI Start and Overflow vectors
     ldi YL,low(flash_buf)                               ; Pointer to start of default buffer
@@ -103,7 +106,7 @@ main:
     
     ldi r16,0x18                                        ; Fill buffer with opcode for RETI instruction to disable all interrupts
     ldi r17,0x95
-    ldi r18,19
+    ldi r18,19                                          ; 19 items in vector table
     rcall flash_fillbuffer
 
     subi YL,12*2                                        ; Rewind Y pointer 12 words to I2C ISR start vector location
