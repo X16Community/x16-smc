@@ -109,7 +109,7 @@ cmd_commit_write:
     ; Update target addr
     adiw ZH:ZL,32
     adiw ZH:ZL,32
-    mov target_addrH:target_addrL, ZH:ZL
+    movw target_addrH:target_addrL, ZH:ZL
 
     ; Reset packet count
     ldi packet_count,8                                  ; Restart from 8, as 0..7 reserved for the first flash mem page
@@ -158,12 +158,16 @@ cmd_commit_exit:
     cli
 
     ; Disable I2C
+    ldi r16,I2C_CLEAR_STARTFLAG + I2C_COUNT_BYTE
+    out USISR,r16
+    
+    clr r16
+    out USICR,r16
+
     cbi DDRB,I2C_CLK
     cbi DDRB,I2C_SDA
     cbi PORTB,I2C_CLK
     cbi PORTB,I2C_SDA
-    clr r16
-    out USICR,r16
     
     ; Write current buffer to flash
     cpi packet_count,9
@@ -192,5 +196,5 @@ cmd_reboot3:
 
 cmd_reboot4:
     ; TODO: Reset
-    rjmp cmd_reboot4
+    rjmp 0
 .endmacro
