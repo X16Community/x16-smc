@@ -24,7 +24,7 @@
 
 
 ; Slave settings
-.equ I2C_SLAVE_ADDRESS         = 0x44
+.equ I2C_SLAVE_ADDRESS         = 0x42
 
 ; I2C Pins
 .equ I2C_CLK                   = 2

@@ -169,32 +169,33 @@ cmd_commit_exit:
     cbi PORTB,I2C_CLK
     cbi PORTB,I2C_SDA
     
-    ; Write current buffer to flash
-    cpi packet_count,9
-    brlo cmd_reboot2
-
+    ; Write possible data in current buffer to flash
     movw ZH:ZL,target_addrH:target_addrL
+    cpi packet_count,9
+    brlo cmd_reboot3
     rcall flash_write_buf
-    
+
 cmd_reboot2:
+    adiw ZH:ZL,32
+    adiw ZH:ZL,32
+
+cmd_reboot3:
     ; Erase rest of flash mem
-    adiw ZH:ZL,32
-    adiw ZH:ZL,32
     cpi ZH,0x1e
-    brsh cmd_reboot3
+    brsh cmd_reboot4
     ldi r17, (1<<PGERS) + (1<<SPMEN)
     rcall flash_spm
     rjmp cmd_reboot2
 
     ; Write zero page to flash
-cmd_reboot3:
+cmd_reboot4:
     clr ZL
     clr ZH
     ldi YL,low(flash_zp_buf)
     ldi YH,high(flash_zp_buf)
     rcall flash_write
 
-cmd_reboot4:
-    ; TODO: Reset
-    rjmp 0
+cmd_reboot5:
+    ; TODO: Can we do reset instead?
+    rjmp cmd_reboot5
 .endmacro

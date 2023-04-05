@@ -44,34 +44,6 @@
 .def i2c_ddr                = r24             ; I2C data direction, bit 0=0 if master write else master read
 .def i2c_command            = r25             ; Current I2C command
 
-
-;******************************************************************************
-; Interrupt vectors - only here during testing
-;******************************************************************************
-.cseg
-.org 0x0000
-
-    rjmp main               ; 1. Reset
-    reti                    ; 2.
-    reti                    ; 3.
-    reti                    ; 4.
-    reti                    ; 5. 
-    reti                    ; 6.
-    reti                    ; 7.
-    reti                    ; 8. USI Start
-    reti                    ; 9. USI Overflow
-    reti                    
-    reti
-    reti
-    reti
-    reti
-    reti
-    reti
-    reti
-    reti
-    reti
-
-
 ;******************************************************************************
 ; Program segment
 ;******************************************************************************

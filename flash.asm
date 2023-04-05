@@ -32,7 +32,6 @@
 
 flash_buf:          .byte PAGE_SIZE
 flash_zp_buf:       .byte PAGE_SIZE
-flash_echo:         .byte 1
 
 ;******************************************************************************
 ; Program segment
