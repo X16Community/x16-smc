@@ -18,9 +18,9 @@ Build command: avra -o bootloader.hex main.asm
 
 FUSE SETTINGS
 
-Low fuse      0x61
-High fuse     0xdf
-Extended fuse 0xfe
+Low fuse      0xF1
+High fuse     0xD4
+Extended fuse 0xFE
 
 
 VERSION ID
