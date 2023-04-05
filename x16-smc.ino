@@ -256,6 +256,10 @@ void I2C_Process() {
       //Send command to keyboard (two bytes)
       Keyboard.sendPS2Command(I2C_Data[1], I2C_Data[2]);
     }
+
+    if (I2C_Data[0] == 0x8f && I2C_Data[1] == 0x31) {
+      startBootloader();
+    }
 }
 
 void I2C_Send() {
@@ -351,6 +355,10 @@ void HardReboot() {                             // This never works via I2C... W
     PowerOffSeq();
     delay(1000);
     PowerOnSeq();
+}
+
+void startBootloader() {
+  ((void(*)(void))0x1e02)();
 }
 
 ISR(TIMER1_COMPA_vect){
