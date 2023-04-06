@@ -166,7 +166,7 @@ loop:
 
     sec                 ; Prepare to resend packet
     lda tmp1
-    sbc bytecount
+    sbc #7
     sta tmp1
     lda tmp1+1
     sbc #0
@@ -214,6 +214,12 @@ exit:
 
 updatefailed:
     print str_updatefailed
+    
+    ; Try to reboot anyway
+    ldx #I2C_ADDR
+    ldy #$82
+    jsr I2C_WRITE
+
     cli
     rts
     
