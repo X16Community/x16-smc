@@ -1,24 +1,39 @@
-PURPOSE
+# Purpose
 
-The purpose of this project is to create a custom bootloader for
-the Commander X16 ATTiny861 based SMC.
+The purpose of this project is to create a custom bootloader for the Commander X16 ATTiny861 based SMC.
 
-Firmware data is transferred from the computer to the ATTiny over
-I2C.
-
-The code is under development, and not yet functional.
+Firmware data is transferred from the computer to the ATTiny over I2C.
 
 
-BUILD
+# Building
 
 The bootloader is made in AVR assembly for the AVRA assembler.
 
 Build command: avra -o bootloader.hex main.asm
 
+There is also a small build script (build.sh).
 
-FUSE SETTINGS
 
-Low fuse      0xF1
+# Fuse settings
+
+The SMC firmware and the bootloader depends on several fuse settings as set out below:
+
+Low fuse:
+
+----|--------|---------------------|-----------------------------------------
+Bit | Name   | Description         | Value
+----|--------|---------------------|-----------------------------------------
+7   | CKDIV8 | Divide clock by 8   | 1 = Disabled
+6   | CKOUT  | Clock output enable | 1 = Disabled
+5   | SUT1   | Select startup-time | 1 = Consider changing if problems occur
+4   | SUT0   | Select startup-time | 1
+3   | CKSEL3 | Select clock source | 0 = 16 MHz
+2   | CKSEL2 | Select clock source | 0
+1   | CKSEL1 | Select clock source | 0
+0   | CKSEL0 | Select clock source | 1
+    |        | Fuse value          | 0xF1
+
+
 High fuse     0xD4
 Extended fuse 0xFE
 
