@@ -68,43 +68,40 @@ address 0x1E01.
 
 # I2C API
 
- 
-Offset | R/W | Name           | Description
--------+-----+----------------+-----------------------------------------------
-0x80   |  W  | Transmit       | Send data packet. A packet consists of 8 bytes 
-to be written to flash memory and 1 checksum
-byte. The checksum byte is the two's complement
-of the sum of the previous bytes in the packet.
-0x81   |  R  | Commit         | Commit a packet to flash memory. The first
-       |     |                | commit is written to flash memory address
-       |     |                | 0x0000. The target address is moved forward 8
-       |     |                | bytes on each successful commit.
-       |     |                | Returns 1 byte. Possible return values are
-       |     |                | 00: OK, packet stored in RAM buffer
-       |     |                | 01: OK, RAM buffer written to flash mem
-       |     |                | 02: Packet size not 9 bytes
-       |     |                | 03: Checksum error
-       |     |                | 04: Reserved (may become write to flash failed)
-       |     |                | 05: Overwriting bootloader section
-       |     |                |
-0x82   |  W  | Reboot         | Reboot the ATTiny. Before reboot any buffered
-       |     |                | data is written to flash mem
--------+-----+----------------+-------------------------------------------------
- 
-X16 CLIENT SOFTWARE FUNCTION
- 
-Stage 1 - Prepare
-- Check that a bootloader is present and that the client supports the bootloader API version
-- Reserve an 8 kB RAM buffer, and clear it with value 0xff
-- Read and parse HEX file into RAM buffer
-- Cancel on HEX file errors:
-  - Unsupported record type
-  - Address out of range
-  - Checksum error
- 
-Stage 2 - Transmit
-- Transmit 8 bytes + 1 checksum byte
-- Commit
-- Retransmit if error response. Abort after 10 attempts.
-- Repeat until all data is transmitted
-- Reboot
+## Command 0x80 = Transmit (write)
+
+The transmit command is used to send a data packet.
+
+A packet consists of 8 bytes to be written to flash and 1 checksum byte.
+
+The checksum is the two's complement of the previous bytes in the packet.
+
+## Command 0x81 = Commit (read)
+
+After sending a data packet, use this command to commit the transfer to
+flash memory.
+
+The first commit is written to flash memory address 0x0000. The target address
+is moved forward 8 bytes on each successful commit.
+
+The command returns 1 byte. The possible return values are:
+
+Value | Description
+------|-------------
+1     | OK
+2     | Error, packet size not 9
+3     | Checksum error
+4     | Reserved
+5     | Error, overwriting bootloader section
+
+## Command 0x82 = Reboot (write)
+
+The reboot command must always be called after the last packet
+has been committed. If not, the SMC will be left in an inoperable
+state.
+
+The command also writes any buffered data to flash.
+
+Currently the SMC is not rebooted, but left in an infinte loop. To
+reboot the SMC you need to remove power to the computer's power
+supply.
