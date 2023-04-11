@@ -18,9 +18,8 @@ There is also a small build script (build.sh).
 
 The SMC firmware and the bootloader depends on several fuse settings as set out below:
 
-Low fuse:
+Low fuse value: 0xF1
 
-----|--------|---------------------|-----------------------------------------
 Bit | Name   | Description         | Value
 ----|--------|---------------------|-----------------------------------------
 7   | CKDIV8 | Divide clock by 8   | 1 = Disabled
@@ -31,30 +30,45 @@ Bit | Name   | Description         | Value
 2   | CKSEL2 | Select clock source | 0
 1   | CKSEL1 | Select clock source | 0
 0   | CKSEL0 | Select clock source | 1
-    |        | Fuse value          | 0xF1
+
+High fuse value: 0xD4
+
+Bit | Name     | Description                                       | Value
+----|----------|---------------------------------------------------|-----------------------------------------
+7   | RSTDISBL | External reset disable                            | 1 = Disabled
+6   | DWEN     | DebugWIRE Enable                                  | 1 = Disabled
+5   | SPIEN    | Enable Serial Program and Data Downloading        | 0 = Enabled
+4   | WDTON    | Watchdog Timer always on                          | 1 = Disabled
+3   | EESAVE   | EEPROM memory is preserved through the Chip Erase | 0 = Enabled
+2   | BODLEVEL2 | Brown-out Detector trigger level                 | 1 = BOD level 4.3 V
+1   | BODLEVEL1 | Brown-out Detector trigger level                 | 0
+0   | BODLEVEL0 | Brown-out Detector trigger level                 | 0
+
+RSTDISBL prevents serial programming if enabled.
+
+SPIEN must be enbaled for serial programming.
+
+Brown-out detection is necessary to precent flash memory corruption when the SELFPRGEN fuse bit is enabled.
+
+Extended fuse value: 0xFE
+
+Bit | Name      | Description                                       | Value
+----|-----------|---------------------------------------------------|-----------------------------------------
+0   | SELFPRGEN | Self-Programming Enable                           | 0 = Enabled
 
 
-High fuse     0xD4
-Extended fuse 0xFE
-
-
-VERSION ID
+# Version ID
 
 The bootloader version ID is stored in flash memory at the
 start of the bootloader section.
 
--------------+-------+---------------------
-Byte address | Value | Description
--------------+-------+---------------------
-0x1E00       | 0x8a  | Magic number
-             |       |
-0x1E01       | ver   | API Version ID
-             |       | 01: Initial version
+Address 0x1E00 contain a magic number (0x8A) and the bootloader API version number is stored in
+address 0x1E01.
 
 
-I2C API
+# I2C API
+
  
--------+-----+----------------+-----------------------------------------------
 Offset | R/W | Name           | Description
 -------+-----+----------------+-----------------------------------------------
 0x80   |  W  | Transmit       | Send data packet. A packet consists of 8 bytes
