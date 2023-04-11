@@ -92,8 +92,6 @@ cmd_receive_byte_exit:
     cpi r16,0x1e                                        ; Target address >= 0x1E00 (in bootloader area)?
     brsh cmd_commit_err
 
-    ldi r17,0                                           ; Load default OK return value
-
     ; Do we have a full page?
     inc packet_count
     cpi packet_count,16
@@ -113,9 +111,6 @@ cmd_commit_write:
 
     ; Reset packet count
     ldi packet_count,8                                  ; Restart from 8, as 0..7 reserved for the first flash mem page
-    
-    ; Load return value
-    ldi r17,1
  
 cmd_commit_fullpage:
     ; Reset buffer pointer
@@ -124,14 +119,15 @@ cmd_commit_fullpage:
     movw packet_headH:packet_headL, YH:YL
 
     ; Fill buffer with 0xFF
-    mov r19,r17
     ldi r16,0xff
     ldi r17,0xff
     ldi r18,PAGE_SIZE/2
     rcall flash_fillbuffer
-    mov r17,r19
 
 cmd_commit_ok:
+    ; Load return value
+    ldi r17,1
+    
     ; Move buffer tail to head
     movw packet_tailH:packet_tailL, packet_headH:packet_headL
     rjmp cmd_commit_exit
