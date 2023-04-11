@@ -1,5 +1,7 @@
 ; BUILD: cl65 -o "SMCUPDATE.PRG" -u __EXEHDR__ -t cx16 -C cx16-asm.cfg main.asm
 
+BOOTLOADER_MIN_VERSION = 1
+BOOTLOADER_MAX_VERSION = 1
 
 ; Kernal functions
 KERNAL_CHROUT       = $ffd2
@@ -16,12 +18,13 @@ KERNAL_CLRCHN       = $ffcc
 KERNAL_READST       = $ffb7
 KERNAL_CHRIN        = $ffcf
 
+ROM_BANK            = $01
 tmp1                = $22
 
 .macro print str
     ldx #<str
     ldy #>str
-    jsr msg_print
+    jsr util_print_str
 .endmacro
 
 ;******************************************************************************
@@ -30,60 +33,87 @@ tmp1                = $22
 ;Input...............: Nothing
 ;Returns.............: Nothing
 .proc main
+    ; Select ROM bank
+    lda ROM_BANK
+    pha
+    stz ROM_BANK
+
     ; Print app info
     print str_appname
+
+    ; Check bootloader presence and version
+    ldx #I2C_ADDR
+    ldy #$8e
+    jsr I2C_READ
+    cmp #$ff
+    beq nobootloader
+    cmp #BOOTLOADER_MIN_VERSION
+    bcc unsupported_bootloader
+    cmp #BOOTLOADER_MAX_VERSION+1
+    bcs unsupported_bootloader
+
+    ; Print warning
     print str_warning
 
-    ; Continue after warning
+    ; Confirm to continue
 :   print str_continue
-    ldy #0
-:   jsr KERNAL_CHRIN
-    cpy #0
-    bne :+
-    sta response
-:   iny
-    cmp #13
-    bne :--
-    lda response
+    jsr util_input
+    cpy #1
+    bne :-
+    lda util_input_buf
     cmp #'y'
-    beq continue
+    beq confirmed
     cmp #'n'
     beq exit
-    bra :---
-    
-continue:
-    print str_filename
-
-    ldy #0
-:   jsr KERNAL_CHRIN
-    cmp #13
-    beq :+
-    sta filename,y
-    iny
     bra :-
+    
+confirmed:
+    print str_filename
+    jsr util_input
+    phy
 
-:   phy
     print str_loading
     
     pla
-    ldx #<filename
-    ldy #>filename
+    ldx #<util_input_buf
+    ldy #>util_input_buf
     jsr ihex_load
     bcs err
+
+    lda ihex_top+1
+    cmp #$1e
+    bcs overflow
+
     print str_ok
 
-    print str_upload
+    print str_activate_prompt
+    jsr util_input
+
     jsr upload
-    rts
+    bra exit
 
 err:
     print str_failed
 
 exit:
+    pla
+    sta ROM_BANK
     rts
 
-response: .res 1
-filename: .res 256
+overflow:
+    print str_overflow
+    bra exit
+
+nobootloader:
+    print str_nobootloader
+    bra exit
+
+unsupported_bootloader:
+    pha
+    print str_unsupported_bootloader
+    pla
+    jsr util_print_num
+    bra exit
 .endproc
 
 ;******************************************************************************
@@ -92,11 +122,32 @@ filename: .res 256
 ;Input...............: Nothing
 ;Returns.............: Nothing
 .proc upload
-    ; Calculate firmware top
+    ; Disable interrupts
+    sei
+
+    ; Send start bootloader command
+    ldx #I2C_ADDR
+    ldy #$8f
+    lda #$31
+    jsr I2C_WRITE
+
+    ; Prompt the user to activate bootloader within 20 seconds
+    print str_activate_countdown
+    ldx #20
+    jsr util_countdown
+
+    ; Wait another 10 seconds to ensure bootloader is ready
+    print str_activate_wait
+    ldx #10
+    jsr util_countdown
+
+    ; Print upload begin alert
+    print str_upload
+
+    ; Calculate firmware top in buffer
     clc
     lda ihex_top
     adc #<ihex_buffer
-    sta ihex_top
     lda ihex_top+1
     adc #>ihex_buffer
     sta ihex_top+1
@@ -112,18 +163,6 @@ filename: .res 256
     stz bytecount
     lda #10
     sta attempts
-
-    ; Disable interrupts
-    sei
-
-    ; Send start bootloader command
-    ldx #I2C_ADDR
-    ldy #$8f
-    lda #$31
-    jsr I2C_WRITE
-
-    ; Wait for the bootloader to start
-    jsr delay
 
 loop:
     ; Update checksum value
@@ -155,11 +194,9 @@ loop:
     ldy #$81
     jsr I2C_READ
 
-    cmp #2
-    bcc ok
-    clc                 ; Print error code
-    adc #48
-    jsr $ffd2
+    cmp #1
+    beq ok
+    jsr util_print_num
 
     dec attempts        ; Reached max attempts?
     beq updatefailed
@@ -178,7 +215,7 @@ loop:
 
 ok:
     lda #'.'            ; Print "." to indicate success
-    jsr $ffd2
+    jsr KERNAL_CHROUT
 
     ; Check if at top of firmware
     lda tmp1+1
@@ -228,32 +265,6 @@ bytecount: .res 1
 attempts: .res 1
 .endproc
 
-
-;******************************************************************************
-;Function name.......: delay
-;Purpose.............: Delay approx one second
-;Input...............: Nothing
-;Returns.............: Nothing
-.proc delay
-    lda #168
-    sta counter
-    lda #130
-    sta counter+1
-    lda #13
-    sta counter+2
-
-loop:
-    dec counter         ; 6
-    bne loop            ; 3     9x
-    dec counter+1       ; 6
-    bne loop            ; 3     9x / 256
-    dec counter+2       ; 6
-    bne loop            ; 3     9x / 65535
-    rts                 ; =>    9x + 9x/256 + 9x/65536 = 8000000 => 65536x + 256x + x = 8000000/9*65536 => x = 885416
-    
-    counter: .res 3
-.endproc
-
-.include "msg.asm"
+.include "util.asm"
 .include "str_en.asm"
 .include "ihex.asm"
