@@ -61,6 +61,9 @@ int  I2C_Data[3] = {0, 0, 0};
 bool I2C_Active = false;
 char echo_byte = 0;
 
+uint16_t bootloaderTimer = 0;
+uint8_t bootloaderFlags = 0;
+
 void setup() {  
 #if defined(USE_SERIAL_DEBUG)
     Serial.begin(SERIAL_BPS);
@@ -167,12 +170,20 @@ void loop() {
       Keyboard.ackNMIRequest();
     }
 
+    if (bootloaderTimer > 0) {
+      bootloaderTimer--;
+    }
+
     // DEBUG: turn activity LED on if there are keys in the keybuffer
     delay(10);                                  // Short Delay, required by OneButton if code is short   
 }
 
 void Power_Button_Press() {
-    if (SYSTEM_POWERED == 0) {                  // If Off, turn on
+    if (bootloaderTimer > 0) {
+      bootloaderFlags |= 1;
+      startBootloader();
+    }
+    else if (SYSTEM_POWERED == 0) {                  // If Off, turn on
         PowerOnSeq();
     }
     else {                                      // If On, turn off
@@ -258,7 +269,8 @@ void I2C_Process() {
     }
 
     if (I2C_Data[0] == 0x8f && I2C_Data[1] == 0x31) {
-      startBootloader();
+      bootloaderTimer = 2000;
+      bootloaderFlags = 0;
     }
 }
 
@@ -303,6 +315,15 @@ void I2C_Send() {
           Wire.write(0);
       }
     }
+
+    if (I2C_Data[0] == 0x8e) {
+      if (pgm_read_byte(0x1e00) == 0x8a) {
+        Wire.write(pgm_read_byte(0x1e01));
+      }
+      else {
+        Wire.write(0xff);
+      }
+    }
 }
 
 void Reset_Button_Hold() {
@@ -319,7 +340,11 @@ void Reset_Button_Hold() {
 }
 
 void Reset_Button_Press() {
-    if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
+    if (bootloaderTimer > 0) {
+      bootloaderFlags |= 2;
+      startBootloader();
+    }
+    else if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
         digitalWrite(NMIB_PIN,LOW);             // Press NMI
         delay(NMI_HOLDTIME_MS);
         digitalWrite(NMIB_PIN,HIGH);
@@ -358,7 +383,9 @@ void HardReboot() {                             // This never works via I2C... W
 }
 
 void startBootloader() {
-  ((void(*)(void))0x1e02)();
+  if (bootloaderFlags == 3 && bootloaderTimer > 0) {
+    ((void(*)(void))0x1e02)();
+  }
 }
 
 ISR(TIMER1_COMPA_vect){
