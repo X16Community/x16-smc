@@ -71,11 +71,10 @@ address 0x1E01.
  
 Offset | R/W | Name           | Description
 -------+-----+----------------+-----------------------------------------------
-0x80   |  W  | Transmit       | Send data packet. A packet consists of 8 bytes
-       |     |                | to be written to flash memory and 1 checksum
-       |     |                | byte. The checksum byte is the two's complement
-       |     |                | of the sum of the previous bytes in the packet.
-       |     |                |
+0x80   |  W  | Transmit       | Send data packet. A packet consists of 8 bytes 
+to be written to flash memory and 1 checksum
+byte. The checksum byte is the two's complement
+of the sum of the previous bytes in the packet.
 0x81   |  R  | Commit         | Commit a packet to flash memory. The first
        |     |                | commit is written to flash memory address
        |     |                | 0x0000. The target address is moved forward 8
