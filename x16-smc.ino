@@ -386,6 +386,9 @@ void startBootloader() {
   if (bootloaderFlags == 3 && bootloaderTimer > 0) {
     ((void(*)(void))0x1e02)();
   }
+  else {
+    bootloaderTimer = 50;
+  }
 }
 
 ISR(TIMER1_COMPA_vect){
