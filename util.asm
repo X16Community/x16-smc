@@ -109,6 +109,48 @@ exit:
     rts
 .endproc
 
+;******************************************************************************
+; Function name.......: util_stepdown
+; Purpose.............: 
+; Input...............: X = Start value, or 0 if no value
+; Returns.............: X = Current value
+.proc util_stepdown
+    ; Set start value if X != 0
+    cpx #0
+    beq delete
+    inx
+    stx value
+    bra printval
+
+delete:
+    ldx value
+
+    lda #20
+    jsr KERNAL_CHROUT
+    
+    cpx #10
+    bcc printval
+    lda #20
+    jsr KERNAL_CHROUT
+
+    cpx #100
+    bcc printval
+    lda #20
+    jsr KERNAL_CHROUT
+
+printval:
+    lda value
+    beq exit
+    dea
+    sta value
+    jsr util_print_num
+
+exit:
+    ldx value
+    rts
+
+value: .res 1
+.endproc
 
 ;******************************************************************************
 ; Function name.......: util_countdown
@@ -116,38 +158,13 @@ exit:
 ; Input...............: X = Countdown start value
 ; Returns.............: Nothing
 .proc util_countdown
-    phx
-
-loop:
-    pla
-    pha
-    jsr util_print_num
-
-    plx
-    dex
-    phx
-    cpx #$ff
+    jsr util_stepdown
+    cpx #0
     beq exit
-
     jsr util_delay
-
-    lda #20
-    jsr KERNAL_CHROUT
-
-    cpx #9
-    bcc :+
-    lda #20
-    jsr KERNAL_CHROUT
-
-:   cpx #99
-    bcc :+
-    lda #20
-    jsr KERNAL_CHROUT
-
-:   bra loop
-
+    ldx #0
+    bra util_countdown
 exit:
-    plx
     rts
 .endproc
 

@@ -131,14 +131,30 @@ unsupported_bootloader:
     lda #$31
     jsr I2C_WRITE
 
-    ; Prompt the user to activate bootloader within 20 seconds
+    ; Prompt the user to activate bootloader within 20 seconds, and check if activated
     print str_activate_countdown
     ldx #20
-    jsr util_countdown
+:   jsr util_stepdown
+    cpx #0
+    beq notactivated
+    
+    ldx #I2C_ADDR
+    ldy #$8e
+    jsr I2C_READ
+    cmp #0
+    beq :+
+    jsr util_delay
+    ldx #0
+    bra :-
 
-    ; Wait another 10 seconds to ensure bootloader is ready
-    print str_activate_wait
-    ldx #10
+notactivated:
+    print str_bootloader_not_activated
+    cli
+    rts
+
+    ; Wait another 3 seconds to ensure bootloader is ready
+:   print str_activate_wait
+    ldx #3
     jsr util_countdown
 
     ; Print upload begin alert
