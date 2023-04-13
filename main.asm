@@ -136,7 +136,7 @@ unsupported_bootloader:
     ldx #20
 :   jsr util_stepdown
     cpx #0
-    beq notactivated
+    beq :+
     
     ldx #I2C_ADDR
     ldy #$8e
@@ -147,18 +147,24 @@ unsupported_bootloader:
     ldx #0
     bra :-
 
-notactivated:
+    ; Wait another 5 seconds to ensure bootloader is ready
+:   print str_activate_wait
+    ldx #5
+    jsr util_countdown
+
+    ; Check if bootloader activated
+    ldx #I2C_ADDR
+    ldy #$8e
+    jsr I2C_READ
+    cmp #0
+    beq :+
+
     print str_bootloader_not_activated
     cli
     rts
 
-    ; Wait another 3 seconds to ensure bootloader is ready
-:   print str_activate_wait
-    ldx #3
-    jsr util_countdown
-
     ; Print upload begin alert
-    print str_upload
+:   print str_upload
 
     ; Calculate firmware top in buffer
     clc
