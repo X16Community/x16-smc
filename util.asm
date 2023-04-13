@@ -176,9 +176,9 @@ exit:
 .proc util_delay
     lda #168
     sta counter
-    lda #130
+    lda #70
     sta counter+1
-    lda #13
+    lda #14
     sta counter+2
 
 loop:
