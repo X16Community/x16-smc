@@ -70,11 +70,10 @@ cmd_receive_byte_exit:
 ;              flash memory
 ; In.........: Nothing
 ; Out........: r17 Response value:
-;                  0x00 = OK, packet stored in RAM buffer
 ;                  0x01 = OK, buffer written to flash memory
 ;                  0x02 = Invalid packet size, not equal to 9
 ;                  0x03 = Checksum error
-;                  0x04 = Reserved for future use
+;                  0x04 = Reserved
 ;                  0x05 = Target address overflows into bootloader section (0x1E00..)
 .macro CMD_COMMIT
     ; Move target address into Z

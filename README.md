@@ -1,88 +1,68 @@
 # Purpose
 
-The purpose of this project is to create a custom bootloader for the Commander X16 ATTiny861 based SMC.
+This is a custom "bootloader" for the Commander X16 ATTiny861 based System Management Controller (SMC).
 
-Firmware data is transferred from the computer to the ATTiny over I2C.
+The purpose of the project is to make it possible to update the SMC firmware from the Commander X16 without using an external programmer.
+
+Firmware data is transmitted from the computer to the SMC over I2C.
 
 
-# Building
+# Building the project
 
-The bootloader is made in AVR assembly for the AVRA assembler.
+The bootloader is made in AVR assembly for the AVRA assembler: https://github.com/Ro5bert/avra
 
-Build command: avra -o bootloader.hex main.asm
+The following command builds the project: avra -o bootloader.hex main.asm
 
-There is also a small build script (build.sh).
+There is also a small build script in the repository (build.sh).
 
 
 # Fuse settings
 
-The SMC firmware and the bootloader depends on several fuse settings as set out below:
+The bootloader and the SMC firmware depend on several fuse settings as set out below.
 
-Low fuse value: 0xF1
+The recommended low fuse value is 0xF1. This will run the SMC at 16 MHz.
 
-Bit | Name   | Description         | Value
-----|--------|---------------------|-----------------------------------------
-7   | CKDIV8 | Divide clock by 8   | 1 = Disabled
-6   | CKOUT  | Clock output enable | 1 = Disabled
-5   | SUT1   | Select startup-time | 1 = Consider changing if problems occur
-4   | SUT0   | Select startup-time | 1
-3   | CKSEL3 | Select clock source | 0 = 16 MHz
-2   | CKSEL2 | Select clock source | 0
-1   | CKSEL1 | Select clock source | 0
-0   | CKSEL0 | Select clock source | 1
+The recommended high fuse value is 0xD4. This enables Brown-out Detection at 4.3V, which is necessary to prevent flash memory corruption when self-programming is enabled. Serial Programming should be enabled (bit 5) and external reset disable should not be selected (bit 7). These settings are necessary for programming the SMC with an external programmer.
 
-High fuse value: 0xD4
-
-Bit | Name     | Description                                       | Value
-----|----------|---------------------------------------------------|-----------------------------------------
-7   | RSTDISBL | External reset disable                            | 1 = Disabled
-6   | DWEN     | DebugWIRE Enable                                  | 1 = Disabled
-5   | SPIEN    | Enable Serial Program and Data Downloading        | 0 = Enabled
-4   | WDTON    | Watchdog Timer always on                          | 1 = Disabled
-3   | EESAVE   | EEPROM memory is preserved through the Chip Erase | 0 = Enabled
-2   | BODLEVEL2 | Brown-out Detector trigger level                 | 1 = BOD level 4.3 V
-1   | BODLEVEL1 | Brown-out Detector trigger level                 | 0
-0   | BODLEVEL0 | Brown-out Detector trigger level                 | 0
-
-RSTDISBL prevents serial programming if enabled.
-
-SPIEN must be enbaled for serial programming.
-
-Brown-out detection is necessary to precent flash memory corruption when the SELFPRGEN fuse bit is enabled.
-
-Extended fuse value: 0xFE
-
-Bit | Name      | Description                                       | Value
-----|-----------|---------------------------------------------------|-----------------------------------------
-0   | SELFPRGEN | Self-Programming Enable                           | 0 = Enabled
+Finally, the extended fuse value must be 0xFE to enable self-programming of the flash memory. The bootloader cannot work without this setting.
 
 
-# Version ID
+# Initial programming of the SMC
 
-The bootloader version ID is stored in flash memory at the
-start of the bootloader section.
+The initial programming of the SMC must be done with an external programmer.
 
-Address 0x1E00 contain a magic number (0x8A) and the bootloader API version number is stored in
-address 0x1E01.
+You may build the SMC firmware with the Arduino IDE as normal.
 
+Use the merge.sh script to concatenate the firmware file (x16-smc.ino.hex) and the bootloader. This will output the file build/firmware+bootloader.hex.
+
+To make it a bit easier to find where the x16.smc.ino.hex file is stored in your file system, you may enable verbose output in the IDE. Go to Arduino/Preferences and tick the Show verbose output during compilation box.
+
+
+# Memory map
+
+Address         | Description
+--------------- | -------------
+0x0000..0x1DFF  | Firmware section
+0x1E00..0x1FFF  | Bootloader section
+0x1E00          | Bootloader magic value = 0x8A
+0x1E01          | Bootloader API version
+0x1E02          | Bootloader entry point
 
 # I2C API
 
-## Command 0x80 = Transmit (write)
+## Command 0x80 = Transmit (master write)
 
-The transmit command is used to send a data packet.
+The transmit command is used to send a data packet to the bootloader.
 
 A packet consists of 8 bytes to be written to flash and 1 checksum byte.
 
-The checksum is the two's complement of the previous bytes in the packet.
+The checksum is the two's complement of the least significant byte of the sum of the previous bytes in the packet. The least signifant byte of the sum of all 9 bytes in a packet will consequently always be 0.
 
-## Command 0x81 = Commit (read)
+## Command 0x81 = Commit (master read)
 
-After sending a data packet, use this command to commit the transfer to
-flash memory.
+After a data packet of 9 bytes has been transmitted it must be committed with this command. 
 
-The first commit is written to flash memory address 0x0000. The target address
-is moved forward 8 bytes on each successful commit.
+The first commit will target flash memory address 0x0000. The target address is moved forward 8 bytes on each successful commit.
 
 The command returns 1 byte. The possible return values are:
 
@@ -94,14 +74,30 @@ Value | Description
 4     | Reserved
 5     | Error, overwriting bootloader section
 
-## Command 0x82 = Reboot (write)
+## Command 0x82 = Reboot (master write)
 
 The reboot command must always be called after the last packet
 has been committed. If not, the SMC will be left in an inoperable
 state.
 
-The command also writes any buffered data to flash.
+The command first writes any buffered data to flash.
 
-Currently the SMC is not rebooted, but left in an infinte loop. To
-reboot the SMC you need to remove power to the computer's power
-supply.
+Then the bootloader enters an infinite loop waiting for the user to remove power from the system to reboot the SMC.
+
+# Typical usage
+
+The client program will typically work as set out below:
+
+* Verify that it supports the bootloader API version
+
+* Request that the SMC firmware jumps to the bootloader entry point
+
+* Wait for the bootloader to initialize
+
+* Send a data packet with command 0x80
+
+* Commit the data packet with command 0x81
+
+* Resend the packet if an error occured, otherwise repeat until all packets have been sent and committed
+
+* Send reboot command
