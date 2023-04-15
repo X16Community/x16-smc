@@ -86,7 +86,7 @@ Then the bootloader enters an infinite loop waiting for the user to remove power
 
 # Typical usage
 
-The client program will typically work as set out below:
+A client program will typically work as set out below:
 
 * Verify that it supports the bootloader API version
 
