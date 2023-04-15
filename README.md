@@ -58,7 +58,7 @@ The transmit command is used to send a data packet to the bootloader.
 
 A packet consists of 8 bytes to be written to flash and 1 checksum byte.
 
-The checksum is the two's complement of the least significant byte of the sum of the previous bytes in the packet. The least signifant byte of the sum of all 9 bytes in a packet will consequently always be 0.
+The checksum is the two's complement of the least significant byte of the sum of the previous bytes in the packet. The least significant byte of the sum of all 9 bytes in a packet will consequently always be 0.
 
 ## Command 0x81 = Commit (master read)
 
