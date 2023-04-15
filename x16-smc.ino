@@ -348,7 +348,7 @@ void DoReset() {
 }
 
 void DoNMI() {
-    if (SYSTEM_POWERED == 1 && bootloaderTimer >0 ) {   // Ignore unless Powered On; also ignore if bootloader timer is active
+    if (SYSTEM_POWERED == 1 && bootloaderTimer == 0 ) {   // Ignore unless Powered On; also ignore if bootloader timer is active
         digitalWrite(NMIB_PIN,LOW);                     // Press NMI
         delay(NMI_HOLDTIME_MS);
         digitalWrite(NMIB_PIN,HIGH);
