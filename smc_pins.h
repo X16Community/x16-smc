@@ -44,33 +44,11 @@ ATTINY861 Pinout
 
 #endif
 
-#if defined(__AVR_ATmega328P__)
-
-#if defined(DEBUG)
-#define USE_SERIAL_DEBUG
+#if defined(BURKS_BOARD)
+  #define NMI_BUTTON_PIN     3
+  #define POWER_BUTTON_PIN   4
+  #define IRQB_PIN           7
+  #define PWR_OK             6
+  #define ACT_LED            9
 #endif
 
-// Button definitions
-
-#define PS2_KBD_CLK       3  
-#define PS2_KBD_DAT       A3
-#define PS2_MSE_CLK       2
-#define PS2_MSE_DAT       A1
-
-#define I2C_SDA_PIN       A4
-#define I2C_SCL_PIN       A5
-
-#define NMI_BUTTON_PIN    A0
-#define RESET_BUTTON_PIN  A2
-#define POWER_BUTTON_PIN  4
-
-#define RESB_PIN          5
-#define NMIB_PIN          6
-#define IRQB_PIN          7
-
-#define PWR_ON            8
-#define PWR_OK            9
-
-#define ACT_LED           10
-
-#endif
