@@ -33,7 +33,7 @@ The initial programming of the SMC must be done with an external programmer.
 
 You may build the SMC firmware with the Arduino IDE as normal.
 
-Use the merge.sh script to concatenate the firmware file (x16-smc.ino.hex) and the bootloader. This will output the file build/firmware+bootloader.hex.
+Use the merge.sh script to concatenate the firmware file (x16-smc.ino.hex) and the bootloader. This will output the file build/firmware+bootloader.hex, which is the file you need to upload to the SMC.
 
 To make it a bit easier to find where the x16.smc.ino.hex file is stored in your file system, you may enable verbose output in the IDE. Go to Arduino/Preferences and tick the Show verbose output during compilation box.
 
