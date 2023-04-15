@@ -31,9 +31,11 @@ Finally, the extended fuse value must be 0xFE to enable self-programming of the 
 
 The initial programming of the SMC must be done with an external programmer.
 
+The bootloader may be built with the build.sh script. This outputs the file build/bootloader.hex.
+
 You may build the SMC firmware with the Arduino IDE as normal.
 
-Use the merge.sh script to concatenate the firmware file (x16-smc.ino.hex) and the bootloader. This will output the file build/firmware+bootloader.hex, which is the file you need to upload to the SMC.
+Use the merge.sh script to concatenate the firmware file (x16-smc.ino.hex) and build/bootloader.hex. This will output the file build/firmware+bootloader.hex, which is the file you need to upload to the SMC.
 
 To make it a bit easier to find where the x16.smc.ino.hex file is stored in your file system, you may enable verbose output in the IDE. Go to Arduino/Preferences and tick the Show verbose output during compilation box.
 
