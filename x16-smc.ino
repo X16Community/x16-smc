@@ -4,7 +4,8 @@
 //     Michael Steil
 //     Joe Burks
 
-//#define ENABLE_NMI_BUT
+//#define BURKS_BOARD
+#define ENABLE_NMI_BUT
 //#define KBDBUF_FULL_DBG
 
 #include "smc_button.h"
@@ -19,8 +20,8 @@
 #error "X16 SMC only builds for ATtiny861 and ATmega328P"
 #endif
 
-#define PWR_ON_MIN_MS          100
-#define PWR_ON_MAX_MS          500
+#define PWR_ON_MIN_MS          1
+#define PWR_ON_MAX_MS          750
 // Hold PWR_ON low while computer is on.  High while off.
 // PWR_OK -> Should go high 100ms<->500ms after PWR_ON invoked.
 //           Any longer or shorter is considered a fault.
@@ -54,6 +55,16 @@ void keyboardClockIrq() {
 
 void mouseClockIrq() {
     Mouse.onFallingClock();
+}
+
+void assertReset() {
+  pinMode(RESB_PIN,OUTPUT);
+  digitalWrite(RESB_PIN, RESET_ACTIVE);
+}
+
+void deassertReset() {
+    digitalWrite(RESB_PIN, RESET_INACTIVE);
+    pinMode(RESB_PIN,INPUT);
 }
 
 bool SYSTEM_POWERED = 0;                                // default state - Powered off
@@ -93,18 +104,6 @@ void setup() {
   TIMSK |= 1 << OCIE1A;
 #endif
 
-#if defined(__AVR_ATmega328P__)
-    TCCR1A = 0;
-    TCCR1B = 0; 
-    TCNT1 = 0;
-  
-    TCCR1B |= 8;  //Clear Timer on Compare Match (CTC) Mode
-    TCCR1B |= 2;  //Prescale 8x => 1 tick = 0.5 us @ 16 MHz
-    OCR1A = 200;   //200 x 0.5 us = 100 us
-  
-    TIMSK1 = (1<<OCIE1A);
-#endif
-
     //Timer 1 interrupt setup is done, enable interrupts
     sei();
 
@@ -115,15 +114,14 @@ void setup() {
     Wire.onReceive(I2C_Receive);                        // Used to Receive Data
     Wire.onRequest(I2C_Send);                           // Used to Send Data, may never be used
 
-    POW_BUT.attachClick(Power_Button_Press);            // Should the Power off be long, or short?
-    POW_BUT.attachDuringLongPress(Power_Button_Press);  // Both for now
+    POW_BUT.attachClick(DoPowerToggle);            // Should the Power off be long, or short?
+    POW_BUT.attachDuringLongPress(DoPowerToggle);  // Both for now
 
-    RES_BUT.attachClick(Reset_Button_Press);            // Short Click = NMI, Long Press = Reset
-    RES_BUT.attachDuringLongPress(Reset_Button_Hold);   // Actual Reset Call
+    RES_BUT.attachClick(DoReset);
+    RES_BUT.attachDuringLongPress(DoReset);
 
 #if defined(ENABLE_NMI_BUT)
-    NMI_BUT.attachClick(Reset_Button_Press);            // NMI Call is the same as short Reset
-    NMI_BUT.attachClick(HardReboot);                  // strangely, this works fine via NMI push, but fails via I2C?
+    NMI_BUT.attachClick(DoNMI);
 #endif
 
     pinMode(PWR_OK, INPUT);
@@ -133,9 +131,8 @@ void setup() {
     pinMode(ACT_LED, OUTPUT);
     analogWrite(ACT_LED, 0);
 
-    pinMode(RESB_PIN,OUTPUT);
-    digitalWrite(RESB_PIN, RESET_ACTIVE);                 // Hold Reset on startup
-
+    assertReset();                 // Hold Reset on startup
+    
     pinMode(NMIB_PIN,OUTPUT);
     digitalWrite(NMIB_PIN,HIGH);
 
@@ -161,12 +158,12 @@ void loop() {
     }
 
     if (Keyboard.getResetRequest()) {
-     Reset_Button_Hold();
+     DoReset();
      Keyboard.ackResetRequest();
     }
 
     if (Keyboard.getNMIRequest()) {
-      Reset_Button_Press();
+      DoNMI();
       Keyboard.ackNMIRequest();
     }
 
@@ -178,7 +175,7 @@ void loop() {
     delay(10);                                  // Short Delay, required by OneButton if code is short   
 }
 
-void Power_Button_Press() {
+void DoPowerToggle() {
     if (bootloaderTimer > 0) {
       bootloaderFlags |= 1;
       startBootloader();
@@ -233,13 +230,13 @@ void I2C_Process() {
     }
     if (I2C_Data[0] == 2) {                     // 1st Byte : Byte 2 - Reset Event(s)
         switch (I2C_Data[1]) {
-            case 0:Reset_Button_Hold();         // 2nd Byte : 0 - Reset button Press
+            case 0:DoReset();         // 2nd Byte : 0 - Reset button Press
                 break;
         }
     }
     if (I2C_Data[0] == 3) {                     // 1st Byte : Byte 3 - NMI Event(s)
         switch (I2C_Data[1]) {
-            case 0:Reset_Button_Press();        // 2nd Byte : 0 - NMI button Press
+            case 0:DoNMI();        // 2nd Byte : 0 - NMI button Press
                 break;
         }
     }
@@ -280,7 +277,8 @@ void I2C_Send() {
     if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
       if (kbd_init_state == KBD_READY && Keyboard.available()) {
           nextKey  = Keyboard.next();
-          Wire.write(nextKey);
+          if (nextKey == 0xAA) { kbd_init_state = MOUSE_INIT_STATE::START_RESET; } //Reset the keyboard if hotplugged Adrian Black
+          else { Wire.write(nextKey); }
       }
       else {
           Wire.write(0);
@@ -299,8 +297,9 @@ void I2C_Send() {
       if (Mouse.count()>2){
           uint8_t buf[3];  
           buf[0] = Mouse.next();
-      
-          if ((buf[0] & 0xc8) == 0x08){
+          if (buf[0] == 0xaa) { mouse_init_state = MOUSE_INIT_STATE::START_RESET; } //reset mouse if hotplugged Adrian Black
+          else {
+           if ((buf[0] & 0xc8) == 0x08){
               //Valid first byte - Send mouse data packet
               buf[1] = Mouse.next();
               buf[2] = Mouse.next();
@@ -308,8 +307,11 @@ void I2C_Send() {
           }
           else{
               //Invalid first byte - Discard, and return a 0
+              mouse_init_state = MOUSE_INIT_STATE::START_RESET; // reset the mouse if the response is invalid Adrian Black
               Wire.write(0);
           }
+          }
+          
       }
       else{
           Wire.write(0);
@@ -326,26 +328,28 @@ void I2C_Send() {
     }
 }
 
-void Reset_Button_Hold() {
+void DoReset() {
+    if (bootloaderTimer > 0) {
+      bootloaderFlags |= 2;
+      startBootloader();
+      return;
+    }
+
     Keyboard.flush();
     Mouse.reset();
     if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
-        digitalWrite(RESB_PIN, RESET_ACTIVE);    // Press RESET
+        assertReset();
         delay(RESB_HOLDTIME_MS);
-        digitalWrite(RESB_PIN, RESET_INACTIVE);
+        deassertReset();
         analogWrite(ACT_LED, 0);
         mouse_init_state = MOUSE_INIT_STATE::START_RESET;
         kbd_init_state = MOUSE_INIT_STATE::START_RESET;
     }
 }
 
-void Reset_Button_Press() {
-    if (bootloaderTimer > 0) {
-      bootloaderFlags |= 2;
-      startBootloader();
-    }
-    else if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
-        digitalWrite(NMIB_PIN,LOW);             // Press NMI
+void DoNMI() {
+    if (SYSTEM_POWERED == 1 && bootloaderTimer >0 ) {   // Ignore unless Powered On; also ignore if bootloader timer is active
+        digitalWrite(NMIB_PIN,LOW);                     // Press NMI
         delay(NMI_HOLDTIME_MS);
         digitalWrite(NMIB_PIN,HIGH);
     }
@@ -354,11 +358,13 @@ void Reset_Button_Press() {
 void PowerOffSeq() {
     digitalWrite(PWR_ON, HIGH);                 // Turn off supply
     SYSTEM_POWERED=0;                           // Global Power state Off
-    digitalWrite(RESB_PIN, RESET_ACTIVE);
+    assertReset();
     delay(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
+    deassertReset();
 }
 
 void PowerOnSeq() {
+    assertReset();
     digitalWrite(PWR_ON, LOW);                  // turn on power supply
     unsigned long TimeDelta = 0;
     unsigned long StartTime = millis();         // get current time
@@ -370,10 +376,11 @@ void PowerOnSeq() {
         // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
     }
     else {
+        Keyboard.reset();
         delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
         SYSTEM_POWERED=1;                       // Global Power state On
-        digitalWrite(RESB_PIN, RESET_INACTIVE); // Release Reset
     }
+    deassertReset();
 }
 
 void HardReboot() {                             // This never works via I2C... Why!!!
