@@ -61,4 +61,6 @@ whole system. The SMC reboots to the new firmware as power is reconnected.
 
 Should the update process fail it is likely that the SMC is left in an inoperable state.
 
-To unbrick the SMC you need to program it with an external programmer. One alternative is to use an Arduino Uno as ISP.
+To unbrick the SMC you need to program it with an external programmer.
+
+For more information on this, go to https://github.com/X16Community/x16-docs/blob/master/X16%20Reference%20-%2013%20-%20Upgrade%20Guide.md
