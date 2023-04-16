@@ -1,4 +1,3 @@
-IHEX_STATE_EMPTY            = 0
 IHEX_STATE_STARTCODE        = 1
 IHEX_STATE_BYTECOUNT_H      = 2
 IHEX_STATE_BYTECOUNT_L      = 3
@@ -14,6 +13,7 @@ IHEX_STATE_CHECKSUM_H       = 12
 IHEX_STATE_CHECKSUM_L       = 13
 IHEX_STATE_EOF              = 14
 IHEX_STATE_ERR              = 15
+IHEX_CHECKSUM_ERR           = 16
 
 ;******************************************************************************
 ;Function name.......: ihex_load
@@ -38,6 +38,9 @@ loop:
     jsr ihex_read_record
     cmp #IHEX_STATE_CHECKSUM_L
     bne err
+
+    lda ihex_checksum               ; Verify checksum
+    bne checksumerr
 
     lda ihex_type
     pha
@@ -73,6 +76,10 @@ eof:
     jsr ihex_close
     clc
     rts
+
+checksumerr:
+    lda #IHEX_CHECKSUM_ERR
+    sta ihex_state
 
 err:
     ; An error occured, exit
@@ -220,7 +227,7 @@ lo_nibble:
 :   cpx #IHEX_STATE_TYPE_L
     bne :++
     sta ihex_type
-    lda ihex_bytecount
+    ldx ihex_bytecount
     bne :+
     inc ihex_state
     inc ihex_state

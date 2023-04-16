@@ -34,6 +34,9 @@ str_failed:
 str_overflow:
     .byt "failed, bootloader area overflow",13,0
 
+str_checksumerr:
+    .byt "failed, checksum error",13,0
+
 str_activate_prompt:
     .byt 13, "to activate the smc bootloader, first press enter on the keyboard",13
     .byt "and within 20 seconds thereafter press and release the power and",13

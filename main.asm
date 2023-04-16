@@ -52,6 +52,17 @@ tmp1                = $22
     cmp #BOOTLOADER_MAX_VERSION+1
     bcs unsupported_bootloader
 
+nobootloader:
+    print str_nobootloader
+    jmp exit
+
+unsupported_bootloader:
+    pha
+    print str_unsupported_bootloader
+    pla
+    jsr util_print_num
+    bra exit
+
     ; Print warning
     print str_warning
 
@@ -93,7 +104,12 @@ confirmed:
     bra exit
 
 err:
+    lda ihex_state
+    cmp #IHEX_CHECKSUM_ERR
+    beq :+
     print str_failed
+    bra exit
+:   print str_checksumerr
 
 exit:
     pla
@@ -104,16 +120,6 @@ overflow:
     print str_overflow
     bra exit
 
-nobootloader:
-    print str_nobootloader
-    bra exit
-
-unsupported_bootloader:
-    pha
-    print str_unsupported_bootloader
-    pla
-    jsr util_print_num
-    bra exit
 .endproc
 
 ;******************************************************************************
