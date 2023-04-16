@@ -15,9 +15,9 @@
 #include "ps2.h"
 #include "mouse.h"
 
-// If not ATtiny861, we expect ATMega328p
-#if !defined(__AVR_ATmega328P__) && !defined(__AVR_ATtiny861__)
-#error "X16 SMC only builds for ATtiny861 and ATmega328P"
+// Build only for ATtiny861
+#if !defined(__AVR_ATtiny861__)
+#error "X16 SMC only builds for ATtiny861"
 #endif
 
 #define PWR_ON_MIN_MS          1
