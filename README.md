@@ -12,7 +12,7 @@ To run the SMC update program a bootloader must be installed in the SMC, and the
 
 * Bootloader: https://github.com/stefan-b-jakobsson/x16-smc-bootloader
 
-* Firmware support, not yet merged into the X16Commonity master branch: https://github.com/X16Community/x16-smc/pull/5
+* Firmware support, not yet merged into the X16Community master branch: https://github.com/X16Community/x16-smc/pull/5
 
 
 # Usage
