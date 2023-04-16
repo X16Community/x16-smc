@@ -54,7 +54,8 @@ str_upload:
     .byt 13, 13, "uploading firmware.",13,0
 
 str_done:
-    .byt 13, "done. disconnect power and wait approx. 20 seconds before reconnecting to reboot the system.",0
+    .byt 13, "done. disconnect power and wait approx. 20 seconds before",13
+    .byt "reconnecting to reboot the system.",0
 
 str_updatefailed:
     .byt 13, "update failed.",0
