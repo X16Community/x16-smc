@@ -51,6 +51,7 @@ tmp1                = $22
     bcc unsupported_bootloader
     cmp #BOOTLOADER_MAX_VERSION+1
     bcs unsupported_bootloader
+    bra warning
 
 nobootloader:
     print str_nobootloader
@@ -64,6 +65,7 @@ unsupported_bootloader:
     bra exit
 
     ; Print warning
+warning:
     print str_warning
 
     ; Confirm to continue
