@@ -1,6 +1,6 @@
 # Purpose
 
-A client program running in the Commander X16 that updates the ATTiny861 based System Management Controller (SMC) firmware.
+A client program running on the Commander X16 that updates the ATTiny861 based System Management Controller (SMC) firmware.
 
 The purpose of the program is to make it possible to update the SMC firmware without an external programmer. Firmware data is
 transmitted over I2C.
@@ -12,7 +12,7 @@ To run the SMC update program a bootloader must be installed in the SMC, and the
 
 * Bootloader: https://github.com/stefan-b-jakobsson/x16-smc-bootloader
 
-* Firmware support is not yet merged into the X16Commonity master branch: https://github.com/X16Community/x16-smc/pull/5
+* Firmware support, not yet merged into the X16Commonity master branch: https://github.com/X16Community/x16-smc/pull/5
 
 
 # Usage
@@ -27,7 +27,7 @@ enough storage in the ATTiny861 to implement that. A warning is displayed about 
 become inoperable ("bricked") if the update process is interrupted or fails.
 
 The new firmware you want to upload must be stored on the SD card (device #8) as an Intel HEX formatted file. This
-is the binary format outputted by the Arduino IDE and used by the avrdude utility.
+is the same binary format outputted by the Arduino IDE and used by the avrdude utility.
 
 The firmware must not overwrite the section of flash memory where the bootloader is stored (0x1E00..0x1FFF). The update
 will be aborted if the HEX file contains data to be written to this memory section. Consequently, the SMC update
@@ -54,7 +54,7 @@ In the event of an error, the SMC update program attempts to resend the same pac
 update.
 
 When the update is done the bootloader waits in an infinite loop for the user to remove power from the
-whole system. The SMC will reboot to the new firmware as power is reconnected.
+whole system. The SMC reboots to the new firmware as power is reconnected.
 
 
 # Unbricking the SMC
