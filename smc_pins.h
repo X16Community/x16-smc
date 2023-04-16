@@ -46,9 +46,7 @@ ATTINY861 Pinout
 
 #if defined(BURKS_BOARD)
   #define NMI_BUTTON_PIN     3
-  #define POWER_BUTTON_PIN   4
   #define IRQB_PIN           7
   #define PWR_OK             6
   #define ACT_LED            9
 #endif
-
