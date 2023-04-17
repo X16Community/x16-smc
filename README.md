@@ -57,6 +57,9 @@ When the update is done the bootloader waits in an infinite loop for the user to
 whole system. The SMC reboots to the new firmware as power is reconnected.
 
 
+https://user-images.githubusercontent.com/70063525/232566890-c397f7e5-9286-43c7-a572-064be95392c7.mov
+
+
 # Unbricking the SMC
 
 Should the update process fail it is likely that the SMC is left in an inoperable state.
