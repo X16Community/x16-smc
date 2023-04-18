@@ -1,64 +1,74 @@
+COL_DEFAULT = $05
+COL_BG      = $1f
+COL_WARN    = $9e
+COL_OK      = $1e
+COL_ERR     = $96
+COL_SWAP    = $01 
+SCR_CLS     = 147
+SCR_PETSCII = $8f
+SCR_LOWER   = $0e
+
 str_appname:
-    .byt 147
-    .byt "x16 system management controller update",13
-    .byt "version 1.0",13,13
-    .byt "this updates the firmware of the attiny861 based smc",13
-    .byt "for x16 gen-1.",13,13,0
+    .byt SCR_PETSCII, SCR_LOWER, COL_BG, COL_SWAP, COL_DEFAULT, SCR_CLS
+    .byt 13, "               COMMANDER X16 SYSTEM MANAGEMENT CONTROLLER UPDATE",13
+    .byt 13, "                                  Version 1.0"
+    .byt 13,13,13, "This updates the firmware of the ATtiny861 based SMC for X16 GEN-1.",13,13,0
 
 str_nobootloader:
-    .byt "bootloader not found.",0
+    .byt "Bootloader not found.",0
 
 str_unsupported_bootloader:
-    .byt "unsupported bootloader version: ",0
+    .byt "Unsupported bootloader version: ",0
 
 str_warning:
-    .byt "warning: the system may become inoperable if the update is",13
-    .byt "interrupted or otherwise fails. in the event of this the",13
-    .byt "smc firmware must be updated with an external programmer.",13,0
+    .byt COL_WARN, "WARNING: ", COL_DEFAULT
+    .byt "The system may become inoperable if the update is",13
+    .byt "         interrupted or otherwise fails. In the event of this the",13
+    .byt "         SMC firmware must be updated with an external programmer.",13,0
 
 str_continue:
-    .byt 13,"continue (y/n): ",0
+    .byt 13,"Continue (Y/N): ",0
 
 str_filename:
-    .byt 13, 13, "hex file: ",0
+    .byt 13, 13, "HEX file name: ",0
 
 str_loading:
-    .byt 13, "loading hex file... ",0
+    .byt 13, "Loading HEX file... ",0
 
 str_ok:
-    .byt "ok",13,0
+    .byt COL_OK, "OK", COL_DEFAULT, 13,0
 
 str_failed:
-    .byt "failed",13,0
+    .byt COL_ERR, "FAILED", COL_DEFAULT, 13,0
 
 str_overflow:
-    .byt "failed, bootloader area overflow",13,0
+    .byt COL_ERR, "Failed, bootloader area overflow", COL_DEFAULT, 13,0
 
 str_checksumerr:
-    .byt "failed, checksum error",13,0
+    .byt COL_ERR, "failed, checksum error", COL_DEFAULT, 13,0
 
 str_activate_prompt:
-    .byt 13, "to activate the smc bootloader, first press enter on the keyboard",13
-    .byt "and within 20 seconds thereafter press and release the power and",13
-    .byt "reset buttons on the computer. the power and reset buttons must be",13
+    .byt 13, "To activate the SMC bootloader, first press Enter on the keyboard",13
+    .byt "and within 20 seconds thereafter press and release the Power and",13
+    .byt "Reset buttons on the computer. The Power and Reset buttons must be",13
     .byt "pressed within 0.5 seconds of each other.",13,13
-    .byt "press enter: ",0
+    .byt "Press Enter: ",0
 
 str_activate_countdown:
-    .byt 13, "press power and reset buttons... ", 0
+    .byt 13, "Press Power and Reset buttons... ", 0
 
 str_activate_wait:
-    .byt 13, "waiting for smc bootloader to initialize... ", 0
+    .byt 13, "Waiting for SMC bootloader to initialize... ", 0
 
 str_upload:
-    .byt 13, 13, "uploading firmware.",13,0
+    .byt 13, 13, "Uploading firmware",13,0
 
 str_done:
-    .byt 13, "done. disconnect power and wait approx. 20 seconds before",13
-    .byt "reconnecting to reboot the system.",0
+    .byt 13, COL_OK, "Done.", COL_DEFAULT, 13, 13
+    .byt "disconnect power and wait approx. 20 seconds before reconnecting to reboot the system.",0
 
 str_updatefailed:
-    .byt 13, "update failed.",0
+    .byt 13, 13, COL_ERR, "Update failed.", COL_DEFAULT, 0
 
 str_bootloader_not_activated:
-    .byt 13,"update aborted, bootloader not activated.",0
+    .byt 13, 13, COL_ERR, "Update aborted, bootloader not activated.", COL_DEFAULT, 0
