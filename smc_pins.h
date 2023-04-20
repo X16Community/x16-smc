@@ -44,7 +44,7 @@ ATTINY861 Pinout
 
 #endif
 
-#if defined(BURKS_BOARD)
+#if defined(COMMUNITYX16_PINS)
   #define NMI_BUTTON_PIN     3
   #define IRQB_PIN           7
   #define PWR_OK             6

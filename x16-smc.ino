@@ -4,7 +4,7 @@
 //     Michael Steil
 //     Joe Burks
 
-//#define BURKS_BOARD
+//#define COMMUNITYX16_PINS
 #define ENABLE_NMI_BUT
 //#define KBDBUF_FULL_DBG
 
