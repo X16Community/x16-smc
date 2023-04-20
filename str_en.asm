@@ -10,7 +10,7 @@ SCR_LOWER   = $0e
 
 str_appname:
     .byt SCR_PETSCII, SCR_LOWER, COL_BG, COL_SWAP, COL_DEFAULT, SCR_CLS
-    .byt 13, "               COMMANDER X16 SYSTEM MANAGEMENT CONTROLLER UPDATE",13
+    .byt 13, "              COMMANDER X16 SYSTEM MANAGEMENT CONTROLLER UPDATE",13
     .byt 13, "                                  Version 1.0"
     .byt 13,13,13, "This updates the firmware of the ATtiny861 based SMC for X16 GEN-1.",13,13,0
 
@@ -42,10 +42,10 @@ str_failed:
     .byt COL_ERR, "FAILED", COL_DEFAULT, 13,0
 
 str_overflow:
-    .byt COL_ERR, "Failed, bootloader area overflow", COL_DEFAULT, 13,0
+    .byt COL_ERR, "FAILED, bootloader area overflow", COL_DEFAULT, 13,0
 
 str_checksumerr:
-    .byt COL_ERR, "failed, checksum error", COL_DEFAULT, 13,0
+    .byt COL_ERR, "FAILED, checksum error", COL_DEFAULT, 13,0
 
 str_activate_prompt:
     .byt 13, "To activate the SMC bootloader, first press Enter on the keyboard",13
@@ -64,8 +64,9 @@ str_upload:
     .byt 13, 13, "Uploading firmware",13,0
 
 str_done:
-    .byt 13, COL_OK, "Done.", COL_DEFAULT, 13, 13
-    .byt "disconnect power and wait approx. 20 seconds before reconnecting to reboot the system.",0
+    .byt 13, COL_OK, "Update successful.", COL_DEFAULT, 13, 13
+    .byt "Disconnect power and wait approx. 20 seconds before reconnecting to", 13
+    .byt "reboot the system.",0
 
 str_updatefailed:
     .byt 13, 13, COL_ERR, "Update failed.", COL_DEFAULT, 0
