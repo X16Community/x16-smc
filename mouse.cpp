@@ -204,10 +204,6 @@ void KeyboardTick()
   }
 
   PS2_CMD_STATUS kstatus = Keyboard.getCommandStatus();
-  if (kstatus == PS2_CMD_STATUS::CMD_PENDING)
-  {
-    return;
-  }
   
   switch(kbd_init_state)
   {
@@ -221,6 +217,10 @@ void KeyboardTick()
       break;
 
     case POWERUP_BAT_WAIT:
+      if (kstatus == PS2_CMD_STATUS::CMD_PENDING)
+      {
+        break;
+      }
       if (Keyboard.available()) {
         uint8_t b = Keyboard.next();
         if (b == BAT_OK)
@@ -229,26 +229,30 @@ void KeyboardTick()
           next_state = KBD_SET_LEDS1;
           MOUSE_REARM_WATCHDOG();
         } else if (b == BAT_FAIL) {
-          next_state = FAILED;
+          next_state = FAIL_RETRY;
         }
         // Let watchdog send us to START_RESET if we don't get BAT
       }
       break;
 
     case START_RESET:
-      Keyboard.flush();
+      Keyboard.reset();
       Keyboard.sendPS2Command(mouse_command::RESET);
-      MOUSE_WATCHDOG(FAILED);
+      MOUSE_WATCHDOG(FAIL_RETRY);
       next_state = RESET_ACK_WAIT;
       break;
 
     case RESET_ACK_WAIT:
+      if (kstatus == PS2_CMD_STATUS::CMD_PENDING)
+      {
+        break;
+      }
       if (kstatus == mouse_command::ACK) {
         Keyboard.next();
         MOUSE_REARM_WATCHDOG();
         next_state = POWERUP_BAT_WAIT;
       } else {
-        next_state = FAILED; // Assume an error of some sort.
+        next_state = FAIL_RETRY; // Assume an error of some sort.
       }
       break;
 
@@ -260,9 +264,13 @@ void KeyboardTick()
       break;
 
     case SET_LEDS1_ACK_WAIT:
+      if (kstatus == PS2_CMD_STATUS::CMD_PENDING)
+      {
+        break;
+      }
       Keyboard.next();
       if (kstatus != PS2_CMD_STATUS::CMD_ACK) {
-        next_state = FAILED;
+        next_state = FAIL_RETRY;
       } else {
         next_state = SET_LEDS2_ACK_WAIT;
         Keyboard.sendPS2Command(kbd_status_leds);
@@ -271,9 +279,13 @@ void KeyboardTick()
       break;
 
     case SET_LEDS2_ACK_WAIT:
+      if (kstatus == PS2_CMD_STATUS::CMD_PENDING)
+      {
+        break;
+      }
       Keyboard.next();
       if (kstatus != PS2_CMD_STATUS::CMD_ACK) {
-        next_state = FAILED;
+        next_state = FAIL_RETRY;
       } else {
         next_state = KBD_READY;
         MOUSE_DISARM_WATCHDOG();
@@ -281,6 +293,11 @@ void KeyboardTick()
       break;
 
     case KBD_READY:
+      break;
+
+    case FAIL_RETRY:
+      MOUSE_REARM_WATCHDOG();
+      next_state = FAILED;
       break;
 
     default:

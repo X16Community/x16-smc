@@ -39,6 +39,7 @@ typedef enum MOUSE_INIT_STATE : uint8_t {
   SET_LEDS2_ACK_WAIT,
   KBD_READY,
   
+  FAIL_RETRY = 254,
   FAILED = 255
 } MOUSE_INIT_STATE_T;
 
