@@ -532,6 +532,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           break;
 
         case 0x47:
+          if (!buffer_overrun) bufferAdd(126);
           scancode_state = 0x00;
           break;
 
