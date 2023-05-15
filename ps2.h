@@ -414,7 +414,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           return 95;
         case 0x5a:  // KP enter
           return 108;
-        case 0x12:  // KP PrtScr
+        case 0x7c:  // KP PrtScr
           return 124;
         case 0x15:  // Pause/Break
           return 126;
