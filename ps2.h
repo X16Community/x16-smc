@@ -340,6 +340,26 @@ enum PS2_MODIFIER_STATE : uint8_t {
   RWIN = 128
 };
 
+const uint8_t PS2_REG_SCANCODES[] PROGMEM = {
+  120, 0, 116, 114, 112, 113, 123, 0,
+  121, 119, 117, 115, 16, 1, 0, 0,
+  60, 44, 0, 58, 17, 2, 0, 0,
+  0, 46, 32, 31, 18, 3, 0, 0,
+  48, 47, 33, 19, 5, 4,  0, 0,
+  61, 49, 34, 21, 20, 6, 0, 0,
+  51, 50, 36, 35, 22, 7, 0, 0,
+  0, 52, 37, 23, 8, 9, 0, 0,
+  53, 38, 24, 25, 11, 10, 0, 0,
+  54, 55, 39, 40, 26, 12, 0, 0,
+  0, 41, 0, 27, 13, 0, 0, 30,
+  57, 43, 28, 0, 29, 0, 0, 0,
+  45, 0, 0, 0, 0, 15, 0, 0,
+  93, 0, 92, 91, 0, 0, 0, 99,
+  104, 98, 97, 102, 96, 110, 90, 122,
+  106, 103, 105, 100, 101, 125, 0, 0,
+  0, 0, 118
+};
+
 template<uint8_t clkPin, uint8_t datPin, uint8_t size>
 class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 {
@@ -351,31 +371,76 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     volatile bool reset_request = false;
     volatile bool nmi_request = false;
     uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
+    uint8_t bat = 0;
     
+    /// @brief Converts a PS/2 Set 2 scan code to a IBM System/2 key number
+    /// @param scancode A one-byte scan code in the range 1 to 132; no extended scan codes
+    uint8_t ps2_to_keycode(uint8_t scancode) {
+      if (scancode > 0 && scancode < 132) {
+        return pgm_read_byte(&(PS2_REG_SCANCODES[scancode - 1]));
+      }
+      else {
+        return 0;
+      }
+    }
+
+    /// @brief Converts a PS/2 Set 2 extended scan code to a IBM System/2 key number
+    /// @param scancode The second byte of an extended scan code (after 0xe0)
+    uint8_t ps2ext_to_keycode(uint8_t scancode) {
+      switch (scancode) {
+        case 0x11:  // Right Alt
+          return 62;
+        case 0x14:  // Right Ctrl
+          return 64;
+        case 0x70:  // Insert
+          return 75;
+        case 0x71:  // Delete
+          return 76;
+        case 0x6b:  // Left arrow
+          return 79;
+        case 0x6c:  // Home
+          return 80;
+        case 0x75:  // Up arrow
+          return 83;
+        case 0x72:  // Down arrow
+          return 84;
+        case 0x7d:  // Page up
+          return 85;
+        case 0x7a:  // Page down
+          return 86;
+        case 0x74:  // Right arrow
+          return 89;
+        case 0x4a:  // KP divide
+          return 95;
+        case 0x5a:  // KP enter
+          return 108;
+        case 0x12:  // KP PrtScr
+          return 124;
+        case 0x15:  // Pause/Break
+          return 126;
+      }
+      return 0;
+    }
+  
   public:
+    uint8_t BAT() {
+      return bat;
+    }
 
     /**
        Processes a scan code byte received from the keyboard
     */
     void processByteReceived(uint8_t value) {
       // If buffer_overrun is set, and if we are not in the middle of receiving a multi-byte scancode (indicated by scancode_state == 0),
-      // and if the buffer is empty again, we first output modifier key state changes that happened while the buffer was closed, 
+      // and if the buffer is empty again, we first output modifier key state changes that happened while the buffer was closed,
       // and then clear the buffer_overrun flag
       if (buffer_overrun && !this->available() && scancode_state == 0x00) {
         if (putModifiers()) {
           buffer_overrun = false;
         }
       }
-      
-      // Try adding value to buffer. On buffer full: (a) set buffer_overrun, and (b) remove a partial scancode from the head of the buffer
-      if (!buffer_overrun) {
-        if (!bufferAdd(value)) {
-          buffer_overrun = true;  // Buffer full
-          bufferRemovePartialCode();
-        }
-      }
 
-      // Update scancode state; this is always done, also while buffer_overrun is set
+      // Update scancode state and add key code to input buffer
       updateState(value);
 
       // buffer_overrun not set means that there are no modifier key state changes to track; set oldstate = state
@@ -389,24 +454,26 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
        scancode_state bits 0-3 = Number of bytes stored in buffer since last complete scancode
        scancode_state bits 4-7 = Type of scancode
     */
-    void updateState(uint8_t value) {      
+    void updateState(uint8_t value) {
       switch (scancode_state) {
         case 0x00:    // Start of new scan code
           // Update state
           if (value == 0xf0) scancode_state = 0x11;   // Start of break code
+          else if (value == 0xaa || value == 0xfc) bat = value; // BAT status 
           else if (value == 0xab) scancode_state = 0x51;  // Start of two byte response to read ID command
           else if (value == 0xe0) scancode_state = 0x21;  // Start of extended code
           else if (value == 0xe1) scancode_state = 0x41;  // Start of Pause key code
+          else if (!buffer_overrun && value < 0xf0) bufferAdd(ps2_to_keycode(value));
 
           // Update modifier key status
-          else if (value == 0x12) modifier_state |= PS2_MODIFIER_STATE::LSHIFT;
+          if (value == 0x12) modifier_state |= PS2_MODIFIER_STATE::LSHIFT;
           else if (value == 0x59) modifier_state |= PS2_MODIFIER_STATE::RSHIFT;
           else if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::LCTRL;
           else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::LALT;
 
           // Check Ctrl+Alt+PrtScr/Restore => NMI
           else if (value == 0x84 && isCtrlAltDown()) nmi_request = true;
-          
+
           break;
 
         case 0x11:    // After 0xf0 (break code)
@@ -418,35 +485,41 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           else if (value == 0x59) modifier_state &= ~PS2_MODIFIER_STATE::RSHIFT;
           else if (value == 0x14) modifier_state &= ~PS2_MODIFIER_STATE::LCTRL;
           else if (value == 0x11) modifier_state &= ~PS2_MODIFIER_STATE::LALT;
-          
+
+          if (!buffer_overrun) bufferAdd(ps2_to_keycode(value) | 0x80);
+
           break;
 
         case 0x21:    // After 0xe0 (extended code)
           // Update state
           if (value == 0xf0) scancode_state = 0x32; // Extended break code
-          else scancode_state = 0x00;
+          else {
+            if (!buffer_overrun) bufferAdd(ps2ext_to_keycode(value));
+            scancode_state = 0x00;
+          }
 
           // Update modifier key status
           if (value == 0x14) modifier_state |= PS2_MODIFIER_STATE::RCTRL;
           else if (value == 0x1f) modifier_state |= PS2_MODIFIER_STATE::LWIN;
           else if (value == 0x27) modifier_state |= PS2_MODIFIER_STATE::RWIN;
           else if (value == 0x11) modifier_state |= PS2_MODIFIER_STATE::RALT;
-          
+
           // Check Ctrl+Alt+Del => Reset
           else if (value == 0x71 && isCtrlAltDown()) reset_request = true;
-          
+
           break;
 
         case 0x32:    // After 0xe0 0xf0 (extended break code)
           // Update state
           scancode_state = 0x00;
+          if (!buffer_overrun) bufferAdd(ps2ext_to_keycode(value) | 0x80);
 
           // Update modifier key status
           if (value == 0x14) modifier_state &= ~PS2_MODIFIER_STATE::RCTRL;
           else if (value == 0x1f) modifier_state &= ~PS2_MODIFIER_STATE::LWIN;
           else if (value == 0x27) modifier_state &= ~PS2_MODIFIER_STATE::RWIN;
           else if (value == 0x11) modifier_state &= ~PS2_MODIFIER_STATE::RALT;
-          
+
           break;
 
         case 0x41:    // After 0xe1 (pause make code, 8 bytes)
@@ -459,6 +532,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           break;
 
         case 0x47:
+          if (!buffer_overrun) bufferAdd(126);
           scancode_state = 0x00;
           break;
 
@@ -480,25 +554,15 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
         return true;
       }
       else {
+        buffer_overrun = true;
         return false;
       }
     }
 
-    /**
-       Removes partial scan code from head of buffer
-    */
-    void bufferRemovePartialCode() {
-      if ((scancode_state & 0x0f) > this->count()){
-        flush();
-      }
-      else {
-        this->head = (this->head + size - (scancode_state & 0x0f)) & (size - 1);    // scancode_state bits 0-3 = number of bytes stored in buffer since last complete scancode
-      }
-    }
+    /// @brief Clears the input buffer and prepares to port to receive new input
+    void flush() {
+      PS2Port<clkPin, datPin, size>::flush();
 
-    void flush(){
-      PS2Port<clkPin,datPin,size>::flush();
-      
       scancode_state = 0;
       modifier_state = 0;
       buffer_overrun = false;
@@ -508,12 +572,8 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 
     void resetInput() {
       PS2Port<clkPin,datPin,size>::resetInput();
-      if (!buffer_overrun) {
-        bufferRemovePartialCode();
-      }
       scancode_state = 0;
     }
-
 
     /**
        Modifier key state changes are tracked when the
@@ -523,30 +583,11 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     bool putModifiers() {
       for (uint8_t i = 0; i < 8; i++) {
         if ((modifier_state & (1 << i)) != (modifier_oldstate & (1 << i))) {
-          
-          if (i > 3) {
-            if (!bufferAdd(0xe0)){
-              return false;
-            }
-            scancode_state = 0x21;
-          }
-          
+          uint8_t mod = modifier_codes[i];
           if (!(modifier_state & (1 << i))) {
-            if (!bufferAdd(0xf0)){
-              bufferRemovePartialCode();
-              scancode_state = 0x00;
-              return false;
-            }
-            if (scancode_state == 0x21) scancode_state = 0x32; else scancode_state = 0x11;
+            mod |= 0x80;
           }
-          
-          if (!bufferAdd(modifier_codes[i])){
-            bufferRemovePartialCode();
-            scancode_state = 0x00;
-            return false;
-          }
-          
-          scancode_state = 0x00;
+          if (!bufferAdd(mod)) return false;
           modifier_oldstate = (modifier_oldstate & ~(1 << i)) | (modifier_state & (1 << i));
         }
       }

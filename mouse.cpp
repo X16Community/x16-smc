@@ -221,18 +221,16 @@ void KeyboardTick()
       {
         break;
       }
-      if (Keyboard.available()) {
-        uint8_t b = Keyboard.next();
-        if (b == BAT_OK)
-        {
-          kbd_status_leds = 0x2;
-          next_state = KBD_SET_LEDS1;
-          MOUSE_REARM_WATCHDOG();
-        } else if (b == BAT_FAIL) {
-          next_state = FAIL_RETRY;
-        }
-        // Let watchdog send us to START_RESET if we don't get BAT
+      
+      if (Keyboard.BAT() == BAT_OK)
+      {
+        kbd_status_leds = 0x2;
+        next_state = KBD_SET_LEDS1;
+        MOUSE_REARM_WATCHDOG();
+      } else if (Keyboard.BAT() == BAT_FAIL) {
+        next_state = FAIL_RETRY;
       }
+      // Let watchdog send us to START_RESET if we don't get BAT
       break;
 
     case START_RESET:
@@ -248,7 +246,6 @@ void KeyboardTick()
         break;
       }
       if (kstatus == mouse_command::ACK) {
-        Keyboard.next();
         MOUSE_REARM_WATCHDOG();
         next_state = POWERUP_BAT_WAIT;
       } else {
@@ -268,7 +265,6 @@ void KeyboardTick()
       {
         break;
       }
-      Keyboard.next();
       if (kstatus != PS2_CMD_STATUS::CMD_ACK) {
         next_state = FAIL_RETRY;
       } else {
@@ -283,7 +279,6 @@ void KeyboardTick()
       {
         break;
       }
-      Keyboard.next();
       if (kstatus != PS2_CMD_STATUS::CMD_ACK) {
         next_state = FAIL_RETRY;
       } else {
