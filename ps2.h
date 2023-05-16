@@ -392,6 +392,12 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           return 62;
         case 0x14:  // Right Ctrl
           return 64;
+        case 0x1f:  // Left GUI
+          return 59;
+        case 0x27:  // Right GUI
+          return 63;
+        case 0x69:  // End
+          return 81;
         case 0x70:  // Insert
           return 75;
         case 0x71:  // Delete
@@ -414,7 +420,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           return 95;
         case 0x5a:  // KP enter
           return 108;
-        case 0x12:  // KP PrtScr
+        case 0x7c:  // KP PrtScr
           return 124;
         case 0x15:  // Pause/Break
           return 126;
@@ -494,7 +500,9 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           // Update state
           if (value == 0xf0) scancode_state = 0x32; // Extended break code
           else {
-            if (!buffer_overrun) bufferAdd(ps2ext_to_keycode(value));
+            if (value != 0x12 && value != 0x59) {
+              if (!buffer_overrun) bufferAdd(ps2ext_to_keycode(value));
+            }
             scancode_state = 0x00;
           }
 
@@ -512,8 +520,10 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
         case 0x32:    // After 0xe0 0xf0 (extended break code)
           // Update state
           scancode_state = 0x00;
-          if (!buffer_overrun) bufferAdd(ps2ext_to_keycode(value) | 0x80);
-
+          if (value != 0x12 && value != 0x59) {
+            if (!buffer_overrun) bufferAdd(ps2ext_to_keycode(value) | 0x80);
+          }
+ 
           // Update modifier key status
           if (value == 0x14) modifier_state &= ~PS2_MODIFIER_STATE::RCTRL;
           else if (value == 0x1f) modifier_state &= ~PS2_MODIFIER_STATE::LWIN;
