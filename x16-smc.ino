@@ -320,9 +320,10 @@ void I2C_Send() {
     }
 
     if (I2C_Data[0] == 0x0a) {
+      uint8_t buf[3];
       buf[0] = version_major;
       buf[1] = version_minor;
-      buf[2] = version_path;
+      buf[2] = version_patch;
       Wire.write(buf,3);
     }
 
