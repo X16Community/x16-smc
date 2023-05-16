@@ -8,6 +8,7 @@
 #define ENABLE_NMI_BUT
 //#define KBDBUF_FULL_DBG
 
+#include "version.h"
 #include "smc_button.h"
 #include <Wire.h>
 #include "dbg_supp.h"
@@ -316,6 +317,13 @@ void I2C_Send() {
       else{
           Wire.write(0);
       }
+    }
+
+    if (I2C_Data[0] == 0x0a) {
+      buf[0] = version_major;
+      buf[1] = version_minor;
+      buf[2] = version_path;
+      Wire.write(buf,3);
     }
 
     if (I2C_Data[0] == 0x8e) {
