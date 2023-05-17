@@ -29,6 +29,8 @@ Finally, the extended fuse value must be 0xFE to enable self-programming of the 
 
 # Initial programming of the SMC
 
+## General
+
 The initial programming of the SMC must be done with an external programmer.
 
 The bootloader may be built with the build.sh script. This outputs the file build/bootloader.hex.
@@ -39,6 +41,35 @@ Use the merge.sh script to concatenate the firmware file (x16-smc.ino.hex) and b
 
 To make it a bit easier to find where the x16.smc.ino.hex file is stored in your file system, you may enable verbose output in the IDE. Go to Arduino/Preferences and tick the Show verbose output during compilation box.
 
+## Programming with avrdude utility
+
+The avrdude command line utility can be used on multiple platforms for the initial programming of the SMC.
+
+Example 1. Set fuses
+```
+avrdude -c stk500v1 -p attiny861 -P /dev/cu.usbmodem24201 -b 19200 -U lfuse:w:0xF1:m hfuse:w:0xD4:m -U efuse:w:0xFE:m
+```
+
+Example 2. Write to flash
+```
+avrdude -c stk500v1 -p attiny861 -P /dev/cu.usbmodem24201 -b 19200 -U flash:w:firmware+bootloader.hex:i
+```
+
+The -c option selects programmer-id; stk500v1 is for using Arduino UNO as a In-Circuit programmer. If you have another ISP programmer, you may need to change this value accordingly.
+
+The -p option selects the target device, which always is attiny861.
+
+The -P option selects port name on the host computer. Your port will probable have another name than in the example.
+
+The -b option sets transmission baudrate; 19,200 is a good value.
+
+The -U option performs a memory operation. "-U flash:w:<filename>:i" writes to flash memory. "-U lfuse:w:0xF1:m" writes the low fuse value.
+
+Please note that some fuse settings may "brick" the ATtiny861, and resetting requires equipment for high voltage programming of the device. Be careful if you choose to change the fuse settings set out above.
+
+
+## Connect ISP programmer to proto4 board
+<TODO>
 
 # Memory map
 
