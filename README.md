@@ -63,7 +63,7 @@ The -P option selects port name on the host computer. Your port will probable ha
 
 The -b option sets transmission baudrate; 19200 is a good value.
 
-The -U option performs a memory operation. "-U flash:w:<filename>:i" writes to flash memory. "-U lfuse:w:0xF1:m" writes the low fuse value.
+The -U option performs a memory operation. "-U flash:w:filename:i" writes to flash memory. "-U lfuse:w:0xF1:m" writes the low fuse value.
 
 Please note that some fuse settings may "brick" the ATtiny861, and resetting requires equipment for high voltage programming of the device. Be careful if you choose to change the fuse settings set out above.
 
