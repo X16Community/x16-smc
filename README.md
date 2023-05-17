@@ -61,7 +61,7 @@ The -p option selects the target device, which always is attiny861.
 
 The -P option selects port name on the host computer. Your port will probable have another name than in the example.
 
-The -b option sets transmission baudrate; 19,200 is a good value.
+The -b option sets transmission baudrate; 19200 is a good value.
 
 The -U option performs a memory operation. "-U flash:w:<filename>:i" writes to flash memory. "-U lfuse:w:0xF1:m" writes the low fuse value.
 
