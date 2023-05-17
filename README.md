@@ -47,12 +47,12 @@ The avrdude command line utility can be used on multiple platforms for the initi
 
 Example 1. Set fuses
 ```
-avrdude -c stk500v1 -p attiny861 -P /dev/cu.usbmodem24201 -b 19200 -U lfuse:w:0xF1:m hfuse:w:0xD4:m -U efuse:w:0xFE:m
+avrdude -cstk500v1 -pattiny861 -P/dev/cu.usbmodem24201 -b19200 -Ulfuse:w:0xF1:m -Uhfuse:w:0xD4:m -Uefuse:w:0xFE:m
 ```
 
 Example 2. Write to flash
 ```
-avrdude -c stk500v1 -p attiny861 -P /dev/cu.usbmodem24201 -b 19200 -U flash:w:firmware+bootloader.hex:i
+avrdude -cstk500v1 -pattiny861 -P/dev/cu.usbmodem24201 -b19200 -Uflash:w:firmware+bootloader.hex:i
 ```
 
 The -c option selects programmer-id; stk500v1 is for using Arduino UNO as a In-Circuit programmer. If you have another ISP programmer, you may need to change this value accordingly.
