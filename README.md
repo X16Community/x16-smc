@@ -55,7 +55,7 @@ Example 2. Write to flash
 avrdude -cstk500v1 -pattiny861 -P/dev/cu.usbmodem24201 -b19200 -Uflash:w:firmware+bootloader.hex:i
 ```
 
-The -c option selects programmer-id; stk500v1 is for using Arduino UNO as a In-Circuit programmer. If you have another ISP programmer, you may need to change this value accordingly.
+The -c option selects programmer-id; stk500v1 is for using Arduino UNO as a In-System Programmer. If you have another ISP programmer, you may need to change this value accordingly.
 
 The -p option selects the target device, which always is attiny861.
 
