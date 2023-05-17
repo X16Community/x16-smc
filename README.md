@@ -69,7 +69,7 @@ Please note that some fuse settings may "brick" the ATtiny861, and resetting req
 
 
 ## Connect ISP programmer to proto4 board
-<TODO>
+TODO...
 
 # Memory map
 
