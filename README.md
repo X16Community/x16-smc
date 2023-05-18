@@ -11,9 +11,13 @@ Firmware data is transmitted from the computer to the SMC over I2C.
 
 The bootloader is made in AVR assembly for the AVRA assembler: https://github.com/Ro5bert/avra
 
-The following command builds the project: avra -o bootloader.hex main.asm
+The bootloader may be built with the build.sh script. This outputs the file build/bootloader.hex.
 
-There is also a small build script in the repository (build.sh).
+The SMC firmware may be built with the Arduino IDE. This outputs the file x16-smc.ino.hex.
+
+Use the merge.sh script to concatenate the firmware file x16-smc.ino.hex and build/bootloader.hex. The resulting file is build/firmware+bootloader.hex, which is the file you need to upload to the SMC.
+
+To make it a bit easier to find where the x16.smc.ino.hex file is stored in your file system, you may enable verbose output in the IDE. Go to Arduino/Preferences and tick the Show verbose output during compilation box.
 
 
 # Fuse settings
@@ -27,23 +31,11 @@ The recommended high fuse value is 0xD4. This enables Brown-out Detection at 4.3
 Finally, the extended fuse value must be 0xFE to enable self-programming of the flash memory. The bootloader cannot work without this setting.
 
 
-# Initial programming of the SMC
-
-## General
+# Initial programming of the SMC with avrdude
 
 The initial programming of the SMC must be done with an external programmer.
 
-The bootloader may be built with the build.sh script. This outputs the file build/bootloader.hex.
-
-You may build the SMC firmware with the Arduino IDE as normal.
-
-Use the merge.sh script to concatenate the firmware file (x16-smc.ino.hex) and build/bootloader.hex. This will output the file build/firmware+bootloader.hex, which is the file you need to upload to the SMC.
-
-To make it a bit easier to find where the x16.smc.ino.hex file is stored in your file system, you may enable verbose output in the IDE. Go to Arduino/Preferences and tick the Show verbose output during compilation box.
-
-## Programming with avrdude utility
-
-The avrdude command line utility can be used on multiple platforms for the initial programming of the SMC.
+The avrdude command line utility is the recommended software tool to be used for programming.
 
 Example 1. Set fuses
 ```
@@ -55,9 +47,9 @@ Example 2. Write to flash
 avrdude -cstk500v1 -pattiny861 -P/dev/cu.usbmodem24201 -b19200 -Uflash:w:firmware+bootloader.hex:i
 ```
 
-The -c option selects programmer-id; stk500v1 is for using Arduino UNO as a In-System Programmer. If you have another ISP programmer, you may need to change this value accordingly.
+The -c option selects programmer-id; stk500v1 is for using Arduino UNO as an In-System Programmer. If you have another ISP programmer, you may need to change this value accordingly.
 
-The -p option selects the target device, which always is attiny861.
+The -p option selects the target device, always attiny861.
 
 The -P option selects port name on the host computer. Your port will probable have another name than in the example.
 
@@ -65,11 +57,8 @@ The -b option sets transmission baudrate; 19200 is a good value.
 
 The -U option performs a memory operation. "-U flash:w:filename:i" writes to flash memory. "-U lfuse:w:0xF1:m" writes the low fuse value.
 
-Please note that some fuse settings may "brick" the ATtiny861, and resetting requires equipment for high voltage programming of the device. Be careful if you choose to change the fuse settings.
+Please note that some fuse settings may "brick" the ATtiny861, and resetting requires equipment for high voltage programming. Be careful if you choose not to use the recommended values.
 
-
-## Connect ISP programmer to proto4 board
-TODO...
 
 # Memory map
 
