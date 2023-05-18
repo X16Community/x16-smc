@@ -59,8 +59,7 @@ The -U option performs a memory operation. "-U flash:w:filename:i" writes to fla
 
 Please note that some fuse settings may "brick" the ATtiny861, and resetting requires equipment for high voltage programming. Be careful if you choose not to use the recommended values.
 
-If you have installed Arduino IDE, and you can use that to program the SMC, you may enable verbose output and see what parameters are used by the IDE. The avrdude tool is also included in the Arduino IDE install, and you may use the same executable to program the SMC from the command line.
-
+The Arduino IDE also uses avrdude in the background. If you have installed the IDE can use it to program the SMC, you may enable verbose output and see what parameters are used by the IDE when it starts avrdude.
 
 # Memory map
 
