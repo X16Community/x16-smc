@@ -231,8 +231,9 @@ void I2C_Process() {
     }
     if (I2C_Data[0] == 2) {                     // 1st Byte : Byte 2 - Reset Event(s)
         switch (I2C_Data[1]) {
-            case 0:DoReset();         // 2nd Byte : 0 - Reset button Press
-                break;
+            case 0:
+              DoReset();         // 2nd Byte : 0 - Reset button Press
+              break;
         }
     }
     if (I2C_Data[0] == 3) {                     // 1st Byte : Byte 3 - NMI Event(s)
@@ -319,11 +320,16 @@ void I2C_Send() {
       }
     }
 
-    if (I2C_Data[0] == 0x0a) {
-      buf[0] = version_major;
-      buf[1] = version_minor;
-      buf[2] = version_path;
-      Wire.write(buf,3);
+    if (I2C_Data[0] == 0x30) {
+      Wire.write(version_major);
+    }
+    
+    if (I2C_Data[0] == 0x31) {
+      Wire.write(version_minor);
+    }
+
+    if (I2C_Data[0] == 0x32) {
+      Wire.write(version_patch);
     }
 
     if (I2C_Data[0] == 0x8e) {
