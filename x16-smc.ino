@@ -231,8 +231,9 @@ void I2C_Process() {
     }
     if (I2C_Data[0] == 2) {                     // 1st Byte : Byte 2 - Reset Event(s)
         switch (I2C_Data[1]) {
-            case 0:DoReset();         // 2nd Byte : 0 - Reset button Press
-                break;
+            case 0:
+              DoReset();         // 2nd Byte : 0 - Reset button Press
+              break;
         }
     }
     if (I2C_Data[0] == 3) {                     // 1st Byte : Byte 3 - NMI Event(s)
