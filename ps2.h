@@ -396,6 +396,8 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           return 59;
         case 0x27:  // Right GUI
           return 63;
+        case 0x2f:  // Menu key
+          return 65;
         case 0x69:  // End
           return 81;
         case 0x70:  // Insert
