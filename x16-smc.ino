@@ -4,7 +4,7 @@
 //     Michael Steil
 //     Joe Burks
 
-#define COMMUNITYX16_PINS
+//#define COMMUNITYX16_PINS
 #define ENABLE_NMI_BUT
 //#define KBDBUF_FULL_DBG
 
@@ -278,9 +278,8 @@ void I2C_Send() {
     int nextKey = 0;
     if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
       if (kbd_init_state == KBD_READY && Keyboard.available()) {
-          nextKey  = Keyboard.next();
-          if (nextKey == 0xAA) { kbd_init_state = MOUSE_INIT_STATE::START_RESET; } //Reset the keyboard if hotplugged Adrian Black
-          else { Wire.write(nextKey); }
+          nextKey = Keyboard.next();
+          Wire.write(nextKey);
       }
       else {
           Wire.write(0);
