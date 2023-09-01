@@ -4,9 +4,12 @@
 
 extern bool SYSTEM_POWERED;
 extern PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
-extern PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 8> Mouse;
+extern PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
 
 MOUSE_INIT_STATE_T mouse_init_state = OFF;
+uint8_t mouse_id = 0x00;
+uint8_t mouse_id_req = 0x04;
+bool mouse_wheel_request_made = false;
 
 // Mouse initialization state machine
 void MouseTick()
@@ -43,6 +46,8 @@ void MouseTick()
   {
     case OFF:
       if (SYSTEM_POWERED != 0) {
+        mouse_id = 0x00;
+        mouse_wheel_request_made = false;
         next_state = POWERUP_BAT_WAIT;
 
         // If we don't see the mouse respond, jump to sending it a reset.
@@ -68,21 +73,29 @@ void MouseTick()
     case POWERUP_ID_WAIT:
       if (Mouse.available()) {
         uint8_t b = Mouse.next();
-        if (b == MOUSE_ID)
-        {
-          Mouse.sendPS2Command(mouse_command::SET_SAMPLE_RATE);
+        if (b == MOUSE_ID || b == INTELLIMOUSE_ID1 || b == INTELLIMOUSE_ID2) {
+          mouse_id = b;
+          if (mouse_id_req == 0x00) { 
+            Mouse.sendPS2Command(mouse_command::SET_SAMPLE_RATE,40);
+            next_state = SAMPLERATE_ACK_WAIT;
+          }
+          else {
+            next_state = ENABLE_INTELLIMOUSE;
+          }
           MOUSE_REARM_WATCHDOG();
-          next_state = SAMPLERATECMD_ACK_WAIT;
         }
         // Watchdog will eventually send us to START_RESET if we don't get MOUSE_ID
       }
       break;
 
     case PRE_RESET:
+      mouse_id = 0x00;
       next_state = START_RESET;
       break;
       
     case START_RESET:
+      mouse_id = 0x00;
+      mouse_wheel_request_made = false;
       Mouse.flush();
       Mouse.sendPS2Command(mouse_command::RESET);
       MOUSE_WATCHDOG(FAILED);
@@ -93,54 +106,17 @@ void MouseTick()
       if (mstatus == mouse_command::ACK) {
         Mouse.next();
         MOUSE_REARM_WATCHDOG();
-        next_state = RESET_BAT_WAIT;
+        next_state = POWERUP_BAT_WAIT;
       } else {
         next_state = FAILED; // Assume an error of some sort.
       }
       break;
-      
-    case RESET_BAT_WAIT:           // RECEIVE BAT_OK
-      // expect self test OK
-      if (Mouse.available()) {
-        uint8_t b = Mouse.next();
-        if ( b != mouse_command::BAT_OK ) {
-          next_state = FAILED;
-        } else {
-          MOUSE_REARM_WATCHDOG();
-          next_state = RESET_ID_WAIT;
-        }
-      }
-      break;
 
-    case RESET_ID_WAIT:             // RECEIVE MOUSE_ID, SEND SET_SAMPLE_RATE
-      // expect mouse ID byte (0x00)
-      if (Mouse.available()) {
-        uint8_t b = Mouse.next();
-        if ( b != mouse_command::MOUSE_ID ) {
-          next_state = FAILED;
-        } else {
-          Mouse.sendPS2Command(mouse_command::SET_SAMPLE_RATE);
-          MOUSE_REARM_WATCHDOG();
-          next_state = SAMPLERATECMD_ACK_WAIT;
-        }
-      }
-      break;
-
-    case SAMPLERATECMD_ACK_WAIT:           // RECEIVE ACK, SEND 20 updates/sec
-      Mouse.next();
-      if (mstatus != mouse_command::ACK)
+    case SAMPLERATE_ACK_WAIT:
+      Mouse.flush();
+      if (mstatus != mouse_command::ACK) {
         next_state = PRE_RESET;   // ?? Try resetting again, I guess.
-      else {
-        Mouse.sendPS2Command(60);
-        MOUSE_REARM_WATCHDOG();
-        next_state = SAMPLERATE_ACK_WAIT;
       }
-      break;
-
-    case SAMPLERATE_ACK_WAIT:           // RECEIVE ACK, SEND ENABLE
-      Mouse.next();
-      if (mstatus != mouse_command::ACK)
-        next_state = PRE_RESET;
       else {
         Mouse.sendPS2Command(mouse_command::ENABLE);
         MOUSE_REARM_WATCHDOG();
@@ -148,8 +124,80 @@ void MouseTick()
       }
       break;
 
+    case ENABLE_INTELLIMOUSE:
+      Mouse.sendPS2Command(mouse_command::SET_SAMPLE_RATE, 200);
+      MOUSE_REARM_WATCHDOG();
+      next_state = INTELLIMOUSE_WAIT_1;
+      break;
+
+    case INTELLIMOUSE_WAIT_1:
+      Mouse.flush();
+      if (mstatus != mouse_command::ACK) {
+        next_state = PRE_RESET;   // ?? Try resetting again, I guess.
+      }
+      else {
+        if (mouse_wheel_request_made) {
+          Mouse.sendPS2Command(mouse_command::SET_SAMPLE_RATE, 200);
+        }
+        else {
+          Mouse.sendPS2Command(mouse_command::SET_SAMPLE_RATE, 100); 
+        }
+        MOUSE_REARM_WATCHDOG();
+        next_state = INTELLIMOUSE_WAIT_2;
+      }
+      break;
+    
+    case INTELLIMOUSE_WAIT_2:
+      Mouse.flush();
+      if (mstatus != mouse_command::ACK) {
+        next_state = PRE_RESET;   // ?? Try resetting again, I guess.
+      }
+      else {
+        Mouse.sendPS2Command(mouse_command::SET_SAMPLE_RATE, 80);
+        MOUSE_REARM_WATCHDOG();
+        next_state = INTELLIMOUSE_WAIT_3;
+      }
+      break;
+
+    case INTELLIMOUSE_WAIT_3:
+      Mouse.flush();
+      if (mstatus != mouse_command::ACK) {
+        next_state = PRE_RESET;   // ?? Try resetting again, I guess.
+      }
+      else {
+        Mouse.sendPS2Command(mouse_command::READ_DEVICE_TYPE);
+        MOUSE_REARM_WATCHDOG();
+        next_state = READ_DEVICE_ID_WAIT;
+      }
+      break;
+
+    case READ_DEVICE_ID_WAIT:
+      if (Mouse.available()) {
+        uint8_t b = Mouse.next();
+        if (b == mouse_command::ACK) {
+          break;
+        }
+        else if ( b == mouse_command::MOUSE_ID || b == mouse_command::INTELLIMOUSE_ID1 || b == mouse_command::INTELLIMOUSE_ID2) {
+          mouse_id = b;
+          if (mouse_wheel_request_made || mouse_id_req == 0x03) {
+            Mouse.sendPS2Command(mouse_command::SET_SAMPLE_RATE, 40);
+            MOUSE_REARM_WATCHDOG();
+            next_state = SAMPLERATE_ACK_WAIT;
+          }
+          else {
+            mouse_wheel_request_made = true;
+            MOUSE_REARM_WATCHDOG();
+            next_state = ENABLE_INTELLIMOUSE;
+          }
+        } 
+        else {
+          next_state = FAILED;
+        }
+      }
+      break;
+
     case ENABLE_ACK_WAIT:         // Receive ACK
-      Mouse.next();
+      Mouse.flush();
       if (mstatus != mouse_command::ACK) {
         next_state = PRE_RESET;
       } else {
@@ -169,6 +217,7 @@ void MouseTick()
 
     default:
       // This is where the FAILED state will end up
+      mouse_id = BAT_FAIL;
       break;
   }
   mouse_init_state = next_state;

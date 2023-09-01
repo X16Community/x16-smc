@@ -8,6 +8,8 @@ enum mouse_command : uint8_t
   BAT_OK = 0xAA,                  // Basic Acceptance Test passed
   BAT_FAIL = 0xFC,                // Basic Acceptance Test failed
   MOUSE_ID = 0x00,                // Mouse identifier
+  INTELLIMOUSE_ID1 = 0x03,        // Intellimouse scroll wheel identifier
+  INTELLIMOUSE_ID2 = 0x04,        // Intellimouse scroll wheel and extra button identifier
   SET_SAMPLE_RATE = 0xF3,         // Mouse sample rate command
   READ_DEVICE_TYPE = 0xF2,        // Request device type
   SET_RESOLUTION = 0xE8,
@@ -26,7 +28,13 @@ typedef enum MOUSE_INIT_STATE : uint8_t {
   RESET_BAT_WAIT,
   RESET_ID_WAIT,
   
-  SAMPLERATECMD_ACK_WAIT,
+  ENABLE_INTELLIMOUSE,
+  INTELLIMOUSE_WAIT_1,
+  INTELLIMOUSE_WAIT_2,
+  INTELLIMOUSE_WAIT_3,
+
+  READ_DEVICE_ID_WAIT,
+  
   SAMPLERATE_ACK_WAIT,
 
   ENABLE_ACK_WAIT,
@@ -44,6 +52,8 @@ typedef enum MOUSE_INIT_STATE : uint8_t {
 } MOUSE_INIT_STATE_T;
 
 extern MOUSE_INIT_STATE_T mouse_init_state;
+extern uint8_t mouse_id;
+extern uint8_t mouse_id_req;
 extern uint8_t kbd_init_state;
 
 #define MOUSE_REARM_WATCHDOG() \
