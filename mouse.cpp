@@ -7,7 +7,7 @@ extern PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
 extern PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
 
 MOUSE_INIT_STATE_T mouse_init_state = OFF;
-uint8_t mouse_id = 0x00;
+uint8_t mouse_id = BAT_FAIL;
 uint8_t mouse_id_req = 0x04;
 bool mouse_wheel_request_made = false;
 
@@ -46,7 +46,7 @@ void MouseTick()
   {
     case OFF:
       if (SYSTEM_POWERED != 0) {
-        mouse_id = 0x00;
+        mouse_id = BAT_FAIL;
         mouse_wheel_request_made = false;
         next_state = POWERUP_BAT_WAIT;
 
@@ -89,12 +89,11 @@ void MouseTick()
       break;
 
     case PRE_RESET:
-      mouse_id = 0x00;
       next_state = START_RESET;
       break;
       
     case START_RESET:
-      mouse_id = 0x00;
+      mouse_id = BAT_FAIL;
       mouse_wheel_request_made = false;
       Mouse.flush();
       Mouse.sendPS2Command(mouse_command::RESET);
