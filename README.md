@@ -135,13 +135,13 @@ PRINT I2CPEEK($42,$22)
 
 ## Firmware version (0x30, 0x31 and 0x32)
 
-The offsets 0x30, 0x31 and 0x32 returns the current firmware version.
+The offsets 0x30, 0x31 and 0x32 return the current firmware version (major-minor-patch).
 
 ## Start bootloader (0x8f)
 
 This command initiates the sequence that starts the bootloader.
 
-The bootloader, if present, is stored at 0x1F00 in the SMC flash memory. It is
+The bootloader, if present, is stored at 0x1E00 in the SMC flash memory. It is
 used to update the firmware from the Commander X16 without an external programmer.
 The new firmware is transmitted over I2C to the bootloader.
 
