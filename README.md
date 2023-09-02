@@ -126,6 +126,13 @@ The returned device ID may differ from the requested device ID. For instance,
 if you requested mouse device ID 4, but the extra buttons are not available on the
 connected mouse, you will get ID 3 (if there is a scroll wheel).
 
+Example that returns the current mouse device ID:
+
+```
+PRINT I2CPEEK($42,$22)
+```
+
+
 ## Firmware version (0x30, 0x31 and 0x32)
 
 The offsets 0x30, 0x31 and 0x32 returns the current firmware version.
