@@ -35,7 +35,7 @@ The SMC is responsible for
 
 ## Power, Reset and Non-Maskable Interrupt (0x01, 0x02, 0x03)
 
-Commands 0x01 (Power Off), 0x02 (Reset) and 0x03 (NMI) have the same function as the board's physical push buttons.
+The commands 0x01 (Power Off), 0x02 (Reset) and 0x03 (NMI) have the same function as the board's physical push buttons.
 
 Each function requires the user to send one byte with the value 0x00. Example that powers off the system.
 
@@ -45,7 +45,7 @@ I2CPOKE $42,$01,$00
 
 ## Set Activity LED level (0x05)
 
-The Activity LED is turned off if you write the value 0x00 and turned on if you write the value 0xff.
+The Activity LED is turned off if you write the value 0x00 and turned on if you write the value 0xff to this offset.
 
 Writing other values may cause instability issues, and is not recommended.
 
@@ -58,7 +58,7 @@ I2CPOKE $42,$05,$FF
 ## Get keyboard keycode (0x07)
 
 The SMC translates PS/2 scan codes sent by the keyboard into IBM key codes. A list of key
-codes is available in the Kernal source code.
+codes is available in the Kernal source.
 
 Key codes are one byte. Bit 7 indicates if the key was pressed (0) or released (1).
 
@@ -70,14 +70,14 @@ This offset returns the status of the last host to keyboard command.
 
 The possible return values are:
 
-- 0x00 = idle, no command has been processed
+- 0x00 = idle, no command has been sent
 - 0x01 = pending, the last command is being processed
 - 0xfa = the last command was successful
 - 0xfe = the last command failed
 
 ## Send keyboard command (0x19 and 0x1a)
 
-These offsets sends a host to keyboard command.
+These offsets send host to keyboard commands.
 
 Offset 0x19 sends a command that expects just the command number, and no data. Example that disables the keyboard:
 
@@ -85,13 +85,15 @@ Offset 0x19 sends a command that expects just the command number, and no data. E
 I2CPOKE $42,$19,$f5
 ```
 
-Offset 0x1a sends a command that expects a command number and one data byte. This can't be sent with the I2CPOKE command.
+Offset 0x1a sends a command that expects a command number and one data byte. This can't be done with the I2CPOKE command.
 
 ## Set requested mouse device ID (0x20)
 
 By default the SMC tries to initialize the mouse with support for a scroll wheel and two extra buttons, in total five buttons (device ID 4).
-If the connected mouse does not support device ID 4, it then tries to initialize the mouse with support for a scroll wheel but no extra buttons (decive ID 3).
-If that also fails, the SMC falls back to a standard mouse with three buttons and no scroll wheel (device ID 0).
+
+If the connected mouse does not support device ID 4, the SMC then tries to initialize the mouse with support for a scroll wheel but no extra buttons (decive ID 3).
+
+If that fails as well, the SMC falls back to a standard mouse with three buttons and no scroll wheel (device ID 0).
 
 This command lets you set what device ID you want to use. The valid options are 0, 3 or 4, as described above. 
 
@@ -105,24 +107,24 @@ I2CPOKE $42,$20,$00
 
 This command returns the mouse movement packet.
 
-If no movement packet is available, it returns a 0, that is 1 byte.
+If no movement packet is available, it returns a 0 (1 byte).
 
-If the mouse is initialized as device ID 0, it returns a three byte packet.
+If the mouse is initialized as device ID 0 (standard three button mouse, no scroll wheel), it returns a three byte packet.
 
-And if the mouse is initialized as device ID 3 or 4, it returns a four byte packet.
+And if the mouse is initialized as device ID 3 (scroll wheel) or 4 (scroll wheel+extra buttons), it returns a four byte packet.
 
 ## Get mouse device ID (0x22)
 
-This returns the currently initialized mouse device ID. The possible values are:
+This returns the current mouse device ID. The possible values are:
 
 - 0x00 = a standard PS/2 mouse with three buttons, no scroll wheel
 - 0x03 = a mouse with three buttons and a scroll wheel
 - 0x04 = a mouse with two extra buttons, a total of five buttons, and a scroll wheel
 - 0xfc = no mouse connected, or initialization of the mouse failed
 
-The returned device ID may not be the same as the requested device ID. For instance,
-if you request mouse device ID 4, but the extra buttons are not available on the
-connected mouse, you will get ID 3 (if there was scroll wheel support).
+The returned device ID may differ from the requested device ID. For instance,
+if you requested mouse device ID 4, but the extra buttons are not available on the
+connected mouse, you will get ID 3 (if there is a scroll wheel).
 
 ## Firmware version (0x30, 0x31 and 0x32)
 
@@ -139,5 +141,5 @@ The new firmware is transmitted over I2C to the bootloader.
 Calling this function starts a timer (20 s). Within that time the user must
 press the physical Power and Reset buttons on the board for the bootloader
 to actually  start. This is a safety measure, so that you don't
-start the bootloader by mistake. Doing so will leace the SMC inoperable the
-update process is carried through.
+start the bootloader by mistake. Doing so will leave the SMC inoperable if the
+update process is not carried through.
