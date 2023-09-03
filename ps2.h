@@ -439,6 +439,18 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
        Processes a scan code byte received from the keyboard
     */
     void processByteReceived(uint8_t value) {
+      // Handle BAT success (0xaa) or fail (0xfc) code 
+      if (value == 0xaa || value == 0xfc) {
+        if (kbd_init_state == KBD_READY) {
+          kbd_init_state = MOUSE_INIT_STATE::START_RESET;
+          bat = 0;
+        } 
+        else {
+          bat = value;
+        }
+        return;
+      }
+      
       // If buffer_overrun is set, and if we are not in the middle of receiving a multi-byte scancode (indicated by scancode_state == 0),
       // and if the buffer is empty again, we first output modifier key state changes that happened while the buffer was closed,
       // and then clear the buffer_overrun flag
@@ -467,7 +479,6 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
         case 0x00:    // Start of new scan code
           // Update state
           if (value == 0xf0) scancode_state = 0x11;   // Start of break code
-          else if (value == 0xaa || value == 0xfc) bat = value; // BAT status 
           else if (value == 0xab) scancode_state = 0x51;  // Start of two byte response to read ID command
           else if (value == 0xe0) scancode_state = 0x21;  // Start of extended code
           else if (value == 0xe1) scancode_state = 0x41;  // Start of Pause key code
