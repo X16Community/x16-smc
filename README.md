@@ -105,7 +105,9 @@ state.
 
 The command first writes any buffered data to flash.
 
-Then the bootloader enters an infinite loop waiting for the user to remove power from the system to reboot the SMC.
+The bootloader then resets the SMC. After the reset the bootloader writes new firmware data to the first flash memory page
+of 64 bytes, and jumps to the start vector of the new firmware (address 0x0000). The SMC reset shuts down the computer. It
+can be restarted by pressing the power button.
 
 # Typical usage
 
