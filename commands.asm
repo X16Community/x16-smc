@@ -182,15 +182,13 @@ cmd_reboot3:
     rcall flash_spm
     rjmp cmd_reboot2
 
-    ; Write zero page to flash
 cmd_reboot4:
-    clr ZL
-    clr ZH
-    ldi YL,low(flash_zp_buf)
-    ldi YH,high(flash_zp_buf)
-    rcall flash_write
+    ; Set watchdog reset after 1 second
+    ldi r16,(1<<WDE) | (0<<WDIE) | (0<<WDP3) | (1<<WDP2) | (1>>WDP1) | (0<<WDP0)
+    out WDTCR,r16
 
-cmd_reboot5:
-    ; TODO: Can we do reset instead?
-    rjmp cmd_reboot5
+cmd_reboot_5:
+    ; Wait here until reset. After reset, the function post_reset is called.
+    rjmp cmd_reboot_5
+
 .endmacro
