@@ -1,7 +1,7 @@
 ; BUILD: cl65 -o "SMCUPDATE.PRG" -u __EXEHDR__ -t cx16 -C cx16-asm.cfg main.asm
 
 BOOTLOADER_MIN_VERSION = 1
-BOOTLOADER_MAX_VERSION = 1
+BOOTLOADER_MAX_VERSION = 2
 
 ; Kernal functions
 KERNAL_CHROUT       = $ffd2
@@ -45,6 +45,7 @@ tmp1                = $22
     ldx #I2C_ADDR
     ldy #$8e
     jsr I2C_READ
+    sta bootloader_version
     cmp #$ff
     beq nobootloader
     cmp #BOOTLOADER_MIN_VERSION
@@ -270,12 +271,22 @@ next_byte:
     bra loop
     
 exit:
+    lda bootloader_version
+    cmp #2
+    bcs :+
+    print str_done
+    bra reboot
+
+:   print str_done2
+    ldx #5
+    jsr util_countdown
+    
     ; Reboot
+reboot:
     ldx #I2C_ADDR
     ldy #$82
     jsr I2C_WRITE
 
-    print str_done
     cli
     rts
 
@@ -294,6 +305,8 @@ checksum: .res 1
 bytecount: .res 1
 attempts: .res 1
 .endproc
+
+bootloader_version: .res 1
 
 .include "util.asm"
 .include "str_en.asm"

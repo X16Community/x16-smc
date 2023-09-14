@@ -68,6 +68,10 @@ str_done:
     .byt "Disconnect power and wait approx. 20 seconds before reconnecting to", 13
     .byt "reboot the system.",0
 
+str_done2:
+    .byt 13, COL_OK, "Update successful.", COL_DEFAULT, 13, 13
+    .byt "The system resets... ", 0
+
 str_updatefailed:
     .byt 13, 13, COL_ERR, "Update failed.", COL_DEFAULT, 0
 
