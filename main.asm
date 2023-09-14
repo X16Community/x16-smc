@@ -51,8 +51,13 @@
 .org 0x0f00     ; = byte address 0x1E00
 
 version_id:
-    .db 0x8a, 0x01
+    .db 0x8a, 0x02
 
+;******************************************************************************
+; Function...: main
+; Description: Main entry point for the bootloader
+; In.........: Nothing
+; Out........: Nothing
 main:
     cli
     
@@ -81,14 +86,22 @@ main:
     ldi r18,19                                          ; 19 items in vector table
     rcall flash_fillbuffer
 
-    subi YL,12*2                                        ; Rewind Y pointer 12 words to I2C ISR start vector location
+    ; Reset vector (word address 0x0000)
+    subi YL,19*2
+    ldi r16, low(0b1100000000000000 + post_reset - 1)
+    st Y+,r16
+    ldi r16, high(0b1100000000000000 + post_reset - 1)
+    st Y+,r16
 
-    ldi r16, low(0b1100000000000000 + i2c_isr_start - 1  - 7)    ; Store opcode for RJMP i2c_isr_start (at word address 0x0007)
+    ; USI Start vector (word address 0x0007)
+    subi YL, -6*2
+    ldi r16, low(0b1100000000000000 + i2c_isr_start - 1  - 7)
     st Y+,r16
     ldi r16, high(0b1100000000000000 + i2c_isr_start - 1  - 7)
     st Y+,r16
 
-    ldi r16, low(0b1100000000000000 + i2c_isr_overflow - 1 - 8) ; Store opcode for RJMP i2c_isr_overflow (at word address (0x0008)
+    ; USI Overflow vector (word address 0x0008)
+    ldi r16, low(0b1100000000000000 + i2c_isr_overflow - 1 - 8)
     st Y+,r16
     ldi r16, high(0b1100000000000000 + i2c_isr_overflow - 1 - 8)
     st Y+,r16
@@ -109,6 +122,43 @@ main:
 
 wait:
     rjmp wait
+
+;******************************************************************************
+; Function...: post_reset
+; Description: Entry point for reset after update complete.
+;              The reset vector (addess 0x0000) is set to this function in the 
+;              bootloader main function. 
+;              The reset is initiated by the I2C reboot command (0x82).
+;              This function disables WTD, writes the first 64 byte page to 
+;              flash memory, and jumps to the new firmware's start vector.
+; In.........: Nothing
+; Out........: Nothing
+post_reset:
+    ; Disable interrupts
+    cli
+    
+    ; Disable watchdog timer
+    wdr
+    ldi r16,0
+    out MCUSR,r16
+    in r16,WDTCSR
+    ori r16,(1<<WDCE) | (1<<WDE)
+    out WDTCSR,r16
+    ldi r16,0
+    out WDTCSR,r16
+
+    ; Write zero page to flash memort
+    clr ZL
+    clr ZH
+    ldi YL,low(flash_zp_buf)
+    ldi YH,high(flash_zp_buf)
+    rcall flash_write
+
+    ; Enable interrupts
+    sei
+
+    ; Jump to firmware reset vector
+    rjmp 0x0000
 
 .include "i2c.asm"
 .include "flash.asm"
