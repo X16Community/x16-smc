@@ -435,7 +435,7 @@ void HardReboot() {                             // This never works via I2C... W
 
 void startBootloader() {
   if (bootloaderFlags == 3 && bootloaderTimer > 0) {
-    ((void(*)(void))0x1e02)();
+    ((void(*)(void))0xf01)();
   }
   else {
     bootloaderTimer = 50;
