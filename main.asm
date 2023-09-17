@@ -126,12 +126,37 @@ wait:
 ;******************************************************************************
 ; Function...: post_reset
 ; Description: Entry point for reset after update complete.
-;              The reset vector (addess 0x0000) is set to this function in the 
-;              bootloader main function. 
-;              The reset is initiated by the I2C reboot command (0x82).
-;              This function disables WTD, writes the first 64 byte page to 
-;              flash memory, and jumps to the new firmware's start vector.
-; In.........: Nothing
+;
+;              The reset vector (addess 0x0000) is set to point to this function 
+;              in the bootloader main function. The reset is initiated by the 
+;              I2C reboot command (0x82).
+;
+;              This function first disables the WDT. This is to prevent repeated
+;              resets that would otherwise occur.
+;
+;              The function then writes firmware code to the first 64 byte 
+;              flash memory page. The code must be present in the RAM buffer
+;              "flash_zp_buf" before the WDT reset is initiated. That buffer is
+;              filled when you upload the first 64 bytes of data with the 
+;              I2C functions transmit (0x80) and commit (0x81).
+;
+;              The RAM buffer is not affected by the WDT reset, as stated here:
+;
+;              https://microchip.my.site.com/s/article/AVR-Memory-Content-after-RESET-and-SLEEP
+;              "Memory Content after a Watchdog Reset:
+;              I/O registers will be set to their initial value according to the datasheet.
+;              SRAM will be unchanged.
+;              32 general purpose registers will be unchanged."
+;
+;              The I/O registers are, however, set to their default values, which will
+;              power off the computer.
+;
+;              Finally, the function jumps to the start vector (0x0000) of
+;              the new firmware. The firmware should then be active without
+;              further user interaction.
+;
+; In.........: flash_zp_buf: RAM buffer containing the first 64 bytes of
+;                            the new firmware code
 ; Out........: Nothing
 post_reset:
     ; Disable interrupts
