@@ -172,7 +172,7 @@ post_reset:
     ldi r16,0
     out WDTCSR,r16
 
-    ; Write zero page to flash memort
+    ; Write zero page to flash memory
     clr ZL
     clr ZH
     ldi YL,low(flash_zp_buf)
