@@ -22,8 +22,21 @@ jobs:
 
       - name: Build PlatformIO Project
         run: pio run
+
+      - name: Install IntelHex library
+        run: pip install intelhex
+
+      - name: Make SMC.BIN file
+        run: python make_bin.py .pio/build/**/firmware.*
+      
       - name: Archive firmwares results
         uses: actions/upload-artifact@v3
         with:
           name: SMC Firmwares
           path: .pio/build/**/firmware.*
+
+      - name: Archive SMC.BIN file
+        uses: actions/upload-artifact@v3
+        with:
+          name: SMC.BIN file
+          path: .build/SMC*.BIN
