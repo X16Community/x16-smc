@@ -34,6 +34,7 @@
 
 //Reset & NMI Lines
 #define RESB_HOLDTIME_MS       500
+#define AUDIOPOP_HOLDTIME_MS   1
 #define NMI_HOLDTIME_MS        300
 #define RESET_ACTIVE   LOW
 #define RESET_INACTIVE HIGH
@@ -400,9 +401,11 @@ void DoNMI() {
 }
 
 void PowerOffSeq() {
+  assertReset();                              // Hold CPU in reset
+  analogWrite(ACT_LED, ACT_LED_DEFAULT_LEVEL);// Ensure activity LED is off
+  delay(AUDIOPOP_HOLDTIME_MS);                // Wait for audio system to stabilize before power is turned off
   digitalWrite(PWR_ON, HIGH);                 // Turn off supply
   SYSTEM_POWERED = 0;                         // Global Power state Off
-  assertReset();
   delay(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
   deassertReset();
 }
@@ -421,6 +424,7 @@ void PowerOnSeq() {
   }
   else {
     Keyboard.reset();
+    Mouse.reset();
     delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
     SYSTEM_POWERED = 1;                     // Global Power state On
   }
