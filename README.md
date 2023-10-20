@@ -150,3 +150,14 @@ press the physical Power and Reset buttons on the board for the bootloader
 to actually  start. This is a safety measure, so that you don't
 start the bootloader by mistake. Doing so will leave the SMC inoperable if the
 update process is not carried through.
+
+
+# Build artifacts
+
+The firmware is automatically built on every push and pull request.
+
+You may download the resulting artifacts from the Actions view. Each build creates two artifacts:
+
+- "SMC default firmware", compatible with the official Commander X16 board sold by TexElec
+
+- "SMC CommunityX16 firmware", compatible with the CommunityX16 board designed by Joe Burks ("Wavicle")

@@ -1,9 +1,17 @@
+# Usage:
+# make_bin.py path1 path2
+#  path1: Path to SMC firmware in Intel hex file format
+#  path2: Path to output folder
+
 import sys
 import os
 from intelhex import IntelHex
 
 # Table of compatible Kernal versions (negative value is pre-release)
 kernal_versions = {-44, -45, 45, -46}
+
+# Path to firmware hex file
+firmware_hex = sys.argv[1]
 
 # Init header output buffer
 buf = [0] * 32
@@ -39,7 +47,7 @@ for v in kernal_versions:
 
 # Read firmware file
 ih = IntelHex()
-ih.loadfile(sys.argv[2], format="hex")
+ih.loadfile(firmware_hex, format="hex")
 firmware = ih.tobinarray()
 
 # Create output folder, if not exist
@@ -49,7 +57,7 @@ except:
     pass
 
 # Create SMC.BIN file
-smc = open(".build/SMC-" + str(version_major) + "." + str(version_minor) + "." + str(version_patch) + ".BIN", "wb")
+smc = open(sys.argv[2] + "/SMC-" + str(version_major) + "." + str(version_minor) + "." + str(version_patch) + ".BIN", "wb")
 i = 0
 for v in buf:
     if i < 3:

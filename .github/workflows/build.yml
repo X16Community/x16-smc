@@ -1,4 +1,4 @@
-name: PlatformIO CI
+name: X16 SMC firmware build
 
 on: [push, pull_request]
 
@@ -8,35 +8,46 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.platformio/.cache
-          key: ${{ runner.os }}-pio
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-      - name: Install PlatformIO Core
-        run: pip install --upgrade platformio
-
-      - name: Build PlatformIO Project
-        run: pio run
-
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+      - name: Install ATTinyCore platform
+        run: |
+          arduino-cli core update-index --additional-urls file://$PWD/package_drazzy.com_index.json
+          arduino-cli core install ATTinyCore:avr --additional-urls file://$PWD/package_drazzy.com_index.json
+      - name: Compile Arduino default sketch
+        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --build-path .build/default
+      - name: Compile Arduino sketch with Community X16 pin support
+        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --build-property "build.extra_flags=-DCOMMUNITYX16_PINS" --build-path .build/community
       - name: Install IntelHex library
         run: pip install intelhex
+      - name: Make default SMC.BIN file
+        run: python make_bin.py ./.build/default/x16-smc.ino.hex .build/default
+      - name: Make SMC.BIN file with CommunityX16 pin support
+        run: python make_bin.py ./.build/community/x16-smc.ino.hex .build/community
 
-      - name: Make SMC.BIN file
-        run: python make_bin.py .pio/build/**/firmware.*
+      - name: Move readme files to build folders
+        run: |
+          mv .doc/readme-default .build/default/readme
+          mv .doc/readme-community .build/community/readme
       
-      - name: Archive firmwares results
+      - name: Archive default firmware
         uses: actions/upload-artifact@v3
         with:
-          name: SMC Firmwares
-          path: .pio/build/**/firmware.*
+          name: SMC default firmware
+          path: |
+            .build/default/x16-smc.ino.hex
+            .build/default/SMC*.BIN
+            .build/default/readme
 
-      - name: Archive SMC.BIN file
+      - name: Archive CommunityX16 firmware
         uses: actions/upload-artifact@v3
         with:
-          name: SMC.BIN file
-          path: .build/SMC*.BIN
+          name: SMC CommunityX16 firmware
+          path: |
+            .build/community/x16-smc.ino.hex
+            .build/community/SMC*.BIN
+            .build/community/readme
+
