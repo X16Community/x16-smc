@@ -12,6 +12,7 @@ kernal_versions = {-44, -45, 45, -46}
 
 # Path to firmware hex file
 firmware_hex = sys.argv[1]
+target_folder = sys.argv[2]
 
 # Init header output buffer
 buf = [0] * 32
@@ -57,7 +58,7 @@ except:
     pass
 
 # Create SMC.BIN file
-smc = open(sys.argv[2] + "/SMC-" + str(version_major) + "." + str(version_minor) + "." + str(version_patch) + ".BIN", "wb")
+smc = open(target_folder + "/SMC-" + str(version_major) + "." + str(version_minor) + "." + str(version_patch) + ".BIN", "wb")
 i = 0
 for v in buf:
     if i < 3:
