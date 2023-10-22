@@ -20,7 +20,7 @@ jobs:
       - name: Compile Arduino default sketch
         run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --build-path .build/default
       - name: Compile Arduino sketch with Community X16 pin support
-        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --build-property "build.extra_flags=-DCOMMUNITYX16_PINS" --build-path .build/community
+        run:  
       - name: Install IntelHex library
         run: pip install intelhex
       - name: Make default SMC.BIN file
@@ -39,6 +39,7 @@ jobs:
           name: SMC default firmware
           path: |
             .build/default/x16-smc.ino.hex
+            .build/default/x16-smc-ino.elf
             .build/default/SMC*.BIN
             .build/default/readme
 
@@ -48,6 +49,7 @@ jobs:
           name: SMC CommunityX16 firmware
           path: |
             .build/community/x16-smc.ino.hex
+            .build/default/x16-smc-ino.elf
             .build/community/SMC*.BIN
             .build/community/readme
 
