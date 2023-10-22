@@ -419,7 +419,7 @@ void PowerOnSeq() {
     TimeDelta = millis() - StartTime;       // for PWR_OK to go active.
   }
   if ((PWR_ON_MIN_MS > TimeDelta) || (PWR_ON_MAX_MS < TimeDelta)) {
-    //PowerOffSeq();                          // FAULT! Turn off supply
+    PowerOffSeq();                          // FAULT! Turn off supply
     // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
   }
   else {
