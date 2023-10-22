@@ -49,7 +49,6 @@ jobs:
           name: SMC CommunityX16 firmware
           path: |
             .build/community/x16-smc.ino.hex
-            .build/default/x16-smc-ino.elf
+            .build/community/x16-smc-ino.elf
             .build/community/SMC*.BIN
             .build/community/readme
-
