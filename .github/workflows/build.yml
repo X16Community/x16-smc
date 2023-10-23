@@ -18,9 +18,9 @@ jobs:
           arduino-cli core update-index --additional-urls file://$PWD/package_drazzy.com_index.json
           arduino-cli core install ATTinyCore:avr --additional-urls file://$PWD/package_drazzy.com_index.json
       - name: Compile Arduino default sketch
-        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --build-path .build/default
+        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-path .build/default
       - name: Compile Arduino sketch with Community X16 pin support
-        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --build-property "build.extra_flags=-DCOMMUNITYX16_PINS" --build-path .build/community
+        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-property "build.extra_flags=-DCOMMUNITYX16_PINS" --build-path .build/community
       - name: Install IntelHex library
         run: pip install intelhex
       - name: Make default SMC.BIN file
@@ -52,3 +52,4 @@ jobs:
             .build/community/x16-smc.ino.elf
             .build/community/SMC*.BIN
             .build/community/readme
+            
