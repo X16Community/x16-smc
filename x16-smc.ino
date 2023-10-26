@@ -39,6 +39,10 @@
 #define RESET_ACTIVE   LOW
 #define RESET_INACTIVE HIGH
 
+#define FLASH_SIZE            (0x2000)
+#define BOOTLOADER_SIZE       (0x200)
+#define BOOTLOADER_START_ADDR ((FLASH_SIZE-BOOTLOADER_SIZE+2)>>1)
+
 //I2C Pins
 #define I2C_ADDR              0x42  // I2C Device ID
 
@@ -439,7 +443,7 @@ void HardReboot() {                             // This never works via I2C... W
 
 void startBootloader() {
   if (bootloaderFlags == 3 && bootloaderTimer > 0) {
-    ((void(*)(void))0xf01)();
+    ((void(*)(void))BOOTLOADER_START_ADDR)();
   }
   else {
     bootloaderTimer = 50;
