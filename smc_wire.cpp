@@ -1,7 +1,10 @@
 #include "smc_wire.h"
 
-#define I2C_SCL_PB 2
-#define I2C_SDA_PB 0
+/*
+ * I2C pins
+ */
+#define I2C_SCL_PINB 2
+#define I2C_SDA_PINB 0
 
 /*
   Constants
@@ -9,10 +12,10 @@
 #define BUFSIZE                       32
 #define MASTER_WRITE                  0
 #define MASTER_READ                   1
-#define SDA_INPUT                     ~(1<<I2C_SDA_PB)
-#define SDA_OUTPUT                    (1<<I2C_SDA_PB)
-#define SCL_INPUT                     ~(1<<I2C_SCL_PB)
-#define SCL_OUTPUT                    (1<<I2C_SCL_PB)
+#define SDA_INPUT                     ~(1<<I2C_SDA_PINB)
+#define SDA_OUTPUT                    (1<<I2C_SDA_PINB)
+#define SCL_INPUT                     ~(1<<I2C_SCL_PINB)
+#define SCL_OUTPUT                    (1<<I2C_SCL_PINB)
 
 /*
    USI Control Register Values
@@ -65,7 +68,7 @@ void SmcWire::begin(uint8_t addr) {
   DDRB = (DDRB & SDA_INPUT) | SCL_OUTPUT;
 
   // Set SDA and SCL output buffer high
-  PORTB = PORTB | (1 << I2C_SDA_PB) | (1 << I2C_SCL_PB);
+  PORTB = PORTB | (1 << I2C_SDA_PINB) | (1 << I2C_SCL_PINB);
 
   // Setup USI control register
   USICR = I2C_LISTEN;
@@ -180,9 +183,9 @@ ISR(USI_START_vect) {
   DDRB &= SDA_INPUT;
 
   //Wait while SCL is high and SDA is low
-  uint8_t p = (1<<I2C_SCL_PB);
-  while (p == (1<<I2C_SCL_PB)) {
-    p = PINB & ((1<<I2C_SCL_PB) | (1<<I2C_SDA_PB));
+  uint8_t p = (1<<I2C_SCL_PINB);
+  while (p == (1<<I2C_SCL_PINB)) {
+    p = PINB & ((1<<I2C_SCL_PINB) | (1<<I2C_SDA_PINB));
   }
 
   if (receiveHandler != NULL && ddr == MASTER_WRITE && buflen > 0) {
@@ -194,7 +197,7 @@ ISR(USI_START_vect) {
   bufindex = 0;
 
   // Continue
-  if ((p & (1<<I2C_SDA_PB)) == 0) {
+  if ((p & (1<<I2C_SCL_PINB)) == 0) {
     state = I2C_STATE_VERIFY_ADDRESS;
     USICR = I2C_ACTIVE;
     USISR = I2C_CLEAR_START_FLAG + I2C_CLEAR_STOP_FLAG + I2C_COUNT_BYTE;
@@ -275,7 +278,7 @@ ISR(USI_OVF_vect) {
           bufindex++;
         }
         else {
-          USIDR = 0xff;
+          USIDR = 0x00;
         }
         DDRB |= SDA_OUTPUT;
         USISR = I2C_COUNT_BYTE;
@@ -311,7 +314,6 @@ ISR(USI_OVF_vect) {
       clear_and_listen:
         DDRB &= SDA_INPUT;
         USICR = I2C_LISTEN;
-        USISR = I2C_CLEAR_OVF_FLAG;
         break;
   }
 }
