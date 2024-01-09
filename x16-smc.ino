@@ -4,17 +4,20 @@
 //     Michael Steil
 //     Joe Burks
 
-//#define COMMUNITYX16_PINS
+#define COMMUNITYX16_PINS
 #define ENABLE_NMI_BUT
 //#define KBDBUF_FULL_DBG
 
 #include "version.h"
 #include "smc_button.h"
-#include <Wire.h>
+//#include <Wire.h>
 #include "dbg_supp.h"
 #include "smc_pins.h"
 #include "ps2.h"
 #include "mouse.h"
+
+#include "smc_wire.h"
+SmcWire Wire;
 
 // Build only for ATtiny861
 #if !defined(__AVR_ATtiny861__)
