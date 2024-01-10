@@ -24,13 +24,13 @@
 
 class SmcWire {
   public:
-    void begin(uint8_t addr);
-    void onRequest(void (*function)());
+    void begin(uint8_t addr, uint8_t kbd, uint8_t mse);
     void onReceive(void (*function)(int len));
+    void onRequest(void (*function)());
+    void onKeyboardRequest(void (*function)());
+    void onMouseRequest(void (*function)());
     void write(uint8_t value);
     void write(uint8_t value[], uint8_t len);
     uint8_t available();
     uint8_t read();
-    bool setAttention();
-    bool releaseAttention();
 };

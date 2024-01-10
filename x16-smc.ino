@@ -16,8 +16,8 @@
 #include "ps2.h"
 #include "mouse.h"
 
-#include "smc_wire.h"
-SmcWire Wire;
+#include "smc_Wire.h"
+SmcWire smcWire;
 
 // Build only for ATtiny861
 #if !defined(__AVR_ATtiny861__)
@@ -76,6 +76,12 @@ void deassertReset() {
   pinMode(RESB_PIN, INPUT);
 }
 
+void Keyboard_Send() {
+  if (kbd_init_state == KBD_READY && Keyboard.available()) {
+      smcWire.write(Keyboard.next());
+  }
+}
+
 bool SYSTEM_POWERED = 0;                                // default state - Powered off
 int  I2C_Data[3] = {0, 0, 0};
 bool I2C_Active = false;
@@ -119,9 +125,11 @@ void setup() {
   DBG_PRINTLN("Commander X16 SMC Start");
 
   //initialize i2C
-  Wire.begin(I2C_ADDR);                               // Initialize I2C - Device Mode
-  Wire.onReceive(I2C_Receive);                        // Used to Receive Data
-  Wire.onRequest(I2C_Send);                           // Used to Send Data, may never be used
+  smcWire.begin(I2C_ADDR, 0x43, 0x44);                               // Initialize I2C - Device Mode
+  smcWire.onReceive(I2C_Receive);                        // Used to Receive Data
+  smcWire.onRequest(I2C_Send);                           // Used to Send Data, may never be used
+  smcWire.onKeyboardRequest(Keyboard_Send);
+  
 
   POW_BUT.attachClick(DoPowerToggle);            // Should the Power off be long, or short?
   POW_BUT.attachDuringLongPress(DoPowerToggle);  // Both for now
@@ -204,14 +212,14 @@ void I2C_Receive(int) {
   I2C_Data[2] = 0;
 
   int ct = 0;
-  while (Wire.available()) {
+  while (smcWire.available()) {
     if (ct < 3) {                           // read first three bytes only
-      byte c = Wire.read();
+      byte c = smcWire.read();
       I2C_Data[ct] = c;
       ct++;
     }
     else {
-      Wire.read();                        // eat extra data, should not be sent
+      smcWire.read();                        // eat extra data, should not be sent
     }
   }
 
@@ -302,19 +310,19 @@ void I2C_Send() {
   if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
     if (kbd_init_state == KBD_READY && Keyboard.available()) {
       nextKey = Keyboard.next();
-      Wire.write(nextKey);
+      smcWire.write(nextKey);
     }
     else {
-      Wire.write(0);
+      smcWire.write(0);
     }
   }
   if (I2C_Data[0] == 8) {
-    Wire.write(echo_byte);
+    smcWire.write(echo_byte);
   }
 
   if (I2C_Data[0] == 0x18) {
     //Get keyboard command status
-    Wire.write(Keyboard.getCommandStatus());
+    smcWire.write(Keyboard.getCommandStatus());
   }
 
   if (I2C_Data[0] == 0x21) {
@@ -340,42 +348,42 @@ void I2C_Send() {
           for (uint8_t i = 1; i < packet_size; i++) {
             buf[i] = Mouse.next();
           }
-          Wire.write(buf, packet_size);
+          smcWire.write(buf, packet_size);
         }
         else {
           //Invalid first byte - Discard, and return a 0
           mouse_init_state = MOUSE_INIT_STATE::START_RESET; // reset the mouse if the response is invalid Adrian Black
-          Wire.write(0);
+          smcWire.write(0);
         }
       }
     }
     else {
-      Wire.write(0);
+      smcWire.write(0);
     }
   }
 
   if (I2C_Data[0] == 0x22) {
-    Wire.write(mouse_id);
+    smcWire.write(mouse_id);
   }
 
   if (I2C_Data[0] == 0x30) {
-    Wire.write(version_major);
+    smcWire.write(version_major);
   }
 
   if (I2C_Data[0] == 0x31) {
-    Wire.write(version_minor);
+    smcWire.write(version_minor);
   }
 
   if (I2C_Data[0] == 0x32) {
-    Wire.write(version_patch);
+    smcWire.write(version_patch);
   }
 
   if (I2C_Data[0] == 0x8e) {
     if (pgm_read_byte(0x1e00) == 0x8a) {
-      Wire.write(pgm_read_byte(0x1e01));
+      smcWire.write(pgm_read_byte(0x1e01));
     }
     else {
-      Wire.write(0xff);
+      smcWire.write(0xff);
     }
   }
 }

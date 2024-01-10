@@ -37,6 +37,9 @@
    Global Static Variables
 */
 static uint8_t address = 0;
+static uint8_t kbd_address = 0;
+static uint8_t mse_address = 0;
+static uint8_t tmp_address = 0;
 static uint8_t ddr = 0;
 static uint8_t state = 0;
 static uint8_t buf[BUFSIZE];
@@ -44,6 +47,8 @@ static uint8_t bufindex = 0;
 static uint8_t buflen = 0;
 static void (*receiveHandler)(int) = NULL;
 static void (*requestHandler)() = NULL;
+static void (*keyboardRequestHandler)() = NULL;
+static void (*mouseRequestHandler)() = NULL;
 
 
 /*
@@ -56,9 +61,11 @@ static void (*requestHandler)() = NULL;
  * 
  * @param addr I2C address
  */
-void SmcWire::begin(uint8_t addr) {
+void SmcWire::begin(uint8_t addr, uint8_t kbd_addr, uint8_t mse_addr) {
   // Init vars
   address = addr;
+  kbd_address = kbd_addr;
+  mse_address = mse_addr;
   ddr = MASTER_WRITE;
   state = I2C_STATE_STOPPED;
   bufindex = 0;
@@ -91,6 +98,14 @@ void SmcWire::onReceive(void (*function)(int)) {
  */
 void SmcWire::onRequest(void (*function)()) {
   requestHandler = function;
+}
+
+void SmcWire::onKeyboardRequest(void (*function)()) {
+  keyboardRequestHandler = function;
+}
+
+void SmcWire::onMouseRequest(void (*function)()) {
+  mouseRequestHandler = function;
 }
 
 /**
@@ -141,32 +156,11 @@ uint8_t SmcWire::available() {
  */
 uint8_t SmcWire::read() {
   uint8_t value = 0xff;
-  if (ddr == MASTER_WRITE && bufindex < BUFSIZE) {
+  if (ddr == MASTER_WRITE && bufindex < buflen) {
     value = buf[bufindex];
     bufindex++;
   }
   return value;
-}
-
-/**
- * Sends attention signal to the Master by pulling SCL low
- * while the bus is idle
- * 
- * @return true if the signal was sent
- */
-bool SmcWire::setAttention() {
-  return true;
-}
-
-/**
- * Releases the attention signal if the Master has acknowledged it by
- * pulling SDA low
- * 
- *@return true if the signal is released, false if signal is not acknowledged 
- *        by the Master or if there is no active signal
- */
-bool SmcWire::releaseAttention() {
-  return true;
 }
 
 
@@ -214,13 +208,17 @@ ISR(USI_START_vect) {
  */
 ISR(USI_OVF_vect) {
   switch (state) {
-
+    
     case I2C_STATE_VERIFY_ADDRESS:
-      if ( (USIDR >> 1) == address && address != 0) {
-
-        // Data direction from bit 0
-        ddr = USIDR & 1;
-
+      ddr = (USIDR & 1);
+      tmp_address = (USIDR>>1);
+      
+      if (tmp_address == 0) {
+        // Ignore general calls to slave address 0x00
+        state = I2C_STATE_ADDRESS_MISMATCH;
+        goto clear_and_listen;
+      }    
+      else if (tmp_address == address) {
         if (ddr == MASTER_WRITE) {
           state = I2C_STATE_REQUEST_DATA;
         }
@@ -234,8 +232,23 @@ ISR(USI_OVF_vect) {
         DDRB |= SDA_OUTPUT;
         USISR = I2C_COUNT_BIT;
       }
+      else if (tmp_address == kbd_address && ddr == MASTER_READ) {
+        if (keyboardRequestHandler != NULL) {
+          keyboardRequestHandler();
+        } 
+          
+        if (buflen > 0) {
+          state = I2C_STATE_SEND_DATA;
+          USIDR = 0;
+          DDRB |= SDA_OUTPUT;
+          USISR = I2C_COUNT_BIT;
+        }
+        else {
+          state = I2C_STATE_ADDRESS_MISMATCH;
+          goto clear_and_listen;
+        }
+      }
       else {
-        // Next state
         state = I2C_STATE_ADDRESS_MISMATCH;
         goto clear_and_listen;
       }
