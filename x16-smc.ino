@@ -48,6 +48,8 @@ SmcWire smcWire;
 
 //I2C Pins
 #define I2C_ADDR              0x42  // I2C Device ID
+#define I2C_KBD               0x43
+#define I2C_MSE               0x44
 
 SmcButton POW_BUT(POWER_BUTTON_PIN);
 SmcButton RES_BUT(RESET_BUTTON_PIN);
@@ -79,6 +81,32 @@ void deassertReset() {
 void Keyboard_Send() {
   if (kbd_init_state == KBD_READY && Keyboard.available()) {
       smcWire.write(Keyboard.next());
+  }
+}
+
+void Mouse_Send() {
+  if (Mouse.count() >= 4 || (mouse_id == 0 && Mouse.count() >= 3)) { 
+    uint8_t firstval = Mouse.next();
+    if (firstval == 0xaa) {
+      mouse_init_state = MOUSE_INIT_STATE::START_RESET; //reset mouse if hotplugged Adrian Black
+      smcWire.write(0);
+    }
+    else {
+      if ((firstval & 0xc8) == 0x08) {
+        //Valid first byte - Send mouse data packet
+        smcWire.write(firstval);
+        uint8_t packet_size;
+        if (mouse_id==0) packet_size = 3; else packet_size = 4;
+        for (uint8_t i = 1; i < packet_size; i++) {
+          smcWire.write(Mouse.next());
+        }
+      }
+      else {
+        //Invalid first byte - Discard, and return a 0
+        mouse_init_state = MOUSE_INIT_STATE::START_RESET; // reset the mouse if the response is invalid Adrian Black
+        smcWire.write(0);
+      }
+    }
   }
 }
 
@@ -125,11 +153,11 @@ void setup() {
   DBG_PRINTLN("Commander X16 SMC Start");
 
   //initialize i2C
-  smcWire.begin(I2C_ADDR, 0x43, 0x44);                               // Initialize I2C - Device Mode
+  smcWire.begin(I2C_ADDR, I2C_KBD, I2C_MSE);                               // Initialize I2C - Device Mode
   smcWire.onReceive(I2C_Receive);                        // Used to Receive Data
   smcWire.onRequest(I2C_Send);                           // Used to Send Data, may never be used
   smcWire.onKeyboardRequest(Keyboard_Send);
-  
+  smcWire.onMouseRequest(Mouse_Send);
 
   POW_BUT.attachClick(DoPowerToggle);            // Should the Power off be long, or short?
   POW_BUT.attachDuringLongPress(DoPowerToggle);  // Both for now
@@ -327,34 +355,8 @@ void I2C_Send() {
 
   if (I2C_Data[0] == 0x21) {
     //Get mouse packet
-
-    uint8_t packet_size;
-    if (mouse_id == 0x00) {
-      packet_size = 3;
-    }
-    else {
-      packet_size = 4;
-    }
-
-    if (Mouse.count() >= packet_size) { 
-      uint8_t firstval = Mouse.next();
-      if (firstval == 0xaa) {
-        mouse_init_state = MOUSE_INIT_STATE::START_RESET; //reset mouse if hotplugged Adrian Black
-      }
-      else {
-        if ((firstval & 0xc8) == 0x08) {
-          //Valid first byte - Send mouse data packet
-          smcWire.write(firstval);
-          for (uint8_t i = 1; i < packet_size; i++) {
-            smcWire.write(Mouse.next());
-          }
-        }
-        else {
-          //Invalid first byte - Discard, and return a 0
-          mouse_init_state = MOUSE_INIT_STATE::START_RESET; // reset the mouse if the response is invalid Adrian Black
-          smcWire.write(0);
-        }
-      }
+    if (Mouse.count() >= 4 || (mouse_id == 0 && Mouse.count() >= 3)) { 
+      Mouse_Send();
     }
     else {
       smcWire.write(0);
