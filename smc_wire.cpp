@@ -1,7 +1,11 @@
+#include <Arduino.h>
+#include <stdlib.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
 #include "smc_wire.h"
 
 /*
- * I2C pins
+   I2C pins
  */
 #define I2C_SCL_PINB 2
 #define I2C_SDA_PINB 0
@@ -20,9 +24,8 @@
 /*
    USI Control Register Values
 */
-#define I2C_LISTEN                    ((1<<USISIE) + (0<<USIOIE) + (1<<USIWM1) + (0<<USIWM0) + (1<<USICS1) + (0<<USICS0) + (0<<USICLK) + (0<<USITC))
-#define I2C_ACTIVE                    ((1<<USISIE) + (1<<USIOIE) + (1<<USIWM1) + (1<<USIWM0) + (1<<USICS1) + (0<<USICS0) + (0<<USICLK) + (0<<USITC))
-#define I2C_DISABLED                  0
+#define I2C_LISTEN                    ((1<<USISIE) | (0<<USIOIE) | (1<<USIWM1) | (0<<USIWM0) | (1<<USICS1) | (0<<USICS0) | (0<<USICLK) | (0<<USITC))
+#define I2C_ACTIVE                    ((1<<USISIE) | (1<<USIOIE) | (1<<USIWM1) | (1<<USIWM0) | (1<<USICS1) | (0<<USICS0) | (0<<USICLK) | (0<<USITC))
 
 /*
    USI Status Register Values
@@ -30,42 +33,62 @@
 #define I2C_CLEAR_START_FLAG          (1<<USISIF)
 #define I2C_CLEAR_STOP_FLAG           (1<<USIPF)
 #define I2C_CLEAR_OVF_FLAG            (1<<USIOIF)
-#define I2C_COUNT_BYTE                (I2C_CLEAR_OVF_FLAG + 0x00)
-#define I2C_COUNT_BIT                 (I2C_CLEAR_OVF_FLAG + 0x0e)
+#define I2C_COUNT_BYTE                (I2C_CLEAR_OVF_FLAG | 0x00)
+#define I2C_COUNT_BIT                 (I2C_CLEAR_OVF_FLAG | 0x0e)
 
 /*
-   Global Static Variables
+  I2C Bus States
 */
-static uint8_t address = 0;
-static uint8_t kbd_address = 0;
-static uint8_t mse_address = 0;
-static uint8_t tmp_address = 0;
-static uint8_t ddr = 0;
-static uint8_t state = 0;
-static uint8_t buf[BUFSIZE];
-static uint8_t bufindex = 0;
-static uint8_t buflen = 0;
-static void (*receiveHandler)(int) = NULL;
-static void (*requestHandler)() = NULL;
-static void (*keyboardRequestHandler)() = NULL;
-static void (*mouseRequestHandler)() = NULL;
+#define I2C_STATE_STOPPED             0x00
+
+#define I2C_STATE_VERIFY_ADDRESS      0x01
+#define I2C_STATE_IGNORE              0x02
+
+#define I2C_STATE_REQUEST_DATA        0x03
+#define I2C_STATE_RECEIVE_DATA        0x04
+#define I2C_STATE_SLAVE_ABORTED       0x05
+
+#define I2C_STATE_SEND_DATA           0x06
+#define I2C_STATE_GET_RESPONSE        0x07
+#define I2C_STATE_EVAL_RESPONSE       0x08
+#define I2C_STATE_MASTER_ABORTED      0x09
+
+/*
+   Static variables
+*/
+static volatile uint8_t std_address = 0;
+static volatile uint8_t kbd_address = 0;
+static volatile uint8_t mse_address = 0;
+static volatile uint8_t tmp = 0;
+static volatile uint8_t ddr = 0;
+static volatile uint8_t state = 0;
+static volatile uint8_t buf[BUFSIZE];
+static volatile uint8_t bufindex = 0;
+static volatile uint8_t buflen = 0;
+static volatile void (*receiveHandler)(int) = NULL;
+static volatile void (*requestHandler)() = NULL;
+static volatile void (*keyboardRequestHandler)() = NULL;
+static volatile void (*mouseRequestHandler)() = NULL;
 
 
 /*
    SmcWire Class Member Function Definitions
 */
 
-
-/**
- * Attach device to I2C bus as slave
- * 
- * @param addr I2C address
- */
-void SmcWire::begin(uint8_t addr, uint8_t kbd_addr, uint8_t mse_addr) {
+// Function:    begin
+// 
+// Description: Attach as slave to the I2C bus responding to three
+//              device addresses.
+//
+// Params:
+//              std: general slave address for offset/command based access to the SMC
+//              kbd: dedicated slave address that only returns a key code if available
+//              mse: dedicated slave address that only returns a mouse packet if available
+void SmcWire::begin(uint8_t std, uint8_t kbd, uint8_t mse) {
   // Init vars
-  address = addr;
-  kbd_address = kbd_addr;
-  mse_address = mse_addr;
+  std_address = std;
+  kbd_address = kbd;
+  mse_address = mse;
   ddr = MASTER_WRITE;
   state = I2C_STATE_STOPPED;
   bufindex = 0;
@@ -79,23 +102,13 @@ void SmcWire::begin(uint8_t addr, uint8_t kbd_addr, uint8_t mse_addr) {
 
   // Setup USI control register
   USICR = I2C_LISTEN;
-  USISR = I2C_CLEAR_START_FLAG + I2C_CLEAR_STOP_FLAG + I2C_CLEAR_OVF_FLAG;
+  USISR = I2C_CLEAR_START_FLAG | I2C_CLEAR_STOP_FLAG | I2C_CLEAR_OVF_FLAG;
 }
 
-/**
- * Register callback that receives incoming data
- * 
- * @param function Pointer to function that takes an int param and returns nothing
- */
 void SmcWire::onReceive(void (*function)(int)) {
   receiveHandler = function;
 }
 
-/*
- * Register callback that fills output buffer with data when requested
- * 
- * @param function Pointer to function that takes no params and returns nothing
- */
 void SmcWire::onRequest(void (*function)()) {
   requestHandler = function;
 }
@@ -108,12 +121,6 @@ void SmcWire::onMouseRequest(void (*function)()) {
   mouseRequestHandler = function;
 }
 
-/**
- * Adds one byte to the end of the output buffer. Only intended to be invoked from the
- * callback function registered with onRequest()
- * 
- * @param value A byte value
- */
 void SmcWire::write(uint8_t value) {
   if (ddr == MASTER_READ && buflen < BUFSIZE) {
     buf[buflen] = value;
@@ -121,39 +128,10 @@ void SmcWire::write(uint8_t value) {
   }
 }
 
-/**
- * Adds multiple bytes to the end of the output buffer. Only intended to be invoked
- * from the callback function registered with onRequest()
- * 
- * @param value[] An array of bytes
- * @param size Array length
- */
-void SmcWire::write(uint8_t value[], uint8_t size) {
-  if (ddr == MASTER_READ) {
-    for (uint8_t i = 0; i < size && buflen < BUFSIZE; i++) {
-      buf[buflen] = value[i];
-      buflen++;
-    }
-  }
-}
-
-/**
- * Returns number of bytes available in the input buffer. Only intended
- * to be invoked from the callback function registered with onReceive()
- * 
- * @return Number of bytes available
- */
 uint8_t SmcWire::available() {
   return (ddr == MASTER_WRITE) ? buflen - bufindex : 0;
 }
 
-
-/**
- * Reads on byte from the input buffer. Only intended to be invoked
- * from the callback function registered with onReceive()
- * 
- * @return A byte
- */
 uint8_t SmcWire::read() {
   uint8_t value = 0xff;
   if (ddr == MASTER_WRITE && bufindex < buflen) {
@@ -169,19 +147,23 @@ uint8_t SmcWire::read() {
 */
 
 
-/**
- * Interrupt handler for USI start/stop
+/*
+   Interrupt handler for USI start/stop. Even if it's not apparent
+   from its name, the USI_START interrupt catches both start
+   and stop conditions. SCL is held low until the USISIE flag
+   is cleared.
  */
 ISR(USI_START_vect) {
-  // Set SDA as input
+  // Ensure SDA is input
   DDRB &= SDA_INPUT;
 
-  //Wait while SCL is high and SDA is low
+  // Wait until start or stop condition completes (SCL low or SDA high)
   uint8_t p = (1<<I2C_SCL_PINB);
   while (p == (1<<I2C_SCL_PINB)) {
     p = PINB & ((1<<I2C_SCL_PINB) | (1<<I2C_SDA_PINB));
   }
 
+  // Invoke callback for incoming data
   if (receiveHandler != NULL && ddr == MASTER_WRITE && buflen > 0) {
     receiveHandler(buflen);
   }
@@ -190,35 +172,40 @@ ISR(USI_START_vect) {
   buflen = 0;
   bufindex = 0;
 
-  // Continue
   if ((p & (1<<I2C_SCL_PINB)) == 0) {
+    // Start condition: Configure to receive address and R/W bit
     state = I2C_STATE_VERIFY_ADDRESS;
     USICR = I2C_ACTIVE;
-    USISR = I2C_CLEAR_START_FLAG + I2C_CLEAR_STOP_FLAG + I2C_COUNT_BYTE;
+    USISR = I2C_CLEAR_START_FLAG | I2C_CLEAR_STOP_FLAG | I2C_COUNT_BYTE;
   }
   else {
+    // Stop condition: Configure to listen for start/stop conditions
     state = I2C_STATE_STOPPED;
     USICR = I2C_LISTEN;
-    USISR = I2C_CLEAR_START_FLAG + I2C_CLEAR_STOP_FLAG + I2C_CLEAR_OVF_FLAG;
+    USISR = I2C_CLEAR_START_FLAG | I2C_CLEAR_STOP_FLAG | I2C_CLEAR_OVF_FLAG;
   }
 }
 
 /**
- * Interrupt handler for USI overflow
+   Interrupt handler for USI overflow
  */
 ISR(USI_OVF_vect) {
   switch (state) {
     
     case I2C_STATE_VERIFY_ADDRESS:
+      // Get R/W from USIDR bit 0
       ddr = (USIDR & 1);
-      tmp_address = (USIDR>>1);
+
+      // Get slave address from USIDR bits 1-7
+      tmp = (USIDR>>1);
       
-      if (tmp_address == 0) {
+      if (tmp == 0) {
         // Ignore general calls to slave address 0x00
-        state = I2C_STATE_ADDRESS_MISMATCH;
+        state = I2C_STATE_IGNORE;
         goto clear_and_listen;
       }    
-      else if (tmp_address == address) {
+
+      else if (tmp == std_address) {
         if (ddr == MASTER_WRITE) {
           state = I2C_STATE_REQUEST_DATA;
         }
@@ -232,30 +219,38 @@ ISR(USI_OVF_vect) {
         DDRB |= SDA_OUTPUT;
         USISR = I2C_COUNT_BIT;
       }
-      else if (tmp_address == kbd_address && ddr == MASTER_READ) {
-        if (keyboardRequestHandler != NULL) {
+
+      else if ((tmp == kbd_address || tmp == mse_address) && ddr == MASTER_READ) {
+        if (tmp == kbd_address && keyboardRequestHandler != NULL) {
           keyboardRequestHandler();
         } 
+        else if (tmp == mse_address && mouseRequestHandler != NULL) {
+          mouseRequestHandler();
+        }
           
         if (buflen > 0) {
+          // Send ACK
           state = I2C_STATE_SEND_DATA;
           USIDR = 0;
           DDRB |= SDA_OUTPUT;
           USISR = I2C_COUNT_BIT;
         }
         else {
-          state = I2C_STATE_ADDRESS_MISMATCH;
+          // No data, ignore request (NACK)
+          state = I2C_STATE_IGNORE;
           goto clear_and_listen;
         }
       }
+
       else {
-        state = I2C_STATE_ADDRESS_MISMATCH;
+        // Master is addressing another device, ignore (NACK)
+        state = I2C_STATE_IGNORE;
         goto clear_and_listen;
       }
       break;
 
     case I2C_STATE_REQUEST_DATA:
-      // Config to read one byte
+      // Config to read one byte from Master
       state = I2C_STATE_RECEIVE_DATA;
       DDRB &= SDA_INPUT;
       USISR = I2C_COUNT_BYTE;
@@ -285,14 +280,16 @@ ISR(USI_OVF_vect) {
         // Next state
         state = I2C_STATE_GET_RESPONSE;
   
-        // Transmit one byte
+        // Fill data register
         if (bufindex < buflen) {
           USIDR = buf[bufindex];
           bufindex++;
         }
         else {
-          USIDR = 0x00;
+          USIDR = 0xff;
         }
+
+        // Configure to send one byte
         DDRB |= SDA_OUTPUT;
         USISR = I2C_COUNT_BYTE;
         break;
@@ -308,18 +305,18 @@ ISR(USI_OVF_vect) {
 
     case I2C_STATE_EVAL_RESPONSE:
       if ( (USIDR & 1) == 0) {
-        // ACK
+        // Master wants more data
         goto send_data;
       }
       else {
-        // NACK
+        // Master aborted, configure to listen for start/stop conditions
         state = I2C_STATE_MASTER_ABORTED;
       }
       // Fallthrough to default 
 
     default:
       // Catches:
-      //   I2C_STATE_ADDRESS_MISMATCH
+      //   I2C_STATE_IGNORE
       //   I2C_STATE_SLAVE_ABORTED
       //   I2C_STATE_MASTER_ABORTED
       //   All possible undefined states, should not happen
@@ -327,6 +324,7 @@ ISR(USI_OVF_vect) {
       clear_and_listen:
         DDRB &= SDA_INPUT;
         USICR = I2C_LISTEN;
+        USISR = I2C_CLEAR_OVF_FLAG;
         break;
   }
 }

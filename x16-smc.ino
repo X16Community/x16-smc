@@ -336,19 +336,18 @@ void I2C_Send() {
       packet_size = 4;
     }
 
-    if (Mouse.count() >= packet_size) {
-      uint8_t buf[packet_size];
-      buf[0] = Mouse.next();
-      if (buf[0] == 0xaa) {
+    if (Mouse.count() >= packet_size) { 
+      uint8_t firstval = Mouse.next();
+      if (firstval == 0xaa) {
         mouse_init_state = MOUSE_INIT_STATE::START_RESET; //reset mouse if hotplugged Adrian Black
       }
       else {
-        if ((buf[0] & 0xc8) == 0x08) {
+        if ((firstval & 0xc8) == 0x08) {
           //Valid first byte - Send mouse data packet
+          smcWire.write(firstval);
           for (uint8_t i = 1; i < packet_size; i++) {
-            buf[i] = Mouse.next();
+            smcWire.write(Mouse.next());
           }
-          smcWire.write(buf, packet_size);
         }
         else {
           //Invalid first byte - Discard, and return a 0
