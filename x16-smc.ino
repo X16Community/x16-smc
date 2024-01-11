@@ -16,7 +16,7 @@
 #include "ps2.h"
 #include "mouse.h"
 
-#include "smc_Wire.h"
+#include "smc_wire.h"
 SmcWire smcWire;
 
 // Build only for ATtiny861
