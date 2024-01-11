@@ -65,7 +65,7 @@ static volatile uint8_t state = 0;
 static volatile uint8_t buf[BUFSIZE];
 static volatile uint8_t bufindex = 0;
 static volatile uint8_t buflen = 0;
-static volatile void (*receiveHandler)(int) = NULL;
+static volatile void (*receiveHandler)(uint8_t) = NULL;
 static volatile void (*requestHandler)() = NULL;
 static volatile void (*keyboardRequestHandler)() = NULL;
 static volatile void (*mouseRequestHandler)() = NULL;
@@ -85,7 +85,7 @@ static volatile void (*mouseRequestHandler)() = NULL;
 //              kbd: dedicated slave address that only returns a key code if available
 //              mse: dedicated slave address that only returns a mouse packet if available
 void SmcWire::begin(uint8_t std, uint8_t kbd, uint8_t mse) {
-  // Init vars
+  // Init variables
   std_address = std;
   kbd_address = kbd;
   mse_address = mse;
@@ -94,13 +94,47 @@ void SmcWire::begin(uint8_t std, uint8_t kbd, uint8_t mse) {
   bufindex = 0;
   buflen = 0;
 
-  // Pin setup: SDA input, SCL output
+  // I2C pin setup: 
+  // 
+  // SCL must be set as output at all times, which is necessary for the USI 
+  // module to control the clock pin. SDA is set as input when reading data, and 
+  // as output when writing data to the bus. 
+  //
+  // The output ports of both pins must be set to high at all times to let the USI 
+  // module control the bus. If an output port is set to low, the USI module cannot
+  // release that pin.
+  //
+  // Even if the pins are set as outputs, they are never driven high while the
+  // two-wire mode is active. Instead the USI module releases a pin if writing a 1
+  // to the bus.
+  //
+  // Based on ATtiny861A datasheet p. 134:
+  //
+  //   "Two-wire mode. Uses SDA (DI) and SCL (USCK) pins (1).
+  //
+  //   The Serial Data (SDA) and the Serial Clock (SCL) pins are bi-directional and use
+  //   open-collector output drives. The output drivers are enabled by setting the 
+  //   corresponding bit for SDA and SCL in the DDRA register.
+  //
+  //   When the output driver is enabled for the SDA pin, the output driver will force the line 
+  //   SDA low if the output of the USI Data Register or the corresponding bit in the PORTA 
+  //   register is zero. Otherwise, the SDA line will not be driven (i.e., it is released). 
+  //   When the SCL pin output driver is enabled the SCL line will be forced low if the 
+  //   corresponding bit in the PORTA register is zero, or by the start detector. 
+  //   Otherwise the SCL line will not be driven.
+  //
+  //   The SCL line is held low when a start detector detects a start condition and the output 
+  //   is enabled. Clearing the Start Condition Flag (USISIF) releases the line. The SDA and 
+  //   SCL pin inputs is not affected by enabling this mode. Pull-ups on the SDA and SCL port 
+  //   pin are disabled in Two-wire mode."
+  
+  // Set SCL as output and SDA as input
   DDRB = (DDRB & SDA_INPUT) | SCL_OUTPUT;
 
-  // Set SDA and SCL output buffer high
+  // Set SDA and SCL output ports to high
   PORTB = PORTB | (1 << I2C_SDA_PINB) | (1 << I2C_SCL_PINB);
 
-  // Setup USI control register
+  // Setup USI control and status registers to listen for start/stop conditions
   USICR = I2C_LISTEN;
   USISR = I2C_CLEAR_START_FLAG | I2C_CLEAR_STOP_FLAG | I2C_CLEAR_OVF_FLAG;
 }
@@ -148,10 +182,13 @@ uint8_t SmcWire::read() {
 
 
 /*
-   Interrupt handler for USI start/stop. Even if it's not apparent
-   from its name, the USI_START interrupt catches both start
-   and stop conditions. SCL is held low until the USISIE flag
-   is cleared.
+   Interrupt handler for USI start and stop conditions.
+
+   Even if it's not apparent from the name of the interrupt
+   vector, it will catch both start and stop conditions. It
+   is necessary to wait for SCL to go low (start condition)
+   or SDA to go high (stop condition) to determine the
+   cause of the interrupt.
  */
 ISR(USI_START_vect) {
   // Ensure SDA is input

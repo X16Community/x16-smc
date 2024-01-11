@@ -6,7 +6,7 @@
 class SmcWire {
   public:
     void begin(uint8_t std, uint8_t kbd, uint8_t mse);
-    void onReceive(void (*function)(int len));
+    void onReceive(void (*function)(uint8_t len));
     void onRequest(void (*function)());
     void onKeyboardRequest(void (*function)());
     void onMouseRequest(void (*function)());
