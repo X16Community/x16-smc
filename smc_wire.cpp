@@ -139,7 +139,7 @@ void SmcWire::begin(uint8_t std, uint8_t kbd, uint8_t mse) {
   USISR = I2C_CLEAR_START_FLAG | I2C_CLEAR_STOP_FLAG | I2C_CLEAR_OVF_FLAG;
 }
 
-void SmcWire::onReceive(void (*function)(int)) {
+void SmcWire::onReceive(void (*function)(uint8_t)) {
   receiveHandler = function;
 }
 
