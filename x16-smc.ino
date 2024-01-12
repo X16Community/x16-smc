@@ -4,9 +4,15 @@
 //     Michael Steil
 //     Joe Burks
 
+// ----------------------------------------------------------------
+// SMC Pin Layout Options
+// ----------------------------------------------------------------
 //#define COMMUNITYX16_PINS
-#define ENABLE_NMI_BUT
-//#define KBDBUF_FULL_DBG
+
+
+// ----------------------------------------------------------------
+// Includes
+// ----------------------------------------------------------------
 
 #include "version.h"
 #include "smc_button.h"
@@ -14,15 +20,21 @@
 #include "smc_pins.h"
 #include "ps2.h"
 #include "mouse.h"
-
 #include "smc_wire.h"
-SmcWire smcWire;
 
-// Build only for ATtiny861
+
+// ----------------------------------------------------------------
+// Definitions
+// ----------------------------------------------------------------
+
+// Build Options
 #if !defined(__AVR_ATtiny861__)
 #error "X16 SMC only builds for ATtiny861"
 #endif
+#define ENABLE_NMI_BUT
+//#define KBDBUF_FULL_DBG
 
+// Power
 #define PWR_ON_MIN_MS          1
 #define PWR_ON_MAX_MS          750
 // Hold PWR_ON low while computer is on.  High while off.
@@ -30,100 +42,59 @@ SmcWire smcWire;
 //           Any longer or shorter is considered a fault.
 // http://www.ieca-inc.com/images/ATX12V_PSDG2.0_Ratified.pdf
 
-//Activity (HDD) LED
-#define ACT_LED_DEFAULT_LEVEL    0
+// Activity (HDD) LED
+#define ACT_LED_DEFAULT_LEVEL  0
 #define ACT_LED_ON_LEVEL       255
 
-//Reset & NMI Lines
+// Reset & NMI
 #define RESB_HOLDTIME_MS       500
 #define AUDIOPOP_HOLDTIME_MS   1
 #define NMI_HOLDTIME_MS        300
-#define RESET_ACTIVE   LOW
-#define RESET_INACTIVE HIGH
+#define RESET_ACTIVE           LOW
+#define RESET_INACTIVE         HIGH
 
+//I2C
+#define I2C_ADDR               0x42 // General slave address
+#define I2C_KBD                0x43 // Dedicated slave address for key codes
+#define I2C_MSE                0x44 // Dedicated slave address for mouse packets
+
+// Bootloader
 #define FLASH_SIZE            (0x2000)
 #define BOOTLOADER_SIZE       (0x200)
 #define BOOTLOADER_START_ADDR ((FLASH_SIZE-BOOTLOADER_SIZE+2)>>1)
 
-//I2C Pins
-#define I2C_ADDR              0x42  // I2C Device ID
-#define I2C_KBD               0x43
-#define I2C_MSE               0x44
 
+// ----------------------------------------------------------------
+// Global Variables
+// ----------------------------------------------------------------
+
+// Power, Reset and NMI
+bool SYSTEM_POWERED = 0;      // default state - Powered off
 SmcButton POW_BUT(POWER_BUTTON_PIN);
 SmcButton RES_BUT(RESET_BUTTON_PIN);
 #if defined(ENABLE_NMI_BUT)
 SmcButton NMI_BUT(NMI_BUTTON_PIN);
 #endif
 
+// I2C
+SmcWire smcWire;
+int  I2C_Data[3] = {0, 0, 0};
+char echo_byte = 0;
+
+// PS/2
 PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
 PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
 
-void keyboardClockIrq() {
-  Keyboard.onFallingClock();
-}
-
-void mouseClockIrq() {
-  Mouse.onFallingClock();
-}
-
-void assertReset() {
-  pinMode(RESB_PIN, OUTPUT);
-  digitalWrite(RESB_PIN, RESET_ACTIVE);
-}
-
-void deassertReset() {
-  digitalWrite(RESB_PIN, RESET_INACTIVE);
-  pinMode(RESB_PIN, INPUT);
-}
-
-void Keyboard_Send() {
-  if (kbd_init_state == KBD_READY && Keyboard.available()) {
-      smcWire.write(Keyboard.next());
-  }
-}
-
-void Mouse_Send() {
-  uint8_t packet_size;
-  if (mouse_id == 0) {
-    packet_size = 3;
-  }
-  else {
-    packet_size = 4;
-  }
-
-  if (Mouse.count() >= packet_size) { 
-    uint8_t firstval = Mouse.next();
-    if (firstval == 0xaa) {
-      mouse_init_state = MOUSE_INIT_STATE::START_RESET; //reset mouse if hotplugged Adrian Black
-      smcWire.write(0);
-    }
-    else {
-      if ((firstval & 0xc8) == 0x08) {
-        //Valid first byte - Send mouse data packet
-        smcWire.write(firstval);
-        for (uint8_t i = 1; i < packet_size; i++) {
-          smcWire.write(Mouse.next());
-        }
-      }
-      else {
-        //Invalid first byte - Discard, and return a 0
-        mouse_init_state = MOUSE_INIT_STATE::START_RESET; // reset the mouse if the response is invalid Adrian Black
-        smcWire.write(0);
-      }
-    }
-  }
-}
-
-bool SYSTEM_POWERED = 0;                                // default state - Powered off
-int  I2C_Data[3] = {0, 0, 0};
-bool I2C_Active = false;
-char echo_byte = 0;
-
+// Bootloader
 uint16_t bootloaderTimer = 0;
 uint8_t bootloaderFlags = 0;
 
+
+// ----------------------------------------------------------------
+// Setup
+// ----------------------------------------------------------------
 void setup() {
+  // Serial Debugging
 #if defined(USE_SERIAL_DEBUG)
   Serial.begin(SERIAL_BPS);
 #endif
@@ -131,7 +102,7 @@ void setup() {
   Serial.begin(SERIAL_BPS);
 #endif
 
-  //Setup Timer 1 interrupt to run every 25 us >>>
+  // Setup Timer 1 interrupt to run every 100 us >>>
   cli();
 
 #if defined(__AVR_ATtiny861__)
@@ -152,18 +123,12 @@ void setup() {
   TIMSK |= 1 << OCIE1A;
 #endif
 
-  //Timer 1 interrupt setup is done, enable interrupts
+  // Timer 1 interrupt setup is done, enable interrupts
   sei();
 
   DBG_PRINTLN("Commander X16 SMC Start");
 
-  //initialize i2C
-  smcWire.begin(I2C_ADDR, I2C_KBD, I2C_MSE);                               // Initialize I2C - Device Mode
-  smcWire.onReceive(I2C_Receive);                        // Used to Receive Data
-  smcWire.onRequest(I2C_Send);                           // Used to Send Data, may never be used
-  smcWire.onKeyboardRequest(Keyboard_Send);
-  smcWire.onMouseRequest(Mouse_Send);
-
+  // Initialize Power, Reset and NMI buttons
   POW_BUT.attachClick(DoPowerToggle);            // Should the Power off be long, or short?
   POW_BUT.attachDuringLongPress(DoPowerToggle);  // Both for now
 
@@ -174,32 +139,50 @@ void setup() {
   NMI_BUT.attachClick(DoNMI);
 #endif
 
+  // Enable Power Supply
   pinMode(PWR_OK, INPUT);
   pinMode(PWR_ON, OUTPUT);
   digitalWrite(PWR_ON, HIGH);
 
+  // Turn Off Activity LED
   pinMode(ACT_LED, OUTPUT);
   analogWrite(ACT_LED, 0);
 
-  assertReset();                 // Hold Reset on startup
+  // Hold Reset
+  assertReset();
 
+  // Release NMI
   pinMode(NMIB_PIN, OUTPUT);
   digitalWrite(NMIB_PIN, HIGH);
+
+  // Initialize I2C
+  smcWire.begin(I2C_ADDR, I2C_KBD, I2C_MSE);    // Initialize I2C - Device Mode
+  smcWire.onReceive(I2C_Receive);               // Used to Receive Data
+  smcWire.onRequest(I2C_Send);                  // Used to Send Data, may never be used
+  smcWire.onKeyboardRequest(Keyboard_Send);
+  smcWire.onMouseRequest(Mouse_Send);
 
   // PS/2 host init
   Keyboard.begin(keyboardClockIrq);
   Mouse.begin(mouseClockIrq);
 }
 
+// ----------------------------------------------------------------
+// Main Loop
+// ----------------------------------------------------------------
 void loop() {
-  POW_BUT.tick();                             // Check Button Status
+  // Update Button State
+  POW_BUT.tick();
   RES_BUT.tick();
 #if defined(ENABLE_NMI_BUT)
   NMI_BUT.tick();
 #endif
+
+  // Update Keyboard and Mouse Initialization State
   MouseTick();
   KeyboardTick();
 
+  // Shutdown on PSU Fault Condition
   if ((SYSTEM_POWERED == 1) && (!digitalRead(PWR_OK)))
   {
     PowerOffSeq();
@@ -207,6 +190,7 @@ void loop() {
     //error handling?
   }
 
+  // Process Reset and NMI Requests
   if (Keyboard.getResetRequest()) {
     DoReset();
     Keyboard.ackResetRequest();
@@ -217,13 +201,19 @@ void loop() {
     Keyboard.ackNMIRequest();
   }
 
+  // Bootloader Countdown
   if (bootloaderTimer > 0) {
     bootloaderTimer--;
   }
 
-  // DEBUG: turn activity LED on if there are keys in the keybuffer
-  delay(10);                                  // Short Delay, required by OneButton if code is short
+  // Short Delay, required by OneButton if code is short
+  delay(10);
 }
+
+
+// ----------------------------------------------------------------
+// Power, NMI and Reset
+// ----------------------------------------------------------------
 
 void DoPowerToggle() {
   if (bootloaderTimer > 0) {
@@ -238,6 +228,83 @@ void DoPowerToggle() {
   }
 }
 
+void DoReset() {
+  if (bootloaderTimer > 0) {
+    bootloaderFlags |= 2;
+    startBootloader();
+    return;
+  }
+
+  Keyboard.flush();
+  Mouse.reset();
+  if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
+    assertReset();
+    delay(RESB_HOLDTIME_MS);
+    deassertReset();
+    analogWrite(ACT_LED, 0);
+    mouse_init_state = MOUSE_INIT_STATE::START_RESET;
+    kbd_init_state = MOUSE_INIT_STATE::START_RESET;
+  }
+}
+
+void DoNMI() {
+  if (SYSTEM_POWERED == 1 && bootloaderTimer == 0 ) {   // Ignore unless Powered On; also ignore if bootloader timer is active
+    digitalWrite(NMIB_PIN, LOW);                    // Press NMI
+    delay(NMI_HOLDTIME_MS);
+    digitalWrite(NMIB_PIN, HIGH);
+  }
+}
+
+void PowerOffSeq() {
+  assertReset();                              // Hold CPU in reset
+  analogWrite(ACT_LED, ACT_LED_DEFAULT_LEVEL);// Ensure activity LED is off
+  delay(AUDIOPOP_HOLDTIME_MS);                // Wait for audio system to stabilize before power is turned off
+  digitalWrite(PWR_ON, HIGH);                 // Turn off supply
+  SYSTEM_POWERED = 0;                         // Global Power state Off
+  delay(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
+  deassertReset();
+}
+
+void PowerOnSeq() {
+  assertReset();
+  digitalWrite(PWR_ON, LOW);                  // turn on power supply
+  unsigned long TimeDelta = 0;
+  unsigned long StartTime = millis();         // get current time
+  while (!digitalRead(PWR_OK)) {              // Time how long it takes
+    TimeDelta = millis() - StartTime;       // for PWR_OK to go active.
+  }
+  if ((PWR_ON_MIN_MS > TimeDelta) || (PWR_ON_MAX_MS < TimeDelta)) {
+    PowerOffSeq();                          // FAULT! Turn off supply
+    // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
+  }
+  else {
+    Keyboard.reset();
+    Mouse.reset();
+    delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
+    SYSTEM_POWERED = 1;                     // Global Power state On
+  }
+  deassertReset();
+}
+
+void HardReboot() {                             // This never works via I2C... Why!!!
+  PowerOffSeq();
+  delay(1000);
+  PowerOnSeq();
+}
+
+void assertReset() {
+  pinMode(RESB_PIN, OUTPUT);
+  digitalWrite(RESB_PIN, RESET_ACTIVE);
+}
+
+void deassertReset() {
+  digitalWrite(RESB_PIN, RESET_INACTIVE);
+  pinMode(RESB_PIN, INPUT);
+}
+
+// ----------------------------------------------------------------
+// I2C Functions
+// ----------------------------------------------------------------
 void I2C_Receive(int) {
   // We are resetting the data beforehand
   I2C_Data[0] = 0;
@@ -394,70 +461,60 @@ void I2C_Send() {
   }
 }
 
-void DoReset() {
-  if (bootloaderTimer > 0) {
-    bootloaderFlags |= 2;
-    startBootloader();
-    return;
-  }
-
-  Keyboard.flush();
-  Mouse.reset();
-  if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
-    assertReset();
-    delay(RESB_HOLDTIME_MS);
-    deassertReset();
-    analogWrite(ACT_LED, 0);
-    mouse_init_state = MOUSE_INIT_STATE::START_RESET;
-    kbd_init_state = MOUSE_INIT_STATE::START_RESET;
+void Keyboard_Send() {
+  if (kbd_init_state == KBD_READY && Keyboard.available()) {
+      smcWire.write(Keyboard.next());
   }
 }
 
-void DoNMI() {
-  if (SYSTEM_POWERED == 1 && bootloaderTimer == 0 ) {   // Ignore unless Powered On; also ignore if bootloader timer is active
-    digitalWrite(NMIB_PIN, LOW);                    // Press NMI
-    delay(NMI_HOLDTIME_MS);
-    digitalWrite(NMIB_PIN, HIGH);
-  }
-}
-
-void PowerOffSeq() {
-  assertReset();                              // Hold CPU in reset
-  analogWrite(ACT_LED, ACT_LED_DEFAULT_LEVEL);// Ensure activity LED is off
-  delay(AUDIOPOP_HOLDTIME_MS);                // Wait for audio system to stabilize before power is turned off
-  digitalWrite(PWR_ON, HIGH);                 // Turn off supply
-  SYSTEM_POWERED = 0;                         // Global Power state Off
-  delay(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
-  deassertReset();
-}
-
-void PowerOnSeq() {
-  assertReset();
-  digitalWrite(PWR_ON, LOW);                  // turn on power supply
-  unsigned long TimeDelta = 0;
-  unsigned long StartTime = millis();         // get current time
-  while (!digitalRead(PWR_OK)) {              // Time how long it takes
-    TimeDelta = millis() - StartTime;       // for PWR_OK to go active.
-  }
-  if ((PWR_ON_MIN_MS > TimeDelta) || (PWR_ON_MAX_MS < TimeDelta)) {
-    PowerOffSeq();                          // FAULT! Turn off supply
-    // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
+void Mouse_Send() {
+  uint8_t packet_size;
+  if (mouse_id == 0) {
+    packet_size = 3;
   }
   else {
-    Keyboard.reset();
-    Mouse.reset();
-    delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
-    SYSTEM_POWERED = 1;                     // Global Power state On
+    packet_size = 4;
   }
-  deassertReset();
+
+  if (Mouse.count() >= packet_size) { 
+    uint8_t firstval = Mouse.next();
+    if (firstval == 0xaa) {
+      mouse_init_state = MOUSE_INIT_STATE::START_RESET; //reset mouse if hotplugged Adrian Black
+      smcWire.write(0);
+    }
+    else {
+      if ((firstval & 0xc8) == 0x08) {
+        //Valid first byte - Send mouse data packet
+        smcWire.write(firstval);
+        for (uint8_t i = 1; i < packet_size; i++) {
+          smcWire.write(Mouse.next());
+        }
+      }
+      else {
+        //Invalid first byte - Discard, and return a 0
+        mouse_init_state = MOUSE_INIT_STATE::START_RESET; // reset the mouse if the response is invalid Adrian Black
+        smcWire.write(0);
+      }
+    }
+  }
 }
 
-void HardReboot() {                             // This never works via I2C... Why!!!
-  PowerOffSeq();
-  delay(1000);
-  PowerOnSeq();
+// ----------------------------------------------------------------
+// PS/2 Functions
+// ----------------------------------------------------------------
+
+void keyboardClockIrq() {
+  Keyboard.onFallingClock();
 }
 
+void mouseClockIrq() {
+  Mouse.onFallingClock();
+}
+
+
+// ----------------------------------------------------------------
+// Bootloader Startup
+// ----------------------------------------------------------------
 void startBootloader() {
   if (bootloaderFlags == 3 && bootloaderTimer > 0) {
     ((void(*)(void))BOOTLOADER_START_ADDR)();
@@ -467,6 +524,10 @@ void startBootloader() {
   }
 }
 
+
+// ----------------------------------------------------------------
+// Timer Intterupt
+// ----------------------------------------------------------------
 ISR(TIMER1_COMPA_vect) {
 #if defined(__AVR_ATtiny861__)
   // Reset counter since timer1 doesn't reset itself.
