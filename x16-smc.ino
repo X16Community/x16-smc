@@ -10,7 +10,6 @@
 
 #include "version.h"
 #include "smc_button.h"
-//#include <Wire.h>
 #include "dbg_supp.h"
 #include "smc_pins.h"
 #include "ps2.h"
@@ -85,7 +84,15 @@ void Keyboard_Send() {
 }
 
 void Mouse_Send() {
-  if (Mouse.count() >= 4 || (mouse_id == 0 && Mouse.count() >= 3)) { 
+  uint8_t packet_size;
+  if (mouse_id == 0) {
+    packet_size = 3;
+  }
+  else {
+    packet_size = 4;
+  }
+
+  if (Mouse.count() >= packet_size) { 
     uint8_t firstval = Mouse.next();
     if (firstval == 0xaa) {
       mouse_init_state = MOUSE_INIT_STATE::START_RESET; //reset mouse if hotplugged Adrian Black
@@ -95,8 +102,6 @@ void Mouse_Send() {
       if ((firstval & 0xc8) == 0x08) {
         //Valid first byte - Send mouse data packet
         smcWire.write(firstval);
-        uint8_t packet_size;
-        if (mouse_id==0) packet_size = 3; else packet_size = 4;
         for (uint8_t i = 1; i < packet_size; i++) {
           smcWire.write(Mouse.next());
         }
