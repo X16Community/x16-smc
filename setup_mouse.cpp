@@ -67,7 +67,7 @@
 extern bool SYSTEM_POWERED;
 extern PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
 static volatile uint8_t mouse_id = PS2_BAT_FAIL;
-static volatile uint8_t requestedmouse_id = 0;
+static volatile uint8_t requestedmouse_id = 4;
 static volatile uint8_t state = MOUSE_STATE_OFF;
 static volatile uint8_t watchdogExpiryState = MOUSE_STATE_OFF;
 

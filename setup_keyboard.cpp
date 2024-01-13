@@ -26,14 +26,14 @@
 #define WATCHDOG_DISABLE                0
 
 /*
-    PS/2 Mouse Response Codes
+    PS/2 Keyboard Response Codes
 */
 #define PS2_BAT_OK                      0xaa
 #define PS2_BAT_FAIL                    0xfc
 #define PS2_ACK                         0xfa
 
 /* 
-    PS/2 Host to Mouse Commmands
+    PS/2 Host to Keyboard Commmands
 */
 
 #define PS2_CMD_SET_LEDS                0xed
@@ -45,7 +45,7 @@
 extern bool SYSTEM_POWERED;
 extern PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
 static volatile uint8_t watchdogExpiryState = KBD_STATE_RESET;
-volatile uint8_t kbd_init_state = 0;
+static volatile uint8_t kbd_init_state = 0;
 
 
 void keyboardTick() {
