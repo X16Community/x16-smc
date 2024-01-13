@@ -62,7 +62,7 @@ void keyboardTick() {
         case KBD_STATE_OFF:
             if (SYSTEM_POWERED) {
                 kbd_init_state = KBD_STATE_BAT;
-                watchdog = WATCHDOG_DISABLE;
+                watchdog = WATCHDOG_ARM;
             }
             break;
 

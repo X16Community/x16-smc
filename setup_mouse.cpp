@@ -85,7 +85,6 @@ void mouseTick() {
     switch (state) {
         case MOUSE_STATE_OFF:
             if (SYSTEM_POWERED) {
-                mouse_id = 0x52;
                 state = MOUSE_STATE_BAT;
                 watchdogExpiryState = MOUSE_STATE_RESET;
                 watchdog = WATCHDOG_ARM;
@@ -128,7 +127,6 @@ void mouseTick() {
             break;
 
         case MOUSE_STATE_INTELLI_1:
-            watchdogExpiryState = MOUSE_STATE_FAILED;
             Mouse.sendPS2Command(PS2_CMD_SET_SAMPLE_RATE, 200);
             state = MOUSE_STATE_INTELLI_1_ACK;
             watchdog = WATCHDOG_ARM;
