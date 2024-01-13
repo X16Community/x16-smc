@@ -10,8 +10,6 @@ enum PS2_CMD_STATUS : uint8_t {
   CMD_ERR = 0xFE
 };
 
-extern volatile uint8_t kbd_init_state;
-
 /// @brief PS/2 IO Port handler
 /// @tparam size Circular buffer size for incoming data, must be a power of 2 and not more than 256
 template<uint8_t clkPin, uint8_t datPin, uint8_t size = 16> // Single keycodes can be 4 bytes long. We want a little bit of margin here.
@@ -443,7 +441,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     void processByteReceived(uint8_t value) {
       // Handle BAT success (0xaa) or fail (0xfc) code 
       if (value == 0xaa || value == 0xfc) {
-        if (kbd_init_state == KBD_STATE_READY) {
+        if (keyboardGetState() == KBD_STATE_READY) {
           keyboardReset();
           bat = 0;
         } 
