@@ -7,7 +7,7 @@
 // ----------------------------------------------------------------
 // SMC Pin Layout Options
 // ----------------------------------------------------------------
-//#define COMMUNITYX16_PINS
+#define COMMUNITYX16_PINS
 
 
 // ----------------------------------------------------------------
@@ -19,8 +19,8 @@
 #include "dbg_supp.h"
 #include "smc_pins.h"
 #include "ps2.h"
-#include "mouse.h"
 #include "smc_wire.h"
+#include "setup_ps2.h"
 
 
 // ----------------------------------------------------------------
@@ -139,7 +139,7 @@ void setup() {
   NMI_BUT.attachClick(DoNMI);
 #endif
 
-  // Enable Power Supply
+  // Setup Power Supply
   pinMode(PWR_OK, INPUT);
   pinMode(PWR_ON, OUTPUT);
   digitalWrite(PWR_ON, HIGH);
@@ -179,8 +179,8 @@ void loop() {
 #endif
 
   // Update Keyboard and Mouse Initialization State
-  MouseTick();
-  KeyboardTick();
+  mouseTick();
+  keyboardTick();
 
   // Shutdown on PSU Fault Condition
   if ((SYSTEM_POWERED == 1) && (!digitalRead(PWR_OK)))
@@ -242,8 +242,8 @@ void DoReset() {
     delay(RESB_HOLDTIME_MS);
     deassertReset();
     analogWrite(ACT_LED, 0);
-    mouse_init_state = MOUSE_INIT_STATE::START_RESET;
-    kbd_init_state = MOUSE_INIT_STATE::START_RESET;
+    mouseReset();
+    keyboardReset();
   }
 }
 
@@ -389,8 +389,7 @@ void I2C_Process() {
       case 0x00:
       case 0x03:
       case 0x04:
-        mouse_id_req = I2C_Data[1];
-        mouse_init_state = MOUSE_INIT_STATE::START_RESET;
+        mouseSetRequestedId(I2C_Data[1]);
         break;
       default:
         //Invalid value, ignore
@@ -408,7 +407,7 @@ void I2C_Send() {
   // DBG_PRINTLN("I2C_Send");
   int nextKey = 0;
   if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
-    if (kbd_init_state == KBD_READY && Keyboard.available()) {
+    if (keyboardGetState() == KBD_STATE_READY && Keyboard.available()) {
       nextKey = Keyboard.next();
       smcWire.write(nextKey);
     }
@@ -427,7 +426,7 @@ void I2C_Send() {
 
   if (I2C_Data[0] == 0x21) {
     //Get mouse packet
-    if (Mouse.count() >= 4 || (mouse_id == 0 && Mouse.count() >= 3)) { 
+    if (Mouse.count() >= 4 || (getMouseId() == 0 && Mouse.count() >= 3)) { 
       Mouse_Send();
     }
     else {
@@ -436,7 +435,7 @@ void I2C_Send() {
   }
 
   if (I2C_Data[0] == 0x22) {
-    smcWire.write(mouse_id);
+    smcWire.write(getMouseId());
   }
 
   if (I2C_Data[0] == 0x30) {
@@ -462,14 +461,14 @@ void I2C_Send() {
 }
 
 void Keyboard_Send() {
-  if (kbd_init_state == KBD_READY && Keyboard.available()) {
+  if (keyboardGetState() == KBD_STATE_READY && Keyboard.available()) {
       smcWire.write(Keyboard.next());
   }
 }
 
 void Mouse_Send() {
   uint8_t packet_size;
-  if (mouse_id == 0) {
+  if (getMouseId() == 0) {
     packet_size = 3;
   }
   else {
@@ -479,7 +478,7 @@ void Mouse_Send() {
   if (Mouse.count() >= packet_size) { 
     uint8_t firstval = Mouse.next();
     if (firstval == 0xaa) {
-      mouse_init_state = MOUSE_INIT_STATE::START_RESET; //reset mouse if hotplugged Adrian Black
+      mouseReset(); //reset mouse if hotplugged Adrian Black
       smcWire.write(0);
     }
     else {
@@ -492,7 +491,7 @@ void Mouse_Send() {
       }
       else {
         //Invalid first byte - Discard, and return a 0
-        mouse_init_state = MOUSE_INIT_STATE::START_RESET; // reset the mouse if the response is invalid Adrian Black
+        mouseReset(); // reset the mouse if the response is invalid Adrian Black
         smcWire.write(0);
       }
     }

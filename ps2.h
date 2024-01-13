@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "mouse.h"
+#include "setup_ps2.h"
 #define SCANCODE_TIMEOUT_MS 50
 
 enum PS2_CMD_STATUS : uint8_t {
@@ -9,6 +9,8 @@ enum PS2_CMD_STATUS : uint8_t {
   CMD_ACK = 0xFA,
   CMD_ERR = 0xFE
 };
+
+extern volatile uint8_t kbd_init_state;
 
 /// @brief PS/2 IO Port handler
 /// @tparam size Circular buffer size for incoming data, must be a power of 2 and not more than 256
@@ -441,8 +443,8 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     void processByteReceived(uint8_t value) {
       // Handle BAT success (0xaa) or fail (0xfc) code 
       if (value == 0xaa || value == 0xfc) {
-        if (kbd_init_state == KBD_READY) {
-          kbd_init_state = MOUSE_INIT_STATE::START_RESET;
+        if (kbd_init_state == KBD_STATE_READY) {
+          keyboardReset();
           bat = 0;
         } 
         else {
