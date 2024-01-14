@@ -78,6 +78,7 @@ void mouseTick() {
     if (!SYSTEM_POWERED && state != MOUSE_STATE_OFF) {
         Mouse.flush();
         state = MOUSE_STATE_OFF;
+        watchdog = WATCHDOG_DISABLE;
         return;
     }
 

@@ -54,6 +54,7 @@ void keyboardTick() {
     if (!SYSTEM_POWERED && kbd_init_state != KBD_STATE_OFF) {
       Keyboard.flush();
       kbd_init_state = KBD_STATE_OFF;
+      watchdog = WATCHDOG_DISABLE;
       return;
     }
 
