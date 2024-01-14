@@ -407,7 +407,7 @@ void I2C_Send() {
   // DBG_PRINTLN("I2C_Send");
   int nextKey = 0;
   if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
-    if (keyboardGetState() == KBD_STATE_READY && Keyboard.available()) {
+    if (keyboardIsReady() && Keyboard.available()) {
       nextKey = Keyboard.next();
       smcWire.write(nextKey);
     }
@@ -461,7 +461,7 @@ void I2C_Send() {
 }
 
 void Keyboard_Send() {
-  if (keyboardGetState() == KBD_STATE_READY && Keyboard.available()) {
+  if (keyboardIsReady() && Keyboard.available()) {
       smcWire.write(Keyboard.next());
   }
 }

@@ -127,6 +127,6 @@ void keyboardReset() {
   kbd_init_state = KBD_STATE_RESET;
 }
 
-uint8_t keyboardGetState() {
-  return kbd_init_state;
+bool keyboardIsReady() {
+  return kbd_init_state == KBD_STATE_READY;
 }

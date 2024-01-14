@@ -441,7 +441,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     void processByteReceived(uint8_t value) {
       // Handle BAT success (0xaa) or fail (0xfc) code 
       if (value == 0xaa || value == 0xfc) {
-        if (keyboardGetState() == KBD_STATE_READY) {
+        if (keyboardIsReady()) {
           keyboardReset();
           bat = 0;
         } 
