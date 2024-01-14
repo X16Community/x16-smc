@@ -75,6 +75,12 @@ static volatile uint8_t watchdogExpiryState = MOUSE_STATE_OFF;
 void mouseTick() {
     static uint16_t watchdog = WATCHDOG_DISABLE;
     
+    if (!SYSTEM_POWERED && state != MOUSE_STATE_OFF) {
+        Mouse.flush();
+        state = MOUSE_STATE_OFF;
+        return;
+    }
+
     // Exit if command is pending
     PS2_CMD_STATUS mstatus = Mouse.getCommandStatus();
     if (mstatus == PS2_CMD_STATUS::CMD_PENDING) {
@@ -212,6 +218,7 @@ void mouseTick() {
         case MOUSE_STATE_RESET_ACK:
             if (Mouse.available() && Mouse.next() == PS2_ACK) {
                 state = MOUSE_STATE_BAT;
+                Mouse.flush();
                 watchdog = WATCHDOG_ARM;
             }
             break;

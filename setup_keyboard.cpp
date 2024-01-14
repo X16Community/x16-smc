@@ -51,6 +51,12 @@ static volatile uint8_t kbd_init_state = 0;
 void keyboardTick() {
     static uint8_t watchdog = WATCHDOG_DISABLE;
 
+    if (!SYSTEM_POWERED && kbd_init_state != KBD_STATE_OFF) {
+      Keyboard.flush();
+      kbd_init_state = KBD_STATE_OFF;
+      return;
+    }
+
     // Exit if command is pending
     PS2_CMD_STATUS cmdStatus = Keyboard.getCommandStatus();
     if (cmdStatus == PS2_CMD_STATUS::CMD_PENDING) {
@@ -94,6 +100,7 @@ void keyboardTick() {
             break;
 
         case KBD_STATE_RESET:
+            Keyboard.flush();
             Keyboard.sendPS2Command(PS2_CMD_RESET);
             kbd_init_state = KBD_STATE_RESET_ACK;
             watchdog = WATCHDOG_ARM;
