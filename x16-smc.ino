@@ -53,10 +53,29 @@
 #define RESET_ACTIVE           LOW
 #define RESET_INACTIVE         HIGH
 
-//I2C
+// I2C
 #define I2C_ADDR               0x42 // General slave address
 #define I2C_KBD                0x43 // Dedicated slave address for key codes
 #define I2C_MSE                0x44 // Dedicated slave address for mouse packets
+
+#define CMD_POW_OFF            0x01
+#define CMD_RESET              0x02
+#define CMD_NMI                0x03
+#define CMD_SET_ACT_LED        0x05
+#define CMD_GET_KEYCODE        0x07
+#define CMD_ECHO               0x08
+#define CMD_DBG_OUT            0x09
+#define CMD_GET_KBD_STATUS     0x18
+#define CMD_KBD_CMD1           0x19
+#define CMD_KBD_CMD2           0x1a
+#define CMD_SET_MOUSE_ID       0x20
+#define CMD_GET_MOUSE_MOV      0x21
+#define CMD_GET_MOUSE_ID       0x22
+#define CMD_GET_VER1           0x30
+#define CMD_GET_VER2           0x31
+#define CMD_GET_VER3           0x32
+#define CMD_GET_BOOTLDR_VER    0x8e
+#define CMD_BOOTLDR_START      0x8f
 
 // Bootloader
 #define FLASH_SIZE            (0x2000)
@@ -306,11 +325,6 @@ void deassertReset() {
 // I2C Functions
 // ----------------------------------------------------------------
 void I2C_Receive(int) {
-  // We are resetting the data beforehand
-  I2C_Data[0] = 0;
-  I2C_Data[1] = 0;
-  I2C_Data[2] = 0;
-
   int ct = 0;
   while (smcWire.available()) {
     if (ct < 3) {                           // read first three bytes only
@@ -323,140 +337,125 @@ void I2C_Receive(int) {
     }
   }
 
-  if ((ct == 2 && I2C_Data[0] != 0x1a) || (ct == 3 && I2C_Data[0] == 0x1a)) {
-    // Offset 0x1a (Send two-byte command) requires three bytes, the other offsets require two bytes
-    I2C_Process();                          // process received cmd
+  // Exit without further action if input less than two bytes
+  if (ct < 2) {
+    return;
+  }
+
+  // Process bytes received
+  switch (I2C_Data[0]) {
+    case CMD_POW_OFF:
+      switch (I2C_Data[1]) {
+        case 0: PowerOffSeq();
+          break;
+        case 1: HardReboot();
+          break;
+      }
+      break;
+  
+    case CMD_RESET:
+      switch (I2C_Data[1]) {
+        case 0:
+          DoReset();
+          break;
+      } 
+      break;
+  
+    case CMD_NMI:
+      switch (I2C_Data[1]) {
+        case 0: DoNMI();
+          break;
+      }
+      break;
+
+    case CMD_SET_ACT_LED:
+      analogWrite(ACT_LED, I2C_Data[1]);
+      break;
+    
+    case CMD_ECHO:
+      echo_byte = I2C_Data[1];
+      break;
+    
+    case CMD_DBG_OUT :
+      DBG_PRINT("DBG register 9 called. echo_byte: ");
+      DBG_PRINTLN((byte)(echo_byte), HEX);
+      break;
+
+    case CMD_KBD_CMD1:
+      Keyboard.sendPS2Command(I2C_Data[1]);
+      break;
+  
+    case CMD_KBD_CMD2:
+      if (ct >= 3) {
+        Keyboard.sendPS2Command(I2C_Data[1], I2C_Data[2]);
+      }
+      break;
+
+    case CMD_SET_MOUSE_ID:
+      mouseSetRequestedId(I2C_Data[1]);
+      break;
+
+    case CMD_BOOTLDR_START:
+      if (I2C_Data[1] == 0x31) {
+        bootloaderTimer = 2000;
+        bootloaderFlags = 0;
+      }
+      break;
   }
 }
 
-//I2C Commands - Two Bytes per Command
-//0x01 0x00      - Power Off
-//0x01 0x01      - Hard Reboot (not working for some reason)
-//0x02 0x00      - Reset Button Press
-//0x03 0x00      - NMI Button press
-//0x04 0x00-0xFF - Power LED Level (PWM)        // need to remove, not enough lines
-//0x05 0x00-0xFF - Activity/HDD LED Level (PWM)
-void I2C_Process() {
-  if (I2C_Data[0] == 1) {                     // 1st Byte : Byte 1 - Power Events (Power off & Reboot)
-    switch (I2C_Data[1]) {
-      case 0: PowerOffSeq();              // 2nd Byte : 0 - Power Off
-        break;
-      case 1: HardReboot();               // 2nd Byte : 1 - Reboot (Physical Power off, wait 500ms, Power on)
-        break;                          // This command triggers, but the system does not power back on?  Not sure why.
-    }
-  }
-  if (I2C_Data[0] == 2) {                     // 1st Byte : Byte 2 - Reset Event(s)
-    switch (I2C_Data[1]) {
-      case 0:
-        DoReset();         // 2nd Byte : 0 - Reset button Press
-        break;
-    }
-  }
-  if (I2C_Data[0] == 3) {                     // 1st Byte : Byte 3 - NMI Event(s)
-    switch (I2C_Data[1]) {
-      case 0: DoNMI();       // 2nd Byte : 0 - NMI button Press
-        break;
-    }
-  }
-  // ["Byte 4 - Power LED Level" removed]
-  if (I2C_Data[0] == 5) {                     // 1st Byte : Byte 5 - Activity LED Level
-    analogWrite(ACT_LED, I2C_Data[1]);      // 2nd Byte : Set Value directly
-  }
-
-  if (I2C_Data[0] == 7) {                     // 1st Byte : Byte 7 - Keyboard: read next keycode
-    // Nothing to do here, register offset 7 is read only
-  }
-  if (I2C_Data[0] == 8) {
-    echo_byte = I2C_Data[1];
-  }
-  if (I2C_Data[0] == 9) {
-    DBG_PRINT("DBG register 9 called. echo_byte: ");
-    DBG_PRINTLN((byte)(echo_byte), HEX);
-  }
-
-  if (I2C_Data[0] == 0x19) {
-    //Send command to keyboard (one byte)
-    Keyboard.sendPS2Command(I2C_Data[1]);
-  }
-  if (I2C_Data[0] == 0x1a) {
-    //Send command to keyboard (two bytes)
-    Keyboard.sendPS2Command(I2C_Data[1], I2C_Data[2]);
-  }
-
-  if (I2C_Data[0] == 0x20) {
-    //Enable Intellimouse extensions
-    switch(I2C_Data[1]) {
-      case 0x00:
-      case 0x03:
-      case 0x04:
-        mouseSetRequestedId(I2C_Data[1]);
-        break;
-      default:
-        //Invalid value, ignore
-        break;
-    }
-  }
-
-  if (I2C_Data[0] == 0x8f && I2C_Data[1] == 0x31) {
-    bootloaderTimer = 2000;
-    bootloaderFlags = 0;
-  }
-}
-
-void I2C_Send() {
-  // DBG_PRINTLN("I2C_Send");
-  int nextKey = 0;
-  if (I2C_Data[0] == 0x7) {   // 1st Byte : Byte 7 - Keyboard: read next keycode
-    if (keyboardIsReady() && Keyboard.available()) {
-      nextKey = Keyboard.next();
-      smcWire.write(nextKey);
-    }
-    else {
-      smcWire.write(0);
-    }
-  }
-  if (I2C_Data[0] == 8) {
+void I2C_Send() { 
+  switch (I2C_Data[0]) {
+    case CMD_GET_KEYCODE:
+      if (keyboardIsReady() && Keyboard.available()) {
+        smcWire.write(Keyboard.next());
+      }
+      else {
+        smcWire.write(0);
+      }
+      break;
+  
+  case CMD_ECHO:
     smcWire.write(echo_byte);
-  }
+    break;
 
-  if (I2C_Data[0] == 0x18) {
-    //Get keyboard command status
+  case CMD_GET_KBD_STATUS:
     smcWire.write(Keyboard.getCommandStatus());
-  }
+    break;
 
-  if (I2C_Data[0] == 0x21) {
-    //Get mouse packet
+  case CMD_GET_MOUSE_MOV:
     if (Mouse.count() >= 4 || (getMouseId() == 0 && Mouse.count() >= 3)) { 
       Mouse_Send();
     }
     else {
       smcWire.write(0);
     }
-  }
-
-  if (I2C_Data[0] == 0x22) {
+    break;
+  
+  case CMD_GET_MOUSE_ID:
     smcWire.write(getMouseId());
-  }
+    break;
 
-  if (I2C_Data[0] == 0x30) {
+  case CMD_GET_VER1:
     smcWire.write(version_major);
-  }
+    break;
 
-  if (I2C_Data[0] == 0x31) {
+  case CMD_GET_VER2:
     smcWire.write(version_minor);
-  }
+    break;
 
-  if (I2C_Data[0] == 0x32) {
+  case CMD_GET_VER3:
     smcWire.write(version_patch);
-  }
+    break;
 
-  if (I2C_Data[0] == 0x8e) {
+  case CMD_GET_BOOTLDR_VER:
     if (pgm_read_byte(0x1e00) == 0x8a) {
       smcWire.write(pgm_read_byte(0x1e01));
     }
     else {
       smcWire.write(0xff);
     }
+    break;
   }
 }
 
