@@ -94,7 +94,10 @@ SmcButton RES_BUT(RESET_BUTTON_PIN);
 #if defined(ENABLE_NMI_BUT)
 SmcButton NMI_BUT(NMI_BUTTON_PIN);
 #endif
+bool powerOffRequest = false;
 bool hardRebootRequest = false;
+bool resetRequest = false;
+bool NMIRequest = false;
 
 // I2C
 SmcWire smcWire;
@@ -210,13 +213,30 @@ void loop() {
     //error handling?
   }
 
-  // Process Hard Reboot Request
+  // Process Requests Received over I2C
+  if (powerOffRequest) {
+    powerOffRequest = false;
+    PowerOffSeq();
+  }
+
   if (hardRebootRequest) {
     hardRebootRequest = false;
     HardReboot();
   }
 
-  // Process Reset and NMI Requests
+  if (resetRequest) {
+    resetRequest = false;
+    DoReset();
+  }
+
+  if (NMIRequest) {
+    NMIRequest = false;
+    DoNMI();
+  }
+
+  // Process
+
+  // Process Keyboard Initiated Reset and NMI Requests
   if (Keyboard.getResetRequest()) {
     DoReset();
     Keyboard.ackResetRequest();
@@ -354,7 +374,7 @@ void I2C_Receive(int) {
     case CMD_POW_OFF:
       switch (I2C_Data[1]) {
         case 0: 
-          PowerOffSeq();
+          powerOffRequest = true;
           break;
         case 1: 
           hardRebootRequest = true;
@@ -365,14 +385,15 @@ void I2C_Receive(int) {
     case CMD_RESET:
       switch (I2C_Data[1]) {
         case 0:
-          DoReset();
+          resetRequest = true;
           break;
       } 
       break;
   
     case CMD_NMI:
       switch (I2C_Data[1]) {
-        case 0: DoNMI();
+        case 0: 
+          NMIRequest = true;
           break;
       }
       break;
