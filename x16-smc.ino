@@ -94,6 +94,7 @@ SmcButton RES_BUT(RESET_BUTTON_PIN);
 #if defined(ENABLE_NMI_BUT)
 SmcButton NMI_BUT(NMI_BUTTON_PIN);
 #endif
+bool hardRebootRequest = false;
 
 // I2C
 SmcWire smcWire;
@@ -207,6 +208,12 @@ void loop() {
     PowerOffSeq();
     //kill power if PWR_OK dies, and system on
     //error handling?
+  }
+
+  // Process Hard Reboot Request
+  if (hardRebootRequest) {
+    hardRebootRequest = false;
+    HardReboot();
   }
 
   // Process Reset and NMI Requests
@@ -346,9 +353,11 @@ void I2C_Receive(int) {
   switch (I2C_Data[0]) {
     case CMD_POW_OFF:
       switch (I2C_Data[1]) {
-        case 0: PowerOffSeq();
+        case 0: 
+          PowerOffSeq();
           break;
-        case 1: HardReboot();
+        case 1: 
+          hardRebootRequest = true;
           break;
       }
       break;
