@@ -175,6 +175,14 @@ uint8_t SmcWire::read() {
   return value;
 }
 
+void SmcWire::setKeyboardAddress(uint8_t addr) {
+  kbd_address = addr;
+}
+
+void SmcWire::setMouseAddress(uint8_t addr) {
+  mse_address = addr;
+}
+
 
 /*
    USI Interrupt Handlers

@@ -13,4 +13,6 @@ class SmcWire {
     void write(uint8_t value);
     uint8_t available();
     uint8_t read();
+    void setKeyboardAddress(uint8_t);
+    void setMouseAddress(uint8_t);
 };

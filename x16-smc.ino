@@ -68,9 +68,11 @@
 #define CMD_GET_KBD_STATUS     0x18
 #define CMD_KBD_CMD1           0x19
 #define CMD_KBD_CMD2           0x1a
+#define CMD_KBD_SET_ADDRESS    0x1b
 #define CMD_SET_MOUSE_ID       0x20
 #define CMD_GET_MOUSE_MOV      0x21
 #define CMD_GET_MOUSE_ID       0x22
+#define CMD_SET_MOUSE_ADDRESS  0x23
 #define CMD_GET_VER1           0x30
 #define CMD_GET_VER2           0x31
 #define CMD_GET_VER3           0x32
@@ -421,8 +423,16 @@ void I2C_Receive(int) {
       }
       break;
 
+    case CMD_KBD_SET_ADDRESS:
+      smcWire.setKeyboardAddress(I2C_Data[1]);
+      break;
+
     case CMD_SET_MOUSE_ID:
       mouseSetRequestedId(I2C_Data[1]);
+      break;
+
+    case CMD_SET_MOUSE_ADDRESS:
+      smcWire.setMouseAddress(I2C_Data[1]);
       break;
 
     case CMD_BOOTLDR_START:
