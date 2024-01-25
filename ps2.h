@@ -442,7 +442,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       // Handle BAT success (0xaa) or fail (0xfc) code 
       if (value == 0xaa || value == 0xfc) {
         if (keyboardIsReady()) {
-          keyboardReset();
+          keyboardInit();
           bat = 0;
         } 
         else {

@@ -3,11 +3,18 @@
 // By: Kevin Williams - TexElec.com
 //     Michael Steil
 //     Joe Burks
+//     Stefan Jakobsson
 
 // ----------------------------------------------------------------
-// SMC Pin Layout Options
+// Build Options
 // ----------------------------------------------------------------
+#if !defined(__AVR_ATtiny861__)
+  #error "X16 SMC only builds for ATtiny861"
+#endif
+
 //#define COMMUNITYX16_PINS
+#define ENABLE_NMI_BUT
+//#define KBDBUF_FULL_DBG
 
 
 // ----------------------------------------------------------------
@@ -26,13 +33,6 @@
 // ----------------------------------------------------------------
 // Definitions
 // ----------------------------------------------------------------
-
-// Build Options
-#if !defined(__AVR_ATtiny861__)
-#error "X16 SMC only builds for ATtiny861"
-#endif
-#define ENABLE_NMI_BUT
-//#define KBDBUF_FULL_DBG
 
 // Power
 #define PWR_ON_MIN_MS          1
@@ -55,8 +55,6 @@
 
 // I2C
 #define I2C_ADDR               0x42 // General slave address
-#define I2C_KBD                0x43 // Dedicated slave address for key codes
-#define I2C_MSE                0x44 // Dedicated slave address for mouse packets
 
 #define CMD_POW_OFF            0x01
 #define CMD_RESET              0x02
@@ -68,14 +66,16 @@
 #define CMD_GET_KBD_STATUS     0x18
 #define CMD_KBD_CMD1           0x19
 #define CMD_KBD_CMD2           0x1a
-#define CMD_KBD_SET_ADDRESS    0x1b
 #define CMD_SET_MOUSE_ID       0x20
 #define CMD_GET_MOUSE_MOV      0x21
 #define CMD_GET_MOUSE_ID       0x22
-#define CMD_SET_MOUSE_ADDRESS  0x23
 #define CMD_GET_VER1           0x30
 #define CMD_GET_VER2           0x31
 #define CMD_GET_VER3           0x32
+#define CMD_SET_DFLT_READ_OP   0x40
+#define CMD_GET_KEYCODE_FAST   0x41
+#define CMD_GET_MOUSE_MOV_FAST 0x42
+#define CMD_GET_PS2DATA_FAST   0x43
 #define CMD_GET_BOOTLDR_VER    0x8e
 #define CMD_BOOTLDR_START      0x8f
 
@@ -90,29 +90,30 @@
 // ----------------------------------------------------------------
 
 // Power, Reset and NMI
-bool SYSTEM_POWERED = 0;      // default state - Powered off
-SmcButton POW_BUT(POWER_BUTTON_PIN);
-SmcButton RES_BUT(RESET_BUTTON_PIN);
+volatile bool SYSTEM_POWERED = 0;      // default state - Powered off
+volatile SmcButton POW_BUT(POWER_BUTTON_PIN);
+volatile SmcButton RES_BUT(RESET_BUTTON_PIN);
 #if defined(ENABLE_NMI_BUT)
-SmcButton NMI_BUT(NMI_BUTTON_PIN);
+volatile SmcButton NMI_BUT(NMI_BUTTON_PIN);
 #endif
-bool powerOffRequest = false;
-bool hardRebootRequest = false;
-bool resetRequest = false;
-bool NMIRequest = false;
+volatile bool powerOffRequest = false;
+volatile bool hardRebootRequest = false;
+volatile bool resetRequest = false;
+volatile bool NMIRequest = false;
 
 // I2C
-SmcWire smcWire;
-int  I2C_Data[3] = {0, 0, 0};
-char echo_byte = 0;
+volatile SmcWire smcWire;
+volatile uint8_t  I2C_Data[3] = {0, 0, 0};
+volatile char echo_byte = 0;
 
 // PS/2
-PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
-PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
+volatile PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
+volatile PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
+uint8_t defaultRequest = CMD_GET_KEYCODE_FAST;
 
 // Bootloader
-uint16_t bootloaderTimer = 0;
-uint8_t bootloaderFlags = 0;
+volatile uint16_t bootloaderTimer = 0;
+volatile uint8_t bootloaderFlags = 0;
 
 
 // ----------------------------------------------------------------
@@ -154,8 +155,8 @@ void setup() {
   DBG_PRINTLN("Commander X16 SMC Start");
 
   // Initialize Power, Reset and NMI buttons
-  POW_BUT.attachClick(DoPowerToggle);            // Should the Power off be long, or short?
-  POW_BUT.attachDuringLongPress(DoPowerToggle);  // Both for now
+  POW_BUT.attachClick(DoPowerToggle);
+  POW_BUT.attachDuringLongPress(DoPowerToggle);
 
   RES_BUT.attachClick(DoReset);
   RES_BUT.attachDuringLongPress(DoReset);
@@ -181,11 +182,9 @@ void setup() {
   digitalWrite(NMIB_PIN, HIGH);
 
   // Initialize I2C
-  smcWire.begin(I2C_ADDR, I2C_KBD, I2C_MSE);    // Initialize I2C - Device Mode
-  smcWire.onReceive(I2C_Receive);               // Used to Receive Data
-  smcWire.onRequest(I2C_Send);                  // Used to Send Data, may never be used
-  smcWire.onKeyboardRequest(Keyboard_Send);
-  smcWire.onMouseRequest(Mouse_Send);
+  smcWire.begin(I2C_ADDR);
+  smcWire.onReceive(I2C_Receive);
+  smcWire.onRequest(I2C_Send);
 
   // PS/2 host init
   Keyboard.begin(keyboardClockIrq);
@@ -196,24 +195,21 @@ void setup() {
 // Main Loop
 // ----------------------------------------------------------------
 void loop() {
+  // Shutdown on PSU Fault Condition
+  if ((SYSTEM_POWERED == 1) && (!digitalRead(PWR_OK))) {
+    PowerOffSeq();
+  }
+  
   // Update Button State
   POW_BUT.tick();
   RES_BUT.tick();
-#if defined(ENABLE_NMI_BUT)
+  #if defined(ENABLE_NMI_BUT)
   NMI_BUT.tick();
-#endif
+  #endif
 
   // Update Keyboard and Mouse Initialization State
   mouseTick();
   keyboardTick();
-
-  // Shutdown on PSU Fault Condition
-  if ((SYSTEM_POWERED == 1) && (!digitalRead(PWR_OK)))
-  {
-    PowerOffSeq();
-    //kill power if PWR_OK dies, and system on
-    //error handling?
-  }
 
   // Process Requests Received over I2C
   if (powerOffRequest) {
@@ -236,8 +232,6 @@ void loop() {
     DoNMI();
   }
 
-  // Process
-
   // Process Keyboard Initiated Reset and NMI Requests
   if (Keyboard.getResetRequest()) {
     DoReset();
@@ -254,7 +248,7 @@ void loop() {
     bootloaderTimer--;
   }
 
-  // Short Delay, required by OneButton if code is short
+  // Short Delay
   delay(10);
 }
 
@@ -278,20 +272,22 @@ void DoPowerToggle() {
 
 void DoReset() {
   if (bootloaderTimer > 0) {
+    // Bootload init procedure is running, check if Power + Reset pressed
     bootloaderFlags |= 2;
     startBootloader();
-    return;
   }
-
-  Keyboard.flush();
-  Mouse.reset();
-  if (SYSTEM_POWERED == 1) {                  // Ignore unless Powered On
+  else if (SYSTEM_POWERED == 1) {
     assertReset();
     delay(RESB_HOLDTIME_MS);
     deassertReset();
     analogWrite(ACT_LED, 0);
-    mouseReset();
-    keyboardReset();
+    
+    Keyboard.flush();
+    Mouse.reset();
+    mouseInit();
+    keyboardInit();
+
+    defaultRequest = CMD_GET_KEYCODE_FAST;
   }
 }
 
@@ -326,15 +322,18 @@ void PowerOnSeq() {
     // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
   }
   else {
-    Keyboard.reset();
+    Keyboard.flush();
     Mouse.reset();
+    keyboardInit();
+    mouseInit();
+    defaultRequest = CMD_GET_KEYCODE_FAST;
     delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
     SYSTEM_POWERED = 1;                     // Global Power state On
   }
   deassertReset();
 }
 
-void HardReboot() {                             // This never works via I2C... Why!!!
+void HardReboot() {
   PowerOffSeq();
   delay(1000);
   PowerOnSeq();
@@ -370,7 +369,7 @@ void I2C_Receive(int) {
   if (ct < 2) {
     return;
   }
-
+  
   // Process bytes received
   switch (I2C_Data[0]) {
     case CMD_POW_OFF:
@@ -423,16 +422,12 @@ void I2C_Receive(int) {
       }
       break;
 
-    case CMD_KBD_SET_ADDRESS:
-      smcWire.setKeyboardAddress(I2C_Data[1]);
-      break;
-
     case CMD_SET_MOUSE_ID:
       mouseSetRequestedId(I2C_Data[1]);
-      break;
+      break;  
 
-    case CMD_SET_MOUSE_ADDRESS:
-      smcWire.setMouseAddress(I2C_Data[1]);
+    case CMD_SET_DFLT_READ_OP:
+      defaultRequest = I2C_Data[1];
       break;
 
     case CMD_BOOTLDR_START:
@@ -442,99 +437,99 @@ void I2C_Receive(int) {
       }
       break;
   }
+  
+  I2C_Data[0] = defaultRequest;
 }
 
 void I2C_Send() { 
   switch (I2C_Data[0]) {
-    case CMD_GET_KEYCODE:
-      if (keyboardIsReady() && Keyboard.available()) {
-        smcWire.write(Keyboard.next());
-      }
-      else {
-        smcWire.write(0);
+    case CMD_GET_KEYCODE_FAST:
+      if (!sendKeyCode()) smcWire.clearBuffer();
+      break;
+    
+    case CMD_GET_PS2DATA_FAST:
+      {
+        bool kbd_avail = sendKeyCode();
+        bool mse_avail = sendMousePacket();
+        if (!kbd_avail && !mse_avail) smcWire.clearBuffer();
       }
       break;
-  
-  case CMD_ECHO:
-    smcWire.write(echo_byte);
-    break;
 
-  case CMD_GET_KBD_STATUS:
-    smcWire.write(Keyboard.getCommandStatus());
-    break;
+    case CMD_GET_MOUSE_MOV_FAST:
+      if (!sendMousePacket()) smcWire.clearBuffer();
+      break;
+      
+    case CMD_GET_KEYCODE:
+      sendKeyCode();
+      break;
+      
+    case CMD_GET_MOUSE_MOV:
+      sendMousePacket();
+      break;
+    
+    case CMD_ECHO:
+      smcWire.write(echo_byte);
+      break;
 
-  case CMD_GET_MOUSE_MOV:
-    if (Mouse.count() >= 4 || (getMouseId() == 0 && Mouse.count() >= 3)) { 
-      Mouse_Send();
-    }
-    else {
-      smcWire.write(0);
-    }
-    break;
-  
-  case CMD_GET_MOUSE_ID:
-    smcWire.write(getMouseId());
-    break;
+    case CMD_GET_KBD_STATUS:
+      smcWire.write(Keyboard.getCommandStatus());
+      break;
 
-  case CMD_GET_VER1:
-    smcWire.write(version_major);
-    break;
+    case CMD_GET_MOUSE_ID:
+      smcWire.write(getMouseId());
+      break;
 
-  case CMD_GET_VER2:
-    smcWire.write(version_minor);
-    break;
+    case CMD_GET_VER1:
+      smcWire.write(version_major);
+      break;
 
-  case CMD_GET_VER3:
-    smcWire.write(version_patch);
-    break;
+    case CMD_GET_VER2:
+      smcWire.write(version_minor);
+      break;
 
-  case CMD_GET_BOOTLDR_VER:
-    if (pgm_read_byte(0x1e00) == 0x8a) {
-      smcWire.write(pgm_read_byte(0x1e01));
-    }
-    else {
-      smcWire.write(0xff);
-    }
-    break;
-  }
-}
+    case CMD_GET_VER3:
+      smcWire.write(version_patch);
+      break;
 
-void Keyboard_Send() {
-  if (keyboardIsReady() && Keyboard.available()) {
-      smcWire.write(Keyboard.next());
-  }
-}
-
-void Mouse_Send() {
-  uint8_t packet_size;
-  if (getMouseId() == 0) {
-    packet_size = 3;
-  }
-  else {
-    packet_size = 4;
-  }
-
-  if (Mouse.count() >= packet_size) { 
-    uint8_t firstval = Mouse.next();
-    if (firstval == 0xaa) {
-      mouseReset(); //reset mouse if hotplugged Adrian Black
-      smcWire.write(0);
-    }
-    else {
-      if ((firstval & 0xc8) == 0x08) {
-        //Valid first byte - Send mouse data packet
-        smcWire.write(firstval);
-        for (uint8_t i = 1; i < packet_size; i++) {
-          smcWire.write(Mouse.next());
-        }
+    case CMD_GET_BOOTLDR_VER:
+      if (pgm_read_byte(0x1e00) == 0x8a) {
+        smcWire.write(pgm_read_byte(0x1e01));
       }
       else {
-        //Invalid first byte - Discard, and return a 0
-        mouseReset(); // reset the mouse if the response is invalid Adrian Black
-        smcWire.write(0);
+        smcWire.write(0xff);
       }
+      break;
+  }
+  
+  I2C_Data[0] = defaultRequest;
+}
+
+bool sendKeyCode() {
+  if (Keyboard.available()) {
+    smcWire.write(Keyboard.next());
+    return true;
+  }
+  smcWire.write(0);
+  return false;
+}
+
+bool sendMousePacket() {
+  uint8_t psize = 4;
+  if (getMouseId() == 0) psize = 3;
+
+  if (Mouse.count() >= psize) {
+    // Validate first byte: Drop byte, and retry next time if bit 3 is not set
+    uint8_t first = Mouse.next();
+    if ((first & 0b00001000) == 0b00001000) {
+      smcWire.write(first);
+      for (uint8_t i = 1; i < psize; i++) {
+        smcWire.write(Mouse.next());
+      }
+      return true;
     }
   }
+  smcWire.write(0);
+  return false;
 }
 
 // ----------------------------------------------------------------

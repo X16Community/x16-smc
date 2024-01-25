@@ -56,10 +56,7 @@
 /*
    Static variables
 */
-static volatile uint8_t std_address = 0;
-static volatile uint8_t kbd_address = 0;
-static volatile uint8_t mse_address = 0;
-static volatile uint8_t tmp = 0;
+static volatile uint8_t address = 0;
 static volatile uint8_t ddr = 0;
 static volatile uint8_t state = 0;
 static volatile uint8_t buf[BUFSIZE];
@@ -67,8 +64,6 @@ static volatile uint8_t bufindex = 0;
 static volatile uint8_t buflen = 0;
 static volatile void (*receiveHandler)(uint8_t) = NULL;
 static volatile void (*requestHandler)() = NULL;
-static volatile void (*keyboardRequestHandler)() = NULL;
-static volatile void (*mouseRequestHandler)() = NULL;
 
 
 /*
@@ -77,18 +72,10 @@ static volatile void (*mouseRequestHandler)() = NULL;
 
 // Function:    begin
 // 
-// Description: Attach as slave to the I2C bus responding to three
-//              device addresses.
-//
-// Params:
-//              std: general slave address for offset/command based access to the SMC
-//              kbd: dedicated slave address that only returns a key code if available
-//              mse: dedicated slave address that only returns a mouse packet if available
-void SmcWire::begin(uint8_t std, uint8_t kbd, uint8_t mse) {
+// Description: Attach as slave to the I2C bus
+void SmcWire::begin(uint8_t addr) {
   // Init variables
-  std_address = std;
-  kbd_address = kbd;
-  mse_address = mse;
+  address = addr;
   ddr = MASTER_WRITE;
   state = I2C_STATE_STOPPED;
   bufindex = 0;
@@ -147,14 +134,6 @@ void SmcWire::onRequest(void (*function)()) {
   requestHandler = function;
 }
 
-void SmcWire::onKeyboardRequest(void (*function)()) {
-  keyboardRequestHandler = function;
-}
-
-void SmcWire::onMouseRequest(void (*function)()) {
-  mouseRequestHandler = function;
-}
-
 void SmcWire::write(uint8_t value) {
   if (ddr == MASTER_READ && buflen < BUFSIZE) {
     buf[buflen] = value;
@@ -175,12 +154,9 @@ uint8_t SmcWire::read() {
   return value;
 }
 
-void SmcWire::setKeyboardAddress(uint8_t addr) {
-  kbd_address = addr;
-}
-
-void SmcWire::setMouseAddress(uint8_t addr) {
-  mse_address = addr;
+void SmcWire::clearBuffer() {
+  bufindex = 0;
+  buflen = 0;
 }
 
 
@@ -238,53 +214,28 @@ ISR(USI_OVF_vect) {
   switch (state) {
     
     case I2C_STATE_VERIFY_ADDRESS:
-      // Get R/W from USIDR bit 0
-      ddr = (USIDR & 1);
-
-      // Get slave address from USIDR bits 1-7
-      tmp = (USIDR>>1);
-      
-      if (tmp == 0) {
-        // Ignore general calls to slave address 0x00
-        state = I2C_STATE_IGNORE;
-        goto clear_and_listen;
-      }    
-
-      else if (tmp == std_address) {
+      if (address != 0 && (USIDR >> 1) == address) {
+        // Get R/W from USIDR bit 0
+        ddr = (USIDR & 1);
+        
         if (ddr == MASTER_WRITE) {
           state = I2C_STATE_REQUEST_DATA;
         }
         else {
-          state = I2C_STATE_SEND_DATA;
           if (requestHandler != NULL) requestHandler();
+          if (buflen == 0) {
+            state = I2C_STATE_IGNORE;
+            goto clear_and_listen;
+          }
+          else {
+            state = I2C_STATE_SEND_DATA;
+          }
         }
 
         // Send ACK
         USIDR = 0;
         DDRB |= SDA_OUTPUT;
         USISR = I2C_COUNT_BIT;
-      }
-
-      else if ((tmp == kbd_address || tmp == mse_address) && ddr == MASTER_READ) {
-        if (tmp == kbd_address && keyboardRequestHandler != NULL) {
-          keyboardRequestHandler();
-        } 
-        else if (tmp == mse_address && mouseRequestHandler != NULL) {
-          mouseRequestHandler();
-        }
-          
-        if (buflen > 0) {
-          // Send ACK
-          state = I2C_STATE_SEND_DATA;
-          USIDR = 0;
-          DDRB |= SDA_OUTPUT;
-          USISR = I2C_COUNT_BIT;
-        }
-        else {
-          // No data, ignore request (NACK)
-          state = I2C_STATE_IGNORE;
-          goto clear_and_listen;
-        }
       }
 
       else {

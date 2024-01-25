@@ -118,7 +118,7 @@ void keyboardTick() {
     }
 }
 
-void keyboardReset() {
+void keyboardInit() {
   kbd_init_state = KBD_STATE_RESET;
 }
 
