@@ -179,7 +179,7 @@ void mouseTick() {
             break;
 
         case MOUSE_STATE_SET_RESOLUTION:
-            Mouse.sendPS2Command(PS2_CMD_SET_RESOLUTION, 0x02);
+            Mouse.sendPS2Command(PS2_CMD_SET_RESOLUTION, 0x00);
             state = MOUSE_STATE_SET_RESOLUTION_ACK;
             watchdog = WATCHDOG_ARM;
             break;

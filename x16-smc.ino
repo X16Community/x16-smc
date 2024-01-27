@@ -518,14 +518,23 @@ bool sendMousePacket() {
   if (getMouseId() == 0) psize = 3;
 
   if (Mouse.count() >= psize) {
-    // Validate first byte: Drop byte, and retry next time if bit 3 is not set
     uint8_t first = Mouse.next();
     if ((first & 0b00001000) == 0b00001000) {
-      smcWire.write(first);
-      for (uint8_t i = 1; i < psize; i++) {
-        smcWire.write(Mouse.next());
+      // Valid start of packet
+      if ((first & 0b11000000) == 0) {
+        // No overflow
+        smcWire.write(first);
+        for (uint8_t i = 1; i < psize; i++) {
+          smcWire.write(Mouse.next());
+        }
+        return true;
       }
-      return true;
+      else {
+        // Overflow, eat packet
+        for (uint8_t i = 1; i < psize; i++) {
+          Mouse.next();
+        }
+      }
     }
   }
   smcWire.write(0);
