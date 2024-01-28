@@ -29,9 +29,12 @@
 #define MOUSE_STATE_SET_RESOLUTION_ACK  0x31
 #define MOUSE_STATE_SET_SAMPLERATE      0x32
 #define MOUSE_STATE_SET_SAMPLERATE_ACK  0x33
-#define MOUSE_STATE_ENABLE              0x34
-#define MOUSE_STATE_ENABLE_ACK          0x35
-#define MOUSE_STATE_READY               0x36
+#define MOUSE_STATE_SET_SCALING         0x34
+#define MOUSE_STATE_SET_SCALING_ACK     0x35
+#define MOUSE_STATE_ENABLE              0x36
+#define MOUSE_STATE_ENABLE_ACK          0x37
+#define MOUSE_STATE_READY               0x38
+
 #define MOUSE_STATE_FAILED              0x40
 
 // Reset
@@ -190,6 +193,12 @@ void mouseTick() {
             watchdog = WATCHDOG_ARM;
             break;
 
+        case MOUSE_STATE_SET_SCALING:
+            Mouse.sendPS2Command(PS2_CMD_SET_SCALING);
+            state = MOUSE_STATE_SET_SCALING_ACK;
+            watchdog = WATCHDOG_ARM;
+            break;
+
         case MOUSE_STATE_ENABLE:
             Mouse.sendPS2Command(PS2_CMD_ENABLE);
             state = MOUSE_STATE_ENABLE_ACK;
@@ -227,6 +236,7 @@ void mouseTick() {
             // case MOUSE_STATE_INTELLI_REQ_ID_ACK
             // case MOUSE_STATE_SET_RESOLUTION_ACK:
             // case MOUSE_STATE_SET_SAMPLERATE_ACK:
+            // case MOUSE_STATE_SET_SCALING_ACK
             // case MOUSE_STATE_ENABLE_ACK:
             if (Mouse.available()) {
                 if (Mouse.next() == PS2_ACK) {
