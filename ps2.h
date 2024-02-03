@@ -688,7 +688,7 @@ class PS2MousePort : public PS2Port<clkPin, datPin, size>
         this->buffer[i0] = newSign | (packet[0] & 0x0f);
         this->buffer[i1] = deltaX;
         this->buffer[i2] = deltaY;
-        this->buffer[i3] = deltaW | (packet[3] & 0xf0);
+        if (getMousePacketSize() == 4) this->buffer[i3] = deltaW | (packet[3] & 0xf0);
         return true;
       }
       return false;
