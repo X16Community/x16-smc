@@ -188,7 +188,7 @@ void mouseTick() {
             break;
 
         case MOUSE_STATE_SET_SAMPLERATE:
-            Mouse.sendPS2Command(PS2_CMD_SET_SAMPLE_RATE, 40);
+            Mouse.sendPS2Command(PS2_CMD_SET_SAMPLE_RATE, 100);
             state = MOUSE_STATE_SET_SAMPLERATE_ACK;
             watchdog = WATCHDOG_ARM;
             break;
@@ -267,4 +267,12 @@ void mouseSetRequestedId(uint8_t id) {
 
 uint8_t getMouseId() {
   return mouse_id;
+}
+
+bool mouseIsReady() {
+  return state == MOUSE_STATE_READY;
+}
+
+uint8_t getMousePacketSize() {
+  return !mouse_id? 3: 4;
 }

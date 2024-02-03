@@ -108,7 +108,7 @@ volatile char echo_byte = 0;
 
 // PS/2
 volatile PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
-volatile PS2Port<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
+volatile PS2MousePort<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
 uint8_t defaultRequest = CMD_GET_KEYCODE_FAST;
 
 // Bootloader
@@ -514,24 +514,21 @@ bool sendKeyCode() {
 }
 
 bool sendMousePacket() {
-  uint8_t psize = 4;
-  if (getMouseId() == 0) psize = 3;
-
-  if (Mouse.count() >= psize) {
+  if (Mouse.count() >= getMousePacketSize()) {
     uint8_t first = Mouse.next();
     if ((first & 0b00001000) == 0b00001000) {
       // Valid start of packet
       if ((first & 0b11000000) == 0) {
         // No overflow
         smcWire.write(first);
-        for (uint8_t i = 1; i < psize; i++) {
+        for (uint8_t i = 1; i < getMousePacketSize(); i++) {
           smcWire.write(Mouse.next());
         }
         return true;
       }
       else {
         // Overflow, eat packet
-        for (uint8_t i = 1; i < psize; i++) {
+        for (uint8_t i = 1; i < getMousePacketSize(); i++) {
           Mouse.next();
         }
       }
