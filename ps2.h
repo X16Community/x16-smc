@@ -634,8 +634,8 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 
     void printHex(uint8_t value) {
       uint8_t digits[] = {0x0b, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x1f, 0x32, 0x30, 0x21, 0x13, 0x22};
-      bufferAdd(digits[value>>4]);
-      bufferAdd(digits[value&0x0f]);
+      bufferAdd(digits[value >> 4]);
+      bufferAdd(digits[value & 0x0f]);
     }
 
 };
@@ -644,51 +644,60 @@ template<uint8_t clkPin, uint8_t datPin, uint8_t size>
 class PS2MousePort : public PS2Port<clkPin, datPin, size>
 {
   private:
-    volatile uint8_t packet[4];
+    volatile uint8_t newPacket[4];
     volatile uint8_t pindex = 0x00;
-    volatile uint8_t i0 = 0xff;
+    volatile uint8_t i0, i1, i2, i3 = 0xff;
 
     int16_t fromInt9(uint8_t sign, uint8_t value) {
-      return (int16_t)(value | (sign? 0xff00: 0x0000));
+      if (sign) { 
+        return (int16_t)(value | 0xff00);
+      }
+      else {
+        return (int16_t)(value);
+      }
     }
 
     int8_t fromInt4(uint8_t value) {
-      return (int8_t)((value & 0x0f) | (value & 0xb00001000? 0xf0: 0x00));
+      return (int8_t)((value & 0x0f) | (value & 0xb00001000 ? 0xf0 : 0x00));
     }
 
     bool updatePacket() {
-      if (this->count() >= getMousePacketSize() && !(this->buffer[i0] & 0b11000000) && !(packet[0] & 0b11000000)) { // Verify packet in buffer, no overflows
-        // Buffer indexes to last packet
-        uint8_t i1 = (i0 + 1) & (size - 1);
-        uint8_t i2 = (i0 + 2) & (size - 1);
-        uint8_t i3 = (i0 + 3) & (size - 1);
+      // Abort if no complete packet in buffer
+      if (this->count() < getMousePacketSize()) return false;
 
-        // Abort if button state changed
-        if (((this->buffer[i0] ^ packet[0]) & 0x07)) return false;
+      // Abort if overflow set
+      if ((this->buffer[i0] | newPacket[0]) & 0b11000000) return false;
 
-        // Add X movements
-        int16_t deltaX = fromInt9(this->buffer[i0] & 0b00010000, this->buffer[i1]) + fromInt9(packet[0] & 0b00010000, packet[1]);
-        if (deltaX < -256 || deltaX > 255) return false;
-          
-        // Add Y movements
-        int16_t deltaY = fromInt9(this->buffer[i0] & 0b00100000, this->buffer[i2]) + fromInt9(packet[0] & 0b00100000, packet[2]);
-        if (deltaY < -256 || deltaY > 255) return false;
+      // Calculate indices to elements of packet last stored in the buffer
+      i1 = (i0 + 1) & (size - 1);
+      i2 = (i0 + 2) & (size - 1);
+      i3 = (i0 + 3) & (size - 1);
 
-        // Add scroll wheel movement
-        int8_t deltaW;
-        if (getMousePacketSize() == 4) {
-          deltaW = fromInt4(this->buffer[i3]) + fromInt4(packet[3]);
-          if (deltaW < -8 || deltaW > 7) return false;
-        }
+      // Abort if button state changed
+      if (((this->buffer[i0] ^ newPacket[0]) & 0x07)) return false;
 
-        // Update packet
-        this->buffer[i0] = (deltaX < 0? 0b00010000: 0x00) | (deltaY < 0? 0b00100000: 0x00) | (packet[0] & 0x0f);
-        this->buffer[i1] = deltaX & 0xff;
-        this->buffer[i2] = deltaY & 0xff;
-        if (getMousePacketSize() == 4) this->buffer[i3] = (deltaW & 0x0f) | (packet[3] & 0xf0);
-        return true;
+      // Add X movements
+      int16_t deltaX = fromInt9(this->buffer[i0] & 0b00010000, this->buffer[i1]) + fromInt9(newPacket[0] & 0b00010000, newPacket[1]);
+      if (deltaX < -256 || deltaX > 255) return false;
+
+      // Add Y movements
+      int16_t deltaY = fromInt9(this->buffer[i0] & 0b00100000, this->buffer[i2]) + fromInt9(newPacket[0] & 0b00100000, newPacket[2]);
+      if (deltaY < -256 || deltaY > 255) return false;
+
+      // Add scroll wheel movement
+      int8_t deltaW;
+      if (getMousePacketSize() == 4) {
+        deltaW = fromInt4(this->buffer[i3]) + fromInt4(newPacket[3]);
+        if (deltaW < -8 || deltaW > 7) return false;
+        this->buffer[i3] = (deltaW & 0x0f) | (newPacket[3] & 0xf0);
       }
-      return false;
+
+      // Update packet
+      this->buffer[i0] = (newPacket[0] & 0x0f) | (deltaX<0? 0b00010000: 0) | (deltaY<0? 0b00100000:0);
+      this->buffer[i1] = deltaX;
+      this->buffer[i2] = deltaY;
+      
+      return true;
     }
 
     void bufferAdd(uint8_t value) {
@@ -703,15 +712,19 @@ class PS2MousePort : public PS2Port<clkPin, datPin, size>
   protected:
     void processByteReceived(uint8_t value) {
       if (mouseIsReady()) {
-        
-        packet[pindex] = value;
-        pindex++;
 
+        // Abort if bit 3 of the first byte is not set
+        if (!pindex && !(value & 0b00001000)) return;
+
+        // Store value
+        newPacket[pindex] = value;
+        pindex++;
+        
         if (pindex == getMousePacketSize()) {
           if (!updatePacket()) {
             i0 = this->head;
             for (uint8_t i = 0; i < getMousePacketSize(); i++) {
-              bufferAdd(packet[i]);
+              bufferAdd(newPacket[i]);
             }
           }
           pindex = 0;
