@@ -631,13 +631,6 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     bool isCtrlAltDown() {
       return ((modifier_state & PS2_MODIFIER_STATE::LCTRL) || (modifier_state & PS2_MODIFIER_STATE::RCTRL)) && ((modifier_state & PS2_MODIFIER_STATE::LALT) || (modifier_state & PS2_MODIFIER_STATE::RALT));
     }
-
-    void printHex(uint8_t value) {
-      uint8_t digits[] = {0x0b, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x1f, 0x32, 0x30, 0x21, 0x13, 0x22};
-      bufferAdd(digits[value >> 4]);
-      bufferAdd(digits[value & 0x0f]);
-    }
-
 };
 
 template<uint8_t clkPin, uint8_t datPin, uint8_t size>
@@ -646,7 +639,7 @@ class PS2MousePort : public PS2Port<clkPin, datPin, size>
   private:
     volatile uint8_t newPacket[4];
     volatile uint8_t pindex = 0x00;
-    volatile uint8_t i0, i1, i2, i3 = 0xff;
+    volatile uint8_t i0 = 0xff;
 
     int16_t fromInt9(uint8_t sign, uint8_t value) {
       if (sign) { 
@@ -669,6 +662,7 @@ class PS2MousePort : public PS2Port<clkPin, datPin, size>
       if ((this->buffer[i0] | newPacket[0]) & 0b11000000) return false;
 
       // Calculate indices to elements of packet last stored in the buffer
+      uint8_t i1, i2, i3;
       i1 = (i0 + 1) & (size - 1);
       i2 = (i0 + 2) & (size - 1);
       i3 = (i0 + 3) & (size - 1);
@@ -705,7 +699,6 @@ class PS2MousePort : public PS2Port<clkPin, datPin, size>
       if (headNext != this->tail) {
         this->buffer[this->head] = value;
         this->head = headNext;
-        return true;
       }
     }
 
@@ -738,6 +731,5 @@ class PS2MousePort : public PS2Port<clkPin, datPin, size>
     void flush() {
       PS2Port<clkPin, datPin, size>::flush();
       pindex = 0x00;
-      i0 = 0xff;
     }
 };
