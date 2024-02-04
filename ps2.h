@@ -648,6 +648,14 @@ class PS2MousePort : public PS2Port<clkPin, datPin, size>
     volatile uint8_t pindex = 0x00;
     volatile uint8_t i0 = 0xff;
 
+    int16_t fromInt9(uint8_t sign, uint8_t value) {
+      return (int16_t)(value | (sign? 0xff00: 0x0000));
+    }
+
+    int8_t fromInt4(uint8_t value) {
+      return (int8_t)((value & 0x0f) | (value & 0xb00001000? 0xf0: 0x00));
+    }
+
     bool updatePacket() {
       if (this->count() >= getMousePacketSize() && !(this->buffer[i0] & 0b11000000) && !(packet[0] & 0b11000000)) { // Verify packet in buffer, no overflows
         // Buffer indexes to last packet
@@ -655,40 +663,29 @@ class PS2MousePort : public PS2Port<clkPin, datPin, size>
         uint8_t i2 = (i0 + 2) & (size - 1);
         uint8_t i3 = (i0 + 3) & (size - 1);
 
-        // X movement (lowest 8 bits)
-        // An overflow har occured if deltaX is less than both summands, set carry
-        uint8_t deltaX = this->buffer[i1] + packet[1];
-        uint8_t carryX = (deltaX < this->buffer[i1] && deltaX < packet[1])? 0b00010000: 0;
+        // Abort if button state changed
+        if (((this->buffer[i0] ^ packet[0]) & 0x07)) return false;
 
-        // Y movement (lowest 8 bits)
-        // An overflow has occured if deltaY is less than both summands, set carry
-        uint8_t deltaY = this->buffer[i2] + packet[2];
-        uint8_t carryY = (deltaY < this->buffer[i2] && deltaY < packet[2])? 0b00100000: 0;
+        // Add X movements
+        int16_t deltaX = fromInt9(this->buffer[i0] & 0b00010000, this->buffer[i1]) + fromInt9(packet[0] & 0b00010000, packet[1]);
+        if (deltaX < -256 || deltaX > 255) return false;
+          
+        // Add Y movements
+        int16_t deltaY = fromInt9(this->buffer[i0] & 0b00100000, this->buffer[i2]) + fromInt9(packet[0] & 0b00100000, packet[2]);
+        if (deltaY < -256 || deltaY > 255) return false;
 
-        // Overflow detection
-        // An overflow has occured if the packets that are added together have the same sign, but the result does not
-        // Step 1: Add the sign bits (the 9th bit) together using XOR
-        // Step 2: Calculate the total resulting sign by XORing in the X and Y carry
-        // Step 3: The old and new packet signs were equal if the result from step 1 is a zero bit
-        //         If so, an overflow occured if the total resulting sign is different from the original sign
-        uint8_t signSum = (this->buffer[i0] ^ packet[0]) & 0b00110000;
-        uint8_t newSign = signSum ^ carryX ^ carryY;
-        if (!(signSum & 0b00010000) && (packet[0] & 0b00010000) != (newSign & 0b00010000)) return false;
-        if (!(signSum & 0b00100000) && (packet[0] & 0b00100000) != (newSign & 0b00100000)) return false;
-
-        // Scroll wheel
-        uint8_t deltaW = (this->buffer[i3] + packet[3]) & 0x0f;
-
-        // Scroll wheel overflow detection
+        // Add scroll wheel movement
+        int8_t deltaW;
         if (getMousePacketSize() == 4) {
-          if (!((this->buffer[i3] ^ packet[3]) & 0b00001000) && ((packet[3] ^ deltaW) & 0b00001000)) return false;
+          deltaW = fromInt4(this->buffer[i3]) + fromInt4(packet[3]);
+          if (deltaW < -8 || deltaW > 7) return false;
         }
 
         // Update packet
-        this->buffer[i0] = newSign | (packet[0] & 0x0f);
-        this->buffer[i1] = deltaX;
-        this->buffer[i2] = deltaY;
-        if (getMousePacketSize() == 4) this->buffer[i3] = deltaW | (packet[3] & 0xf0);
+        this->buffer[i0] = (deltaX < 0? 0b00010000: 0x00) | (deltaY < 0? 0b00100000: 0x00) | (packet[0] & 0x0f);
+        this->buffer[i1] = deltaX & 0xff;
+        this->buffer[i2] = deltaY & 0xff;
+        if (getMousePacketSize() == 4) this->buffer[i3] = (deltaW & 0x0f) | (packet[3] & 0xf0);
         return true;
       }
       return false;
