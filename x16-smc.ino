@@ -56,28 +56,28 @@
 // I2C
 #define I2C_ADDR               0x42 // General slave address
 
-#define CMD_POW_OFF            0x01
-#define CMD_RESET              0x02
-#define CMD_NMI                0x03
-#define CMD_SET_ACT_LED        0x05
-#define CMD_GET_KEYCODE        0x07
-#define CMD_ECHO               0x08
-#define CMD_DBG_OUT            0x09
-#define CMD_GET_KBD_STATUS     0x18
-#define CMD_KBD_CMD1           0x19
-#define CMD_KBD_CMD2           0x1a
-#define CMD_SET_MOUSE_ID       0x20
-#define CMD_GET_MOUSE_MOV      0x21
-#define CMD_GET_MOUSE_ID       0x22
-#define CMD_GET_VER1           0x30
-#define CMD_GET_VER2           0x31
-#define CMD_GET_VER3           0x32
-#define CMD_SET_DFLT_READ_OP   0x40
-#define CMD_GET_KEYCODE_FAST   0x41
-#define CMD_GET_MOUSE_MOV_FAST 0x42
-#define CMD_GET_PS2DATA_FAST   0x43
-#define CMD_GET_BOOTLDR_VER    0x8e
-#define CMD_BOOTLDR_START      0x8f
+#define I2C_CMD_POW_OFF            0x01
+#define I2C_CMD_RESET              0x02
+#define I2C_CMD_NMI                0x03
+#define I2C_CMD_SET_ACT_LED        0x05
+#define I2C_CMD_GET_KEYCODE        0x07
+#define I2C_CMD_ECHO               0x08
+#define I2C_CMD_DBG_OUT            0x09
+#define I2C_CMD_GET_KBD_STATUS     0x18
+#define I2C_CMD_KBD_CMD1           0x19
+#define I2C_CMD_KBD_CMD2           0x1a
+#define I2C_CMD_SET_MOUSE_ID       0x20
+#define I2C_CMD_GET_MOUSE_MOV      0x21
+#define I2C_CMD_GET_MOUSE_ID       0x22
+#define I2C_CMD_GET_VER1           0x30
+#define I2C_CMD_GET_VER2           0x31
+#define I2C_CMD_GET_VER3           0x32
+#define I2C_CMD_SET_DFLT_READ_OP   0x40
+#define I2C_CMD_GET_KEYCODE_FAST   0x41
+#define I2C_CMD_GET_MOUSE_MOV_FAST 0x42
+#define I2C_CMD_GET_PS2DATA_FAST   0x43
+#define I2C_CMD_GET_BOOTLDR_VER    0x8e
+#define I2C_CMD_BOOTLDR_START      0x8f
 
 // Bootloader
 #define FLASH_SIZE            (0x2000)
@@ -109,7 +109,7 @@ volatile char echo_byte = 0;
 // PS/2
 volatile PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
 volatile PS2MousePort<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
-uint8_t defaultRequest = CMD_GET_KEYCODE_FAST;
+uint8_t defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
 
 // Bootloader
 volatile uint16_t bootloaderTimer = 0;
@@ -287,7 +287,7 @@ void DoReset() {
     mouseInit();
     keyboardInit();
 
-    defaultRequest = CMD_GET_KEYCODE_FAST;
+    defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
   }
 }
 
@@ -326,7 +326,7 @@ void PowerOnSeq() {
     Mouse.reset();
     keyboardInit();
     mouseInit();
-    defaultRequest = CMD_GET_KEYCODE_FAST;
+    defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
     delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
     SYSTEM_POWERED = 1;                     // Global Power state On
   }
@@ -372,7 +372,7 @@ void I2C_Receive(int) {
   
   // Process bytes received
   switch (I2C_Data[0]) {
-    case CMD_POW_OFF:
+    case I2C_CMD_POW_OFF:
       switch (I2C_Data[1]) {
         case 0: 
           powerOffRequest = true;
@@ -383,7 +383,7 @@ void I2C_Receive(int) {
       }
       break;
   
-    case CMD_RESET:
+    case I2C_CMD_RESET:
       switch (I2C_Data[1]) {
         case 0:
           resetRequest = true;
@@ -391,7 +391,7 @@ void I2C_Receive(int) {
       } 
       break;
   
-    case CMD_NMI:
+    case I2C_CMD_NMI:
       switch (I2C_Data[1]) {
         case 0: 
           NMIRequest = true;
@@ -399,38 +399,38 @@ void I2C_Receive(int) {
       }
       break;
 
-    case CMD_SET_ACT_LED:
+    case I2C_CMD_SET_ACT_LED:
       analogWrite(ACT_LED, I2C_Data[1]);
       break;
     
-    case CMD_ECHO:
+    case I2C_CMD_ECHO:
       echo_byte = I2C_Data[1];
       break;
     
-    case CMD_DBG_OUT :
+    case I2C_CMD_DBG_OUT :
       DBG_PRINT("DBG register 9 called. echo_byte: ");
       DBG_PRINTLN((byte)(echo_byte), HEX);
       break;
 
-    case CMD_KBD_CMD1:
+    case I2C_CMD_KBD_CMD1:
       Keyboard.sendPS2Command(I2C_Data[1]);
       break;
   
-    case CMD_KBD_CMD2:
+    case I2C_CMD_KBD_CMD2:
       if (ct >= 3) {
         Keyboard.sendPS2Command(I2C_Data[1], I2C_Data[2]);
       }
       break;
 
-    case CMD_SET_MOUSE_ID:
+    case I2C_CMD_SET_MOUSE_ID:
       mouseSetRequestedId(I2C_Data[1]);
       break;  
 
-    case CMD_SET_DFLT_READ_OP:
+    case I2C_CMD_SET_DFLT_READ_OP:
       defaultRequest = I2C_Data[1];
       break;
 
-    case CMD_BOOTLDR_START:
+    case I2C_CMD_BOOTLDR_START:
       if (I2C_Data[1] == 0x31) {
         bootloaderTimer = 2000;
         bootloaderFlags = 0;
@@ -443,11 +443,11 @@ void I2C_Receive(int) {
 
 void I2C_Send() { 
   switch (I2C_Data[0]) {
-    case CMD_GET_KEYCODE_FAST:
+    case I2C_CMD_GET_KEYCODE_FAST:
       if (!sendKeyCode()) smcWire.clearBuffer();
       break;
     
-    case CMD_GET_PS2DATA_FAST:
+    case I2C_CMD_GET_PS2DATA_FAST:
       {
         bool kbd_avail = sendKeyCode();
         bool mse_avail = sendMousePacket();
@@ -455,43 +455,43 @@ void I2C_Send() {
       }
       break;
 
-    case CMD_GET_MOUSE_MOV_FAST:
+    case I2C_CMD_GET_MOUSE_MOV_FAST:
       if (!sendMousePacket()) smcWire.clearBuffer();
       break;
       
-    case CMD_GET_KEYCODE:
+    case I2C_CMD_GET_KEYCODE:
       sendKeyCode();
       break;
       
-    case CMD_GET_MOUSE_MOV:
+    case I2C_CMD_GET_MOUSE_MOV:
       sendMousePacket();
       break;
     
-    case CMD_ECHO:
+    case I2C_CMD_ECHO:
       smcWire.write(echo_byte);
       break;
 
-    case CMD_GET_KBD_STATUS:
+    case I2C_CMD_GET_KBD_STATUS:
       smcWire.write(Keyboard.getCommandStatus());
       break;
 
-    case CMD_GET_MOUSE_ID:
+    case I2C_CMD_GET_MOUSE_ID:
       smcWire.write(getMouseId());
       break;
 
-    case CMD_GET_VER1:
+    case I2C_CMD_GET_VER1:
       smcWire.write(version_major);
       break;
 
-    case CMD_GET_VER2:
+    case I2C_CMD_GET_VER2:
       smcWire.write(version_minor);
       break;
 
-    case CMD_GET_VER3:
+    case I2C_CMD_GET_VER3:
       smcWire.write(version_patch);
       break;
 
-    case CMD_GET_BOOTLDR_VER:
+    case I2C_CMD_GET_BOOTLDR_VER:
       if (pgm_read_byte(0x1e00) == 0x8a) {
         smcWire.write(pgm_read_byte(0x1e01));
       }
