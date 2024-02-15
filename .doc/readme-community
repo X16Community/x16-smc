@@ -37,3 +37,14 @@ IMPORTANT INFORMATION - PLEASE READ BEFORE INSTALLING
     following tool:
 
     https://github.com/FlightControl-User/x16-flash
+
+
+4.  The firmware_with_bootloader.hex file
+
+    This file contains the firmware and a bootloader
+    that makes it possible to update the SMC from the
+    X16.
+
+    The bootloader source code is available here:
+
+    https://github.com/stefan-b-jakobsson/x16-smc-bootloader
