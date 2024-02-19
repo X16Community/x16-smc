@@ -395,6 +395,7 @@ void I2C_Send() {
 }
 
 void DoReset() {
+  LONGPRESS_START=0;
   if (bootloaderTimer > 0) {
     bootloaderFlags |= 2;
     startBootloader();
