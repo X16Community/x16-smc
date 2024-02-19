@@ -202,8 +202,6 @@ void DoLongPressPowerToggle() {
 	// LONGPRESS_START flag is only set to 1 if the system
 	// is powered on by a LongPress
 	LONGPRESS_START = 1;
-	delay(1);	// Ensure CPU has started loading
-	DoNMI();	// Send NMI
 }
 
 void I2C_Receive(int) {
