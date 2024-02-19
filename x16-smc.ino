@@ -184,6 +184,7 @@ void loop() {
 }
 
 void DoPowerToggle() {
+  LONGPRESS_START=0;		// Ensure longpress flag is 0
   if (bootloaderTimer > 0) {
     bootloaderFlags |= 1;
     startBootloader();
@@ -197,10 +198,10 @@ void DoPowerToggle() {
 }
 
 void DoLongPressPowerToggle() {
+	DoPowerToggle();
 	// LONGPRESS_START flag is only set to 1 if the system
 	// is powered on by a LongPress
-	LONGPRESS_START = !SYSTEM_POWERED;
-	DoPowerToggle();
+	LONGPRESS_START = 1;
 	delay(1);	// Ensure CPU has started loading
 	DoNMI();	// Send NMI
 }
@@ -325,7 +326,6 @@ void I2C_Send() {
   //		LONGPRESS_START is 1 only if system powered on by longpress
   if (I2C_Data[0] ==9) {	
 	Wire.write(LONGPRESS_START);
-	LONGPRESS_START=0;
   }
 
   if (I2C_Data[0] == 0x18) {
