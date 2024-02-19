@@ -4,7 +4,7 @@
 //     Michael Steil
 //     Joe Burks
 
-//#define COMMUNITYX16_PINS
+#define COMMUNITYX16_PINS
 #define ENABLE_NMI_BUT
 //#define KBDBUF_FULL_DBG
 
@@ -77,6 +77,7 @@ bool SYSTEM_POWERED = 0;                                // default state - Power
 int  I2C_Data[3] = {0, 0, 0};
 bool I2C_Active = false;
 char echo_byte = 0;
+bool LONGPRESS_START = 0;	// Used to let CPU know NMI has come with pwr on
 
 uint16_t bootloaderTimer = 0;
 uint8_t bootloaderFlags = 0;
@@ -121,7 +122,8 @@ void setup() {
   Wire.onRequest(I2C_Send);                           // Used to Send Data, may never be used
 
   POW_BUT.attachClick(DoPowerToggle);            // Should the Power off be long, or short?
-  POW_BUT.attachDuringLongPress(DoPowerToggle);  // Both for now
+  // Set flag to show that LongPress has been used
+  POW_BUT.attachDuringLongPress(DoLongPressPowerToggle); 
 
   RES_BUT.attachClick(DoReset);
   RES_BUT.attachDuringLongPress(DoReset);
@@ -192,6 +194,15 @@ void DoPowerToggle() {
   else {                                      // If On, turn off
     PowerOffSeq();
   }
+}
+
+void DoLongPressPowerToggle() {
+	// LONGPRESS_START flag is only set to 1 if the system
+	// is powered on by a LongPress
+	LONGPRESS_START = !SYSTEM_POWERED;
+	DoPowerToggle();
+	delay(1);	// Ensure CPU has started loading
+	DoNMI();	// Send NMI
 }
 
 void I2C_Receive(int) {
@@ -307,6 +318,14 @@ void I2C_Send() {
   }
   if (I2C_Data[0] == 8) {
     Wire.write(echo_byte);
+  }
+  // 1st byte : byte 9 = print diagnostic if written
+  //            When read, it will return the value of
+  //		the LONPRESS_START flag
+  //		LONGPRESS_START is 1 only if system powered on by longpress
+  if (I2C_Data[0] ==9) {	
+	Wire.write(LONGPRESS_START);
+	LONGPRESS_START=0;
   }
 
   if (I2C_Data[0] == 0x18) {
