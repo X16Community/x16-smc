@@ -25,15 +25,11 @@
 #define MOUSE_STATE_INTELLI_GET_ID      0x28
 
 // Setup
-#define MOUSE_STATE_SET_RESOLUTION      0x30
-#define MOUSE_STATE_SET_RESOLUTION_ACK  0x31
-#define MOUSE_STATE_SET_SAMPLERATE      0x32
-#define MOUSE_STATE_SET_SAMPLERATE_ACK  0x33
-#define MOUSE_STATE_SET_SCALING         0x34
-#define MOUSE_STATE_SET_SCALING_ACK     0x35
-#define MOUSE_STATE_ENABLE              0x36
-#define MOUSE_STATE_ENABLE_ACK          0x37
-#define MOUSE_STATE_READY               0x38
+#define MOUSE_STATE_SET_SAMPLERATE      0x30
+#define MOUSE_STATE_SET_SAMPLERATE_ACK  0x31
+#define MOUSE_STATE_ENABLE              0x32
+#define MOUSE_STATE_ENABLE_ACK          0x33
+#define MOUSE_STATE_READY               0x34
 
 #define MOUSE_STATE_FAILED              0x40
 
@@ -44,7 +40,7 @@
 /*
     Watchdog
 */
-#define WATCHDOG_ARM                    1023
+#define WATCHDOG_ARM                    255
 #define WATCHDOG_DISABLE                0
 
 /*
@@ -76,7 +72,7 @@ static volatile uint8_t watchdogExpiryState = MOUSE_STATE_OFF;
 
 
 void mouseTick() {
-    static uint16_t watchdog = WATCHDOG_DISABLE;
+    static uint8_t watchdog = WATCHDOG_DISABLE;
     
     // Return to OFF state if system powered down
     if (!SYSTEM_POWERED && state != MOUSE_STATE_OFF) {
@@ -124,7 +120,7 @@ void mouseTick() {
                         state = MOUSE_STATE_INTELLI_1;
                     }
                     else {
-                        state = MOUSE_STATE_SET_RESOLUTION;
+                        state = MOUSE_STATE_SET_SAMPLERATE;
                     }
                     watchdog = WATCHDOG_ARM;
                 }
@@ -165,7 +161,7 @@ void mouseTick() {
                 mouse_id = Mouse.next();
                 if (mouse_id == requestedmouse_id || (mouse_id == 0 && requestedmouse_id == 3)) {
                     // Setup succeded, or accept downgrade from mouse ID 3 to mouse ID 0
-                    state = MOUSE_STATE_SET_RESOLUTION;
+                    state = MOUSE_STATE_SET_SAMPLERATE;
                 }
                 else if (mouse_id == 0 && requestedmouse_id == 4) {
                     // Setup failed, try to downgrade to mouse ID 3
@@ -181,21 +177,9 @@ void mouseTick() {
             }
             break;
 
-        case MOUSE_STATE_SET_RESOLUTION:
-            Mouse.sendPS2Command(PS2_CMD_SET_RESOLUTION, 0x00);
-            state = MOUSE_STATE_SET_RESOLUTION_ACK;
-            watchdog = WATCHDOG_ARM;
-            break;
-
         case MOUSE_STATE_SET_SAMPLERATE:
             Mouse.sendPS2Command(PS2_CMD_SET_SAMPLE_RATE, 60);
             state = MOUSE_STATE_SET_SAMPLERATE_ACK;
-            watchdog = WATCHDOG_ARM;
-            break;
-
-        case MOUSE_STATE_SET_SCALING:
-            Mouse.sendPS2Command(PS2_CMD_SET_SCALING);
-            state = MOUSE_STATE_SET_SCALING_ACK;
             watchdog = WATCHDOG_ARM;
             break;
 
@@ -234,9 +218,7 @@ void mouseTick() {
             // case MOUSE_STATE_INTELLI_2_ACK:
             // case MOUSE_STATE_INTELLI_3_ACK:
             // case MOUSE_STATE_INTELLI_REQ_ID_ACK
-            // case MOUSE_STATE_SET_RESOLUTION_ACK:
             // case MOUSE_STATE_SET_SAMPLERATE_ACK:
-            // case MOUSE_STATE_SET_SCALING_ACK
             // case MOUSE_STATE_ENABLE_ACK:
             if (Mouse.available()) {
                 if (Mouse.next() == PS2_ACK) {

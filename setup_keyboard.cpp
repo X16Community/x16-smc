@@ -22,7 +22,7 @@
 /*
     Watchdog
 */
-#define WATCHDOG_ARM                    65535
+#define WATCHDOG_ARM                    255
 #define WATCHDOG_DISABLE                0
 
 /*
@@ -49,7 +49,7 @@ static volatile uint8_t kbd_init_state = 0;
 
 
 void keyboardTick() {
-    static uint16_t watchdog = WATCHDOG_DISABLE;
+    static uint8_t watchdog = WATCHDOG_DISABLE;
 
     // Return to OFF state if system powered down
     if (!SYSTEM_POWERED && kbd_init_state != KBD_STATE_OFF) {
