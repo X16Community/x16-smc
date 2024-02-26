@@ -77,7 +77,7 @@ bool SYSTEM_POWERED = 0;                                // default state - Power
 int  I2C_Data[3] = {0, 0, 0};
 bool I2C_Active = false;
 char echo_byte = 0;
-bool LONGPRESS_START = 0;	// Used to let CPU know NMI has come with pwr on
+uint8_t LONGPRESS_START = 0;	// Used to let CPU know NMI has come with pwr on
 
 uint16_t bootloaderTimer = 0;
 uint8_t bootloaderFlags = 0;
