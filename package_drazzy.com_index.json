@@ -1762,7 +1762,7 @@
               "checksum": "SHA-256:1a9efa50e23fec004bf169579978882db6079b76c52da9188d149d270ded432c",
               "host": "x86_64-linux-gnu",
               "archiveFileName": "micronucleus-cli-2.5-azd1-x86_64-linux-gnu.tar.bz2",
-              "url": "https://azduino.com/bin/micronucleus/micronucleus-cli-2.5-azd1-x86_64-linux-gnu.tar.bz2"
+              "url": "https://github.com/X16Community/x16-smc/raw/main/extern/micronucleus-cli-2.5-azd1-x86_64-linux-gnu.tar.bz2"
             }
           ]
         },
@@ -1817,7 +1817,7 @@
               "checksum": "SHA-256:1a9efa50e23fec004bf169579978882db6079b76c52da9188d149d270ded432c",
               "host": "x86_64-linux-gnu",
               "archiveFileName": "micronucleus-cli-2.5-azd1-x86_64-linux-gnu.tar.bz2",
-              "url": "https://azduino.com/bin/micronucleus/micronucleus-cli-2.5-azd1-x86_64-linux-gnu.tar.bz2"
+              "url": "https://github.com/X16Community/x16-smc/raw/main/extern/micronucleus-cli-2.5-azd1-x86_64-linux-gnu.tar.bz2"
             }
           ]
         },
