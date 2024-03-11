@@ -3,7 +3,6 @@
 // By: Kevin Williams - TexElec.com
 //     Michael Steil
 //     Joe Burks
-//     Jimmy Dansbo
 
 //#define COMMUNITYX16_PINS
 #define ENABLE_NMI_BUT
