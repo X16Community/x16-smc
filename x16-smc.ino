@@ -249,7 +249,7 @@ void I2C_Process() {
   }
   // ["Byte 4 - Power LED Level" removed]
   if (I2C_Data[0] == 5) {                     // 1st Byte : Byte 5 - Activity LED Level
-    analogWrite(ACT_LED, I2C_Data[1]);      // 2nd Byte : Set Value directly
+    digitalWrite(I2C_Data[1]==0?LOW:HIGH);    // 2nd Byte : Set the activity LED
   }
 
   if (I2C_Data[0] == 7) {                     // 1st Byte : Byte 7 - Keyboard: read next keycode
