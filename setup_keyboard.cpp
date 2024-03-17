@@ -54,6 +54,7 @@ void keyboardTick() {
     // Return to OFF state if system powered down
     if (!SYSTEM_POWERED && kbd_init_state != KBD_STATE_OFF) {
       Keyboard.flush();
+      Keyboard.clearBAT();
       kbd_init_state = KBD_STATE_OFF;
       watchdog = WATCHDOG_DISABLE;
       return;
@@ -97,6 +98,7 @@ void keyboardTick() {
 
         case KBD_STATE_RESET:
             Keyboard.flush();
+            Keyboard.clearBAT();
             Keyboard.sendPS2Command(PS2_CMD_RESET);
             kbd_init_state = KBD_STATE_RESET_ACK;
             watchdog = WATCHDOG_ARM;
@@ -118,7 +120,7 @@ void keyboardTick() {
     }
 }
 
-void keyboardInit() {
+void keyboardReset() {
   kbd_init_state = KBD_STATE_RESET;
 }
 

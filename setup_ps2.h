@@ -8,5 +8,5 @@ bool mouseIsReady();
 uint8_t getMousePacketSize();
 
 void keyboardTick();
-void keyboardInit();
+void keyboardReset();
 bool keyboardIsReady();

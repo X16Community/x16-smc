@@ -366,7 +366,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     volatile bool reset_request = false;
     volatile bool nmi_request = false;
     uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
-    uint8_t bat = 0;
+    volatile uint8_t bat = 0;
 
     /// @brief Converts a PS/2 Set 2 scan code to a IBM System/2 key number
     /// @param scancode A one-byte scan code in the range 1 to 132; no extended scan codes
@@ -430,19 +430,17 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       return bat;
     }
 
+    void clearBAT() {
+      bat = 0; 
+    }
+
     /**
        Processes a scan code byte received from the keyboard
     */
     void processByteReceived(uint8_t value) {
       // Handle BAT success (0xaa) or fail (0xfc) code
-      if (value == 0xaa || value == 0xfc) {
-        if (keyboardIsReady()) {
-          keyboardInit();
-          bat = 0;
-        }
-        else {
-          bat = value;
-        }
+      if (!keyboardIsReady() && (value == 0xaa || value == 0xfc)) {
+        bat = value;
         return;
       }
 

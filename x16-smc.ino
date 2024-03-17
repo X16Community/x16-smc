@@ -285,7 +285,7 @@ void DoReset() {
     Keyboard.flush();
     Mouse.reset();
     mouseInit();
-    keyboardInit();
+    keyboardReset();
 
     defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
   }
@@ -317,6 +317,7 @@ void PowerOnSeq() {
   while (!digitalRead(PWR_OK)) {              // Time how long it takes
     TimeDelta = millis() - StartTime;       // for PWR_OK to go active.
   }
+  
   if ((PWR_ON_MIN_MS > TimeDelta) || (PWR_ON_MAX_MS < TimeDelta)) {
     PowerOffSeq();                          // FAULT! Turn off supply
     // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
@@ -324,7 +325,6 @@ void PowerOnSeq() {
   else {
     Keyboard.flush();
     Mouse.reset();
-    keyboardInit();
     mouseInit();
     defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
     delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
