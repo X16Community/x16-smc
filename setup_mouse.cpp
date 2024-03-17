@@ -238,13 +238,13 @@ void mouseTick() {
     }
 }
 
-void mouseInit() {
+void mouseReset() {
   state = MOUSE_STATE_RESET;
 }
 
 void mouseSetRequestedId(uint8_t id) {
   requestedmouse_id = id;
-  mouseInit();
+  mouseReset();
 }
 
 uint8_t getMouseId() {

@@ -284,7 +284,7 @@ void DoReset() {
     
     Keyboard.flush();
     Mouse.reset();
-    mouseInit();
+    mouseReset();
     keyboardReset();
 
     defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
@@ -325,7 +325,6 @@ void PowerOnSeq() {
   else {
     Keyboard.flush();
     Mouse.reset();
-    mouseInit();
     defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
     delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
     SYSTEM_POWERED = 1;                     // Global Power state On

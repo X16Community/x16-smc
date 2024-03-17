@@ -1,7 +1,7 @@
 #pragma once
 
 void mouseTick();
-void mouseInit();
+void mouseReset();
 void mouseSetRequestedId(uint8_t);
 uint8_t getMouseId();
 bool mouseIsReady();
