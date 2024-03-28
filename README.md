@@ -161,7 +161,7 @@ the firmware was especially designed with these commands in mind:
 
 - Get Keycode Fast (0x41) returns a key code if available, otherwise the request is NACKed.
 - Get Mouse Movement Fast (0x42) returns a mouse packet if available, otherwise the request is NACKed.
-- Get PS/2 Data FAst (0x43) returns both keycode and mouse packet, first a key code (1 byte) and then a mouse packet (3..4 bytes). If only one of them is available, the other will be reported as 0. If neither one is available, the request is NACKed.
+- Get PS/2 Data Fast (0x43) returns both keycode and mouse packet, first a key code (1 byte) and then a mouse packet (3..4 bytes). If only one of them is available, the other will be reported as 0. If neither one is available, the request is NACKed.
 
 ## Start bootloader (0x8f)
 
