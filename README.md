@@ -161,7 +161,7 @@ the firmware was especially designed with these commands in mind:
 
 - 0x41 I2C_CMD_GET_KEYCODE_FAST, returns a key code if available, otherwise the request is NACKed.
 - 0x42 I2C_CMD_GET_MOUSE_MOV_FAST, returns a mouse packet if available, otherwise the request is NACKed.
-- 0x43 I2C_CMD_GET_PS2DATA_FAST, returns both keycode and mouse packet, first a key code (1 byte) and then a mouse packet (3..4 bytes). If only one of them are available, the other will be reported as 0. If neither one is available, the request is NACKed.
+- 0x43 I2C_CMD_GET_PS2DATA_FAST, returns both keycode and mouse packet, first a key code (1 byte) and then a mouse packet (3..4 bytes). If only one of them is available, the other will be reported as 0. If neither one is available, the request is NACKed.
 
 ## Start bootloader (0x8f)
 
