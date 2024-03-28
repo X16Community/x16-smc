@@ -31,11 +31,11 @@ The SMC is responsible for
 | 0x30      | Master read       | 1 byte            | Firmware version major        |
 | 0x31      | Master read       | 1 byte            | Firmware version minor        |
 | 0x32      | Master read       | 1 byte            | Firmware version patch        |
-| 0x40      | Master write      | 1 byte            | I2C_CMD_SET_DFLT_READ_OP      |
-| 0x41      | Master read       | 1 byte            | I2C_CMD_GET_KEYCODE_FAST      |
-| 0x42      | Master read       | 1 byte            | I2C_CMD_GET_MOUSE_MOV_FAST    |
-| 0x43      | Master read       | 1 byte            | I2C_CMD_GET_PS2DATA_FAST      |
-| 0x8e      | Master write      | 1 byte            | I2C_CMD_GET_BOOTLDR_VER       |
+| 0x40      | Master write      | 1 byte            | Set Default Read Operation    |
+| 0x41      | Master read       | 1 byte            | Get Keycode Fast              |
+| 0x42      | Master read       | 1 byte            | Get Mouse Movement Fast       |
+| 0x43      | Master read       | 1 byte            | Get PS/2 Data Fast            |
+| 0x8e      | Master write      | 1 byte            | Get Bootloader Version        |
 | 0x8f      | Master write      | 0x31              | Start bootloader              |
 
 
