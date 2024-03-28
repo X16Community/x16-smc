@@ -35,7 +35,7 @@ The SMC is responsible for
 | 0x41      | Master read       | 1 byte            | I2C_CMD_GET_KEYCODE_FAST      |
 | 0x42      | Master read       | 1 byte            | I2C_CMD_GET_MOUSE_MOV_FAST    |
 | 0x43      | Master read       | 1 byte            | I2C_CMD_GET_PS2DATA_FAST      |
-| 0x8f      | Master write      | 1 byte            | I2C_CMD_GET_BOOTLDR_VER       |
+| 0x8e      | Master write      | 1 byte            | I2C_CMD_GET_BOOTLDR_VER       |
 | 0x8f      | Master write      | 0x31              | Start bootloader              |
 
 
