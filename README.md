@@ -142,13 +142,6 @@ PRINT I2CPEEK($42,$22)
 
 The offsets 0x30, 0x31 and 0x32 return the current firmware version (major-minor-patch).
 
-## Get bootloader version (0x8e)
-
-Returns the version of a possible bootloader installed at the top of the
-flash memory. For further information, read about the Start bootloader command below.
-
-If no bootloader is installed, the command returns 0xff.
-
 ## Fast data fetch commands (0x40..0x43)
 
 If you read from the SMC without first sending a command byte, 
@@ -162,6 +155,13 @@ the firmware was especially designed with these commands in mind:
 - Get Keycode Fast (0x41) returns a key code if available, otherwise the request is NACKed.
 - Get Mouse Movement Fast (0x42) returns a mouse packet if available, otherwise the request is NACKed.
 - Get PS/2 Data Fast (0x43) returns both keycode and mouse packet, first a key code (1 byte) and then a mouse packet (3..4 bytes). If only one of them is available, the other will be reported as 0. If neither one is available, the request is NACKed.
+
+## Get bootloader version (0x8e)
+
+Returns the version of a possible bootloader installed at the top of the
+flash memory. For further information, read about the Start bootloader command below.
+
+If no bootloader is installed, the command returns 0xff.
 
 ## Start bootloader (0x8f)
 
