@@ -31,7 +31,13 @@ The SMC is responsible for
 | 0x30      | Master read       | 1 byte            | Firmware version major        |
 | 0x31      | Master read       | 1 byte            | Firmware version minor        |
 | 0x32      | Master read       | 1 byte            | Firmware version patch        |
+| 0x40      | Master write      | 1 byte            | I2C_CMD_SET_DFLT_READ_OP      |
+| 0x41      | Master read       | 1 byte            | I2C_CMD_GET_KEYCODE_FAST      |
+| 0x42      | Master read       | 1 byte            | I2C_CMD_GET_MOUSE_MOV_FAST    |
+| 0x43      | Master read       | 1 byte            | I2C_CMD_GET_PS2DATA_FAST      |
+| 0x8f      | Master write      | 1 byte            | I2C_CMD_GET_BOOTLDR_VER       |
 | 0x8f      | Master write      | 0x31              | Start bootloader              |
+
 
 ## Power, Reset and Non-Maskable Interrupt (0x01, 0x02, 0x03)
 
@@ -132,10 +138,30 @@ Example that returns the current mouse device ID:
 PRINT I2CPEEK($42,$22)
 ```
 
-
 ## Firmware version (0x30, 0x31 and 0x32)
 
 The offsets 0x30, 0x31 and 0x32 return the current firmware version (major-minor-patch).
+
+## Get bootloader version (0x8e)
+
+Returns the version of a possible bootloader installed at the top of the
+flash memory. For further information, read about the Start bootloader command below.
+
+If no bootloader is installed, the command returns 0xff.
+
+## Fast data fetch commands (0x40..0x43)
+
+If you read from the SMC without first sending a command byte, 
+the SMC will return data for the command referred to by the Set Default 
+Read Operation command (0x40). This speeds up communication with
+the SMC, as it takes some time to send the command byte.
+
+It is possible to set any available command as the default read operation, but
+the firmware was especially designed with these commands in mind:
+
+- 0x41 I2C_CMD_GET_KEYCODE_FAST, returns a key code if available, otherwise the request is NACKed.
+- 0x42 I2C_CMD_GET_MOUSE_MOV_FAST, returns a mouse packet if available, otherwise the request is NACKed.
+- 0x43 I2C_CMD_GET_PS2DATA_FAST, returns both keycode and mouse packet, first a key code (1 byte) and then a mouse packet (3..4 bytes). If only one of them are available, the other will be reported as 0. If neither one is available, the request is NACKed.
 
 ## Start bootloader (0x8f)
 
