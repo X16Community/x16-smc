@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "mouse.h"
+#include "setup_ps2.h"
 #define SCANCODE_TIMEOUT_MS 50
 
 enum PS2_CMD_STATUS : uint8_t {
@@ -42,7 +42,7 @@ class PS2Port
       flush();
     };
 
-    virtual void resetInput(){
+    virtual void resetInput() {
       pinMode(datPin, INPUT);
       pinMode(clkPin, INPUT);
       curCode = 0;
@@ -321,11 +321,6 @@ class PS2Port
     }
 
     virtual void processByteReceived(uint8_t value) {
-      byte headNext = (head + 1) & (size - 1);
-      if (headNext != tail) {
-        buffer[head] = (byte)(curCode);
-        head = headNext;
-      }
     }
 };
 
@@ -371,8 +366,8 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     volatile bool reset_request = false;
     volatile bool nmi_request = false;
     uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
-    uint8_t bat = 0;
-    
+    volatile uint8_t bat = 0;
+
     /// @brief Converts a PS/2 Set 2 scan code to a IBM System/2 key number
     /// @param scancode A one-byte scan code in the range 1 to 132; no extended scan codes
     uint8_t ps2_to_keycode(uint8_t scancode) {
@@ -429,28 +424,26 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       }
       return 0;
     }
-  
+
   public:
     uint8_t BAT() {
       return bat;
+    }
+
+    void clearBAT() {
+      bat = 0; 
     }
 
     /**
        Processes a scan code byte received from the keyboard
     */
     void processByteReceived(uint8_t value) {
-      // Handle BAT success (0xaa) or fail (0xfc) code 
-      if (value == 0xaa || value == 0xfc) {
-        if (kbd_init_state == KBD_READY) {
-          kbd_init_state = MOUSE_INIT_STATE::START_RESET;
-          bat = 0;
-        } 
-        else {
-          bat = value;
-        }
+      // Handle BAT success (0xaa) or fail (0xfc) code
+      if (!keyboardIsReady() && (value == 0xaa || value == 0xfc)) {
+        bat = value;
         return;
       }
-      
+
       // If buffer_overrun is set, and if we are not in the middle of receiving a multi-byte scancode (indicated by scancode_state == 0),
       // and if the buffer is empty again, we first output modifier key state changes that happened while the buffer was closed,
       // and then clear the buffer_overrun flag
@@ -536,7 +529,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
           if (value != 0x12 && value != 0x59) {
             if (!buffer_overrun) bufferAdd(ps2ext_to_keycode(value) | 0x80);
           }
- 
+
           // Update modifier key status
           if (value == 0x14) modifier_state &= ~PS2_MODIFIER_STATE::RCTRL;
           else if (value == 0x1f) modifier_state &= ~PS2_MODIFIER_STATE::LWIN;
@@ -594,7 +587,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     }
 
     void resetInput() {
-      PS2Port<clkPin,datPin,size>::resetInput();
+      PS2Port<clkPin, datPin, size>::resetInput();
       scancode_state = 0;
     }
 
@@ -617,24 +610,124 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       return true;
     }
 
-  bool getResetRequest() {
-    return reset_request;
-  }
+    bool getResetRequest() {
+      return reset_request;
+    }
 
-  void ackResetRequest() {
-    reset_request = false;
-  }
+    void ackResetRequest() {
+      reset_request = false;
+    }
 
-  bool getNMIRequest() {
-    return nmi_request;
-  }
+    bool getNMIRequest() {
+      return nmi_request;
+    }
 
-  void ackNMIRequest() {
-    nmi_request = false;
-  }
+    void ackNMIRequest() {
+      nmi_request = false;
+    }
 
-  bool isCtrlAltDown() {
-    return ((modifier_state & PS2_MODIFIER_STATE::LCTRL) || (modifier_state & PS2_MODIFIER_STATE::RCTRL)) && ((modifier_state & PS2_MODIFIER_STATE::LALT) || (modifier_state & PS2_MODIFIER_STATE::RALT));
-  }
-  
+    bool isCtrlAltDown() {
+      return ((modifier_state & PS2_MODIFIER_STATE::LCTRL) || (modifier_state & PS2_MODIFIER_STATE::RCTRL)) && ((modifier_state & PS2_MODIFIER_STATE::LALT) || (modifier_state & PS2_MODIFIER_STATE::RALT));
+    }
+};
+
+template<uint8_t clkPin, uint8_t datPin, uint8_t size>
+class PS2MousePort : public PS2Port<clkPin, datPin, size>
+{
+  private:
+    volatile uint8_t newPacket[4];
+    volatile uint8_t pindex = 0x00;
+    volatile uint8_t i0 = 0xff;
+
+    int16_t fromInt9(uint8_t sign, uint8_t value) {
+      if (sign) { 
+        return (int16_t)(value | 0xff00);
+      }
+      else {
+        return (int16_t)(value);
+      }
+    }
+
+    int8_t fromInt4(uint8_t value) {
+      return (int8_t)((value & 0x0f) | (value & 0xb00001000 ? 0xf0 : 0x00));
+    }
+
+    bool updatePacket() {
+      // Abort if no complete packet in buffer
+      if (this->count() < getMousePacketSize()) return false;
+
+      // Abort if overflow set
+      if ((this->buffer[i0] | newPacket[0]) & 0b11000000) return false;
+
+      // Calculate indices to elements of packet last stored in the buffer
+      uint8_t i1, i2, i3;
+      i1 = (i0 + 1) & (size - 1);
+      i2 = (i0 + 2) & (size - 1);
+      i3 = (i0 + 3) & (size - 1);
+
+      // Abort if button state changed
+      if (((this->buffer[i0] ^ newPacket[0]) & 0x07)) return false;
+
+      // Add X movements
+      int16_t deltaX = fromInt9(this->buffer[i0] & 0b00010000, this->buffer[i1]) + fromInt9(newPacket[0] & 0b00010000, newPacket[1]);
+      if (deltaX < -256 || deltaX > 255) return false;
+
+      // Add Y movements
+      int16_t deltaY = fromInt9(this->buffer[i0] & 0b00100000, this->buffer[i2]) + fromInt9(newPacket[0] & 0b00100000, newPacket[2]);
+      if (deltaY < -256 || deltaY > 255) return false;
+
+      // Add scroll wheel movement
+      int8_t deltaW;
+      if (getMousePacketSize() == 4) {
+        deltaW = fromInt4(this->buffer[i3]) + fromInt4(newPacket[3]);
+        if (deltaW < -8 || deltaW > 7) return false;
+        this->buffer[i3] = (deltaW & 0x0f) | (newPacket[3] & 0xf0);
+      }
+
+      // Update packet
+      this->buffer[i0] = (newPacket[0] & 0x0f) | (deltaX<0? 0b00010000: 0) | (deltaY<0? 0b00100000:0);
+      this->buffer[i1] = deltaX;
+      this->buffer[i2] = deltaY;
+      
+      return true;
+    }
+
+    void bufferAdd(uint8_t value) {
+      byte headNext = (this->head + 1) & (size - 1);
+      if (headNext != this->tail) {
+        this->buffer[this->head] = value;
+        this->head = headNext;
+      }
+    }
+
+  protected:
+    void processByteReceived(uint8_t value) {
+      if (mouseIsReady()) {
+
+        // Abort if bit 3 of the first byte is not set
+        if (!pindex && !(value & 0b00001000)) return;
+
+        // Store value
+        newPacket[pindex] = value;
+        pindex++;
+        
+        if (pindex == getMousePacketSize()) {
+          if (!updatePacket()) {
+            i0 = this->head;
+            for (uint8_t i = 0; i < getMousePacketSize(); i++) {
+              bufferAdd(newPacket[i]);
+            }
+          }
+          pindex = 0;
+        }
+      }
+      else {
+        bufferAdd(value);
+      }
+    }
+
+    void flush() {
+      PS2Port<clkPin, datPin, size>::flush();
+      pindex = 0x00;
+    }
 };
