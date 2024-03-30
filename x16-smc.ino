@@ -101,6 +101,7 @@ volatile bool powerOffRequest = false;
 volatile bool hardRebootRequest = false;
 volatile bool resetRequest = false;
 volatile bool NMIRequest = false;
+uint8_t LONGPRESS_START = 0;	// Used to let CPU know NMI has come with pwr on
 
 // I2C
 volatile SmcWire smcWire;
@@ -113,7 +114,6 @@ volatile PS2MousePort<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
 uint8_t defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
 
 // Bootloader
-uint8_t LONGPRESS_START = 0;	// Used to let CPU know NMI has come with pwr on
 volatile uint16_t bootloaderTimer = 0;
 volatile uint8_t bootloaderFlags = 0;
 
