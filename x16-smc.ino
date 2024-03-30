@@ -483,7 +483,8 @@ void I2C_Send() {
 
     case I2C_CMD_GET_LONGPRESS:
       smcWire.write(LONGPRESS_START);
-      
+      break;
+
     case I2C_CMD_GET_KBD_STATUS:
       smcWire.write(Keyboard.getCommandStatus());
       break;
