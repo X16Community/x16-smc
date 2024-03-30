@@ -63,6 +63,7 @@
 #define I2C_CMD_GET_KEYCODE        0x07
 #define I2C_CMD_ECHO               0x08
 #define I2C_CMD_DBG_OUT            0x09
+#define I2C_CMD_GET_LONGPRESS      0x09
 #define I2C_CMD_GET_KBD_STATUS     0x18
 #define I2C_CMD_KBD_CMD1           0x19
 #define I2C_CMD_KBD_CMD2           0x1a
@@ -100,6 +101,7 @@ volatile bool powerOffRequest = false;
 volatile bool hardRebootRequest = false;
 volatile bool resetRequest = false;
 volatile bool NMIRequest = false;
+uint8_t LONGPRESS_START = 0;	// Used to let CPU know NMI has come with pwr on
 
 // I2C
 volatile SmcWire smcWire;
@@ -114,7 +116,6 @@ uint8_t defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
 // Bootloader
 volatile uint16_t bootloaderTimer = 0;
 volatile uint8_t bootloaderFlags = 0;
-
 
 // ----------------------------------------------------------------
 // Setup
@@ -156,7 +157,8 @@ void setup() {
 
   // Initialize Power, Reset and NMI buttons
   POW_BUT.attachClick(DoPowerToggle);
-  POW_BUT.attachDuringLongPress(DoPowerToggle);
+  // Set flag to show that LongPress has been used
+  POW_BUT.attachDuringLongPress(DoLongPressPowerToggle); 
 
   RES_BUT.attachClick(DoReset);
   RES_BUT.attachDuringLongPress(DoReset);
@@ -258,6 +260,7 @@ void loop() {
 // ----------------------------------------------------------------
 
 void DoPowerToggle() {
+  LONGPRESS_START=0;		// Ensure longpress flag is 0
   if (bootloaderTimer > 0) {
     bootloaderFlags |= 1;
     startBootloader();
@@ -270,7 +273,15 @@ void DoPowerToggle() {
   }
 }
 
+void DoLongPressPowerToggle() {
+	DoPowerToggle();
+	// LONGPRESS_START flag is only set to 1 if the system
+	// is powered on by a LongPress
+	LONGPRESS_START = 1;
+}
+
 void DoReset() {
+  LONGPRESS_START=0;
   if (bootloaderTimer > 0) {
     // Bootload init procedure is running, check if Power + Reset pressed
     bootloaderFlags |= 2;
@@ -468,6 +479,10 @@ void I2C_Send() {
     
     case I2C_CMD_ECHO:
       smcWire.write(echo_byte);
+      break;
+
+    case I2C_CMD_GET_LONGPRESS:
+      smcWire.write(LONGPRESS_START);
       break;
 
     case I2C_CMD_GET_KBD_STATUS:
