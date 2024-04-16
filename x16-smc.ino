@@ -29,6 +29,7 @@
 #include "smc_wire.h"
 #include "setup_ps2.h"
 
+#include <util/delay.h>
 
 // ----------------------------------------------------------------
 // Definitions
@@ -251,7 +252,7 @@ void loop() {
   }
 
   // Short Delay
-  delay(10);
+  _delay_ms(10);
 }
 
 
@@ -289,7 +290,7 @@ void DoReset() {
   }
   else if (SYSTEM_POWERED == 1) {
     assertReset();
-    delay(RESB_HOLDTIME_MS);
+    _delay_ms(RESB_HOLDTIME_MS);
     deassertReset();
     analogWrite(ACT_LED, 0);
     
@@ -305,7 +306,7 @@ void DoReset() {
 void DoNMI() {
   if (SYSTEM_POWERED == 1 && bootloaderTimer == 0 ) {   // Ignore unless Powered On; also ignore if bootloader timer is active
     digitalWrite(NMIB_PIN, LOW);                    // Press NMI
-    delay(NMI_HOLDTIME_MS);
+    _delay_ms(NMI_HOLDTIME_MS);
     digitalWrite(NMIB_PIN, HIGH);
   }
 }
@@ -313,10 +314,10 @@ void DoNMI() {
 void PowerOffSeq() {
   assertReset();                              // Hold CPU in reset
   analogWrite(ACT_LED, ACT_LED_DEFAULT_LEVEL);// Ensure activity LED is off
-  delay(AUDIOPOP_HOLDTIME_MS);                // Wait for audio system to stabilize before power is turned off
+  _delay_ms(AUDIOPOP_HOLDTIME_MS);                // Wait for audio system to stabilize before power is turned off
   digitalWrite(PWR_ON, HIGH);                 // Turn off supply
   SYSTEM_POWERED = 0;                         // Global Power state Off
-  delay(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
+  _delay_ms(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
   deassertReset();
 }
 
@@ -337,7 +338,7 @@ void PowerOnSeq() {
     Keyboard.flush();
     Mouse.reset();
     defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
-    delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
+    _delay_ms(RESB_HOLDTIME_MS);                // Allow system to stabilize
     SYSTEM_POWERED = 1;                     // Global Power state On
   }
   deassertReset();
@@ -345,7 +346,7 @@ void PowerOnSeq() {
 
 void HardReboot() {
   PowerOffSeq();
-  delay(1000);
+  _delay_ms(1000);
   PowerOnSeq();
 }
 
