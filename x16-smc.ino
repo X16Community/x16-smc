@@ -81,6 +81,8 @@
 #define I2C_CMD_GET_PS2DATA_FAST   0x43
 #define I2C_CMD_GET_BOOTLDR_VER    0x8e
 #define I2C_CMD_BOOTLDR_START      0x8f
+#define I2C_CMD_SET_FLASH_PAGE     0x90
+#define I2C_CMD_READ_FLASH         0x91
 
 // Bootloader
 #define FLASH_SIZE            (0x2000)
@@ -118,6 +120,8 @@ uint8_t defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
 // Bootloader
 volatile uint16_t bootloaderTimer = 0;
 volatile uint8_t bootloaderFlags = 0;
+
+volatile uint16_t flash_read_offset = 0;
 
 // ----------------------------------------------------------------
 // Setup
@@ -450,6 +454,12 @@ void I2C_Receive(int) {
         bootloaderFlags = 0;
       }
       break;
+
+    case I2C_CMD_SET_FLASH_PAGE:
+      // Set flash read pointer to page N (byte address 64 * N)
+      // There are 128 pages. Bootloader is the last 8 pages.
+      flash_read_offset = I2C_Data[1] * 64;
+      break;
   }
   
   I2C_Data[0] = defaultRequest;
@@ -516,6 +526,10 @@ void I2C_Send() {
       else {
         smcWire.write(0xff);
       }
+      break;
+
+    case I2C_CMD_READ_FLASH: // Raw read from flash
+      smcWire.write(pgm_read_byte(flash_read_offset++));
       break;
   }
   
