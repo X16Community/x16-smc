@@ -96,10 +96,7 @@ class PS2Port
         case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8:
           // Data bit, LSb first
           if (curBit) curCode |= 1 << (rxBitCount - 1);
-          parity += curBit;
-          rxBitCount++;
-          break;
-
+          // fallthrough
         case 9:
           // parity bit
           parity += curBit;
@@ -597,15 +594,17 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
        writes the these changes to the buffer
     */
     bool putModifiers() {
+      uint8_t shifted_bit = 0x01;
       for (uint8_t i = 0; i < 8; i++) {
-        if ((modifier_state & (1 << i)) != (modifier_oldstate & (1 << i))) {
+        if ((modifier_state & shifted_bit) != (modifier_oldstate & shifted_bit)) {
           uint8_t mod = modifier_codes[i];
-          if (!(modifier_state & (1 << i))) {
+          if (!(modifier_state & shifted_bit)) {
             mod |= 0x80;
           }
           if (!bufferAdd(mod)) return false;
-          modifier_oldstate = (modifier_oldstate & ~(1 << i)) | (modifier_state & (1 << i));
+          modifier_oldstate = (modifier_oldstate & ~shifted_bit) | (modifier_state & shifted_bit);
         }
+        shifted_bit <<= 1;
       }
       return true;
     }
