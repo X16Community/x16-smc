@@ -30,6 +30,7 @@
 #include "smc_wire.h"
 #include "setup_ps2.h"
 
+#include <avr/boot.h>
 #include <util/delay.h>
 
 // ----------------------------------------------------------------
@@ -83,6 +84,7 @@
 #define I2C_CMD_BOOTLDR_START      0x8f
 #define I2C_CMD_SET_FLASH_PAGE     0x90
 #define I2C_CMD_READ_FLASH         0x91
+#define I2C_CMD_WRITE_FLASH        0x92
 
 // Bootloader
 #define FLASH_SIZE            (0x2000)
@@ -122,6 +124,7 @@ volatile uint16_t bootloaderTimer = 0;
 volatile uint8_t bootloaderFlags = 0;
 
 volatile uint16_t flash_read_offset = 0;
+volatile uint8_t spm_lowByte = 0;
 
 // ----------------------------------------------------------------
 // Setup
@@ -459,6 +462,41 @@ void I2C_Receive(int) {
       // Set flash read pointer to page N (byte address 64 * N)
       // There are 128 pages. Bootloader is the last 8 pages.
       flash_read_offset = I2C_Data[1] * 64;
+      break;
+
+    case I2C_CMD_WRITE_FLASH:
+      // Write byte to flash buffer
+      // TODO protect this function with required button press
+
+      // Only allow flash write in boot area 0x1E00-0x1FFF
+      if (flash_read_offset < 0x1E00 || flash_read_offset > 0x1FFF) break;
+
+      // Flash is programmed one page at a time. One page is 64 bytes.
+      // A page is programmed by filling a temporary buffer for this purpose.
+      // This temporary buffer have to be filled one word (2 bytes) at a time.
+      // Thus, store the low byte in ram on every even address, and write the combined word to temporary buffer every odd address.
+      // Automatically erase and program the page once all 64 bytes have been written to the temporary buffer.
+
+      if ((flash_read_offset & 1) == 0) {
+        // low byte, we need a full word to fill the temp buffer
+        spm_lowByte = I2C_Data[1];
+        flash_read_offset++;
+      }
+      else
+      {
+        uint16_t spm_word = spm_lowByte | (I2C_Data[1] << 8);
+        uint16_t page = flash_read_offset & 0xFFC0;
+        boot_page_fill_safe(flash_read_offset++, spm_word);
+
+        if ((flash_read_offset & 0x3F) == 0)
+        {
+          // Automatically flash page on page boundary (64 bytes)
+          boot_page_erase(page);
+          boot_spm_busy_wait();       // Wait until the memory is erased.
+          boot_page_write(page);      // Store buffer in flash page.
+          boot_spm_busy_wait();       // Wait until the memory is written.
+        }
+      }
       break;
   }
   
