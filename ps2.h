@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "setup_ps2.h"
+#include "optimized_gpio.h"
 #define SCANCODE_TIMEOUT_MS 50
 
 enum PS2_CMD_STATUS : uint8_t {
@@ -43,8 +44,8 @@ class PS2Port
     };
 
     virtual void resetInput() {
-      pinMode(datPin, INPUT);
-      pinMode(clkPin, INPUT);
+      pinMode_opt(datPin, INPUT);
+      pinMode_opt(clkPin, INPUT);
       curCode = 0;
       parity = 0;
       rxBitCount = 0;
@@ -82,7 +83,7 @@ class PS2Port
       }
       lastBitMillis = curMillis;
 
-      byte curBit = digitalRead(datPin);
+      byte curBit = digitalRead_opt(datPin);
       switch (rxBitCount)
       {
         case 0:
@@ -171,12 +172,12 @@ class PS2Port
         case 7:
           //Output data bits 0-7
           if (outputBuffer[0] & 1) {
-            pinMode(datPin, INPUT);
-            digitalWrite(datPin, HIGH);
+            pinMode_opt(datPin, INPUT);
+            digitalWrite_opt(datPin, HIGH);
           }
           else {
-            digitalWrite(datPin, LOW);
-            pinMode(datPin, OUTPUT);
+            digitalWrite_opt(datPin, LOW);
+            pinMode_opt(datPin, OUTPUT);
           }
 
           //Update parity
@@ -192,12 +193,12 @@ class PS2Port
         case 8:
           //Send odd parity bit
           if ((parity & 1) == 1) {
-            digitalWrite(datPin, LOW);
-            pinMode(datPin, OUTPUT);
+            digitalWrite_opt(datPin, LOW);
+            pinMode_opt(datPin, OUTPUT);
           }
           else {
-            pinMode(datPin, INPUT);
-            digitalWrite(datPin, HIGH);
+            pinMode_opt(datPin, INPUT);
+            digitalWrite_opt(datPin, HIGH);
           }
 
           //Prepare for stop bit
@@ -206,8 +207,8 @@ class PS2Port
 
         case 9:
           //Stop bit
-          pinMode(datPin, INPUT);
-          digitalWrite(datPin, HIGH);
+          pinMode_opt(datPin, INPUT);
+          digitalWrite_opt(datPin, HIGH);
           rxBitCount++;
           break;
 
@@ -289,11 +290,11 @@ class PS2Port
 
       else if (timerCountdown == 3) {
         //Initiate request-to-send sequence
-        digitalWrite(clkPin, LOW);
-        pinMode(clkPin, OUTPUT);
+        digitalWrite_opt(clkPin, LOW);
+        pinMode_opt(clkPin, OUTPUT);
 
-        digitalWrite(datPin, LOW);
-        pinMode(datPin, OUTPUT);
+        digitalWrite_opt(datPin, LOW);
+        pinMode_opt(datPin, OUTPUT);
 
         ps2ddr = 1;
         timerCountdown--;
@@ -301,7 +302,7 @@ class PS2Port
 
       else if (timerCountdown == 1) {
         //We are at end of the request-to-send clock hold time of minimum 100 us
-        pinMode(clkPin, INPUT);
+        pinMode_opt(clkPin, INPUT);
 
         timerCountdown = 0;
         rxBitCount = 0;
