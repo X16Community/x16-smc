@@ -96,7 +96,8 @@ class PS2Port
 
         case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8:
           // Data bit, LSb first
-          if (curBit) curCode |= 1 << (rxBitCount - 1);
+          curCode >>= 1;
+          if (curBit) curCode |= 0x80;
           // fallthrough
         case 9:
           // parity bit
