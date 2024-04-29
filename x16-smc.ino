@@ -45,8 +45,8 @@
 // http://www.ieca-inc.com/images/ATX12V_PSDG2.0_Ratified.pdf
 
 // Activity (HDD) LED
-#define ACT_LED_DEFAULT_LEVEL  0
-#define ACT_LED_ON_LEVEL       255
+#define ACT_LED_OFF            LOW
+#define ACT_LED_ON             HIGH
 
 // Reset & NMI
 #define RESB_HOLDTIME_MS       500
@@ -176,7 +176,7 @@ void setup() {
 
   // Turn Off Activity LED
   pinMode_opt(ACT_LED, OUTPUT);
-  analogWrite(ACT_LED, 0);
+  digitalWrite_opt(ACT_LED, ACT_LED_OFF);
 
   // Hold Reset
   assertReset();
@@ -293,7 +293,7 @@ void DoReset() {
     assertReset();
     _delay_ms(RESB_HOLDTIME_MS);
     deassertReset();
-    analogWrite(ACT_LED, 0);
+    digitalWrite_opt(ACT_LED, ACT_LED_OFF);
     
     Keyboard.flush();
     Mouse.reset();
@@ -314,7 +314,7 @@ void DoNMI() {
 
 void PowerOffSeq() {
   assertReset();                              // Hold CPU in reset
-  analogWrite(ACT_LED, ACT_LED_DEFAULT_LEVEL);// Ensure activity LED is off
+  digitalWrite_opt(ACT_LED, ACT_LED_OFF);     // Ensure activity LED is off
   _delay_ms(AUDIOPOP_HOLDTIME_MS);                // Wait for audio system to stabilize before power is turned off
   digitalWrite_opt(PWR_ON, HIGH);             // Turn off supply
   SYSTEM_POWERED = 0;                         // Global Power state Off
@@ -412,7 +412,9 @@ void I2C_Receive(int) {
       break;
 
     case I2C_CMD_SET_ACT_LED:
-      analogWrite(ACT_LED, I2C_Data[1]);
+      // 0-127: off, 128-255: on (backward compatible)
+      if (I2C_Data[1] & 0x80) digitalWrite_opt(ACT_LED, ACT_LED_ON);
+      else digitalWrite_opt(ACT_LED, ACT_LED_OFF);
       break;
     
     case I2C_CMD_ECHO:
