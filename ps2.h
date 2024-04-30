@@ -628,7 +628,10 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     }
 
     bool isCtrlAltDown() {
-      return ((modifier_state & PS2_MODIFIER_STATE::LCTRL) || (modifier_state & PS2_MODIFIER_STATE::RCTRL)) && ((modifier_state & PS2_MODIFIER_STATE::LALT) || (modifier_state & PS2_MODIFIER_STATE::RALT));
+      uint8_t tmp = modifier_state; // Make a non-volatile copy
+      if ((tmp & (PS2_MODIFIER_STATE::LCTRL | PS2_MODIFIER_STATE::RCTRL)) == 0) return false;
+      if ((tmp & (PS2_MODIFIER_STATE::LALT | PS2_MODIFIER_STATE::RALT)) == 0) return false;
+      return true;
     }
 };
 
