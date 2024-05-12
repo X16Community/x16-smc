@@ -364,7 +364,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     volatile uint8_t modifier_oldstate = 0x00;  // Previous modifier key state, used to compare what's changed during buffer full
     volatile bool reset_request = false;
     volatile bool nmi_request = false;
-    uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
+    uint8_t modifier_codes[8] = {0x3c, 0x2c, 0x3a, 0x39, 0x3e, 0x40, 0x3b, 0x3f};
     volatile uint8_t bat = 0;
 
     /// @brief Converts a PS/2 Set 2 scan code to a IBM System/2 key number
