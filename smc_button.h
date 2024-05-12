@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Arduino.h"
+#include "optimized_gpio.h"
 
 #define BUTTON_STATE_RELEASED               0
 #define BUTTON_STATE_CLICKED                1
@@ -27,11 +28,11 @@ class SmcButton{
 
     SmcButton(uint8_t pinNumber){
       pin = pinNumber;
-      pinMode(pin, INPUT_PULLUP);
+      pinMode_opt(pin, INPUT_PULLUP);
     }
 
     void tick(){
-      uint8_t pinValue = digitalRead(pin);
+      uint8_t pinValue = digitalRead_opt(pin);
       
       if (counter > 0){
         counter--;

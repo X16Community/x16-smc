@@ -21,6 +21,7 @@
 // Includes
 // ----------------------------------------------------------------
 
+#include "optimized_gpio.h"
 #include "version.h"
 #include "smc_button.h"
 #include "dbg_supp.h"
@@ -29,6 +30,7 @@
 #include "smc_wire.h"
 #include "setup_ps2.h"
 
+#include <util/delay.h>
 
 // ----------------------------------------------------------------
 // Definitions
@@ -43,8 +45,8 @@
 // http://www.ieca-inc.com/images/ATX12V_PSDG2.0_Ratified.pdf
 
 // Activity (HDD) LED
-#define ACT_LED_DEFAULT_LEVEL  0
-#define ACT_LED_ON_LEVEL       255
+#define ACT_LED_OFF            LOW
+#define ACT_LED_ON             HIGH
 
 // Reset & NMI
 #define RESB_HOLDTIME_MS       500
@@ -168,20 +170,20 @@ void setup() {
 #endif
 
   // Setup Power Supply
-  pinMode(PWR_OK, INPUT);
-  pinMode(PWR_ON, OUTPUT);
-  digitalWrite(PWR_ON, HIGH);
+  pinMode_opt(PWR_OK, INPUT);
+  pinMode_opt(PWR_ON, OUTPUT);
+  digitalWrite_opt(PWR_ON, HIGH);
 
   // Turn Off Activity LED
-  pinMode(ACT_LED, OUTPUT);
-  analogWrite(ACT_LED, 0);
+  pinMode_opt(ACT_LED, OUTPUT);
+  digitalWrite_opt(ACT_LED, ACT_LED_OFF);
 
   // Hold Reset
   assertReset();
 
   // Release NMI
-  pinMode(NMIB_PIN, OUTPUT);
-  digitalWrite(NMIB_PIN, HIGH);
+  pinMode_opt(NMIB_PIN, OUTPUT);
+  digitalWrite_opt(NMIB_PIN, HIGH);
 
   // Initialize I2C
   smcWire.begin(I2C_ADDR);
@@ -198,7 +200,7 @@ void setup() {
 // ----------------------------------------------------------------
 void loop() {
   // Shutdown on PSU Fault Condition
-  if ((SYSTEM_POWERED == 1) && (!digitalRead(PWR_OK))) {
+  if ((SYSTEM_POWERED == 1) && (!digitalRead_opt(PWR_OK))) {
     PowerOffSeq();
   }
   
@@ -251,7 +253,7 @@ void loop() {
   }
 
   // Short Delay
-  delay(10);
+  _delay_ms(10);
 }
 
 
@@ -289,9 +291,9 @@ void DoReset() {
   }
   else if (SYSTEM_POWERED == 1) {
     assertReset();
-    delay(RESB_HOLDTIME_MS);
+    _delay_ms(RESB_HOLDTIME_MS);
     deassertReset();
-    analogWrite(ACT_LED, 0);
+    digitalWrite_opt(ACT_LED, ACT_LED_OFF);
     
     Keyboard.flush();
     Mouse.reset();
@@ -304,28 +306,28 @@ void DoReset() {
 
 void DoNMI() {
   if (SYSTEM_POWERED == 1 && bootloaderTimer == 0 ) {   // Ignore unless Powered On; also ignore if bootloader timer is active
-    digitalWrite(NMIB_PIN, LOW);                    // Press NMI
-    delay(NMI_HOLDTIME_MS);
-    digitalWrite(NMIB_PIN, HIGH);
+    digitalWrite_opt(NMIB_PIN, LOW);                // Press NMI
+    _delay_ms(NMI_HOLDTIME_MS);
+    digitalWrite_opt(NMIB_PIN, HIGH);
   }
 }
 
 void PowerOffSeq() {
   assertReset();                              // Hold CPU in reset
-  analogWrite(ACT_LED, ACT_LED_DEFAULT_LEVEL);// Ensure activity LED is off
-  delay(AUDIOPOP_HOLDTIME_MS);                // Wait for audio system to stabilize before power is turned off
-  digitalWrite(PWR_ON, HIGH);                 // Turn off supply
+  digitalWrite_opt(ACT_LED, ACT_LED_OFF);     // Ensure activity LED is off
+  _delay_ms(AUDIOPOP_HOLDTIME_MS);                // Wait for audio system to stabilize before power is turned off
+  digitalWrite_opt(PWR_ON, HIGH);             // Turn off supply
   SYSTEM_POWERED = 0;                         // Global Power state Off
-  delay(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
+  _delay_ms(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
   deassertReset();
 }
 
 void PowerOnSeq() {
   assertReset();
-  digitalWrite(PWR_ON, LOW);                  // turn on power supply
+  digitalWrite_opt(PWR_ON, LOW);              // turn on power supply
   unsigned long TimeDelta = 0;
   unsigned long StartTime = millis();         // get current time
-  while (!digitalRead(PWR_OK)) {              // Time how long it takes
+  while (!digitalRead_opt(PWR_OK)) {          // Time how long it takes
     TimeDelta = millis() - StartTime;       // for PWR_OK to go active.
   }
   
@@ -337,7 +339,7 @@ void PowerOnSeq() {
     Keyboard.flush();
     Mouse.reset();
     defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
-    delay(RESB_HOLDTIME_MS);                // Allow system to stabilize
+    _delay_ms(RESB_HOLDTIME_MS);                // Allow system to stabilize
     SYSTEM_POWERED = 1;                     // Global Power state On
   }
   deassertReset();
@@ -345,18 +347,18 @@ void PowerOnSeq() {
 
 void HardReboot() {
   PowerOffSeq();
-  delay(1000);
+  _delay_ms(1000);
   PowerOnSeq();
 }
 
 void assertReset() {
-  pinMode(RESB_PIN, OUTPUT);
-  digitalWrite(RESB_PIN, RESET_ACTIVE);
+  pinMode_opt(RESB_PIN, OUTPUT);
+  digitalWrite_opt(RESB_PIN, RESET_ACTIVE);
 }
 
 void deassertReset() {
-  digitalWrite(RESB_PIN, RESET_INACTIVE);
-  pinMode(RESB_PIN, INPUT);
+  digitalWrite_opt(RESB_PIN, RESET_INACTIVE);
+  pinMode_opt(RESB_PIN, INPUT);
 }
 
 // ----------------------------------------------------------------
@@ -410,7 +412,9 @@ void I2C_Receive(int) {
       break;
 
     case I2C_CMD_SET_ACT_LED:
-      analogWrite(ACT_LED, I2C_Data[1]);
+      // 0-127: off, 128-255: on (backward compatible)
+      if (I2C_Data[1] & 0x80) digitalWrite_opt(ACT_LED, ACT_LED_ON);
+      else digitalWrite_opt(ACT_LED, ACT_LED_OFF);
       break;
     
     case I2C_CMD_ECHO:
