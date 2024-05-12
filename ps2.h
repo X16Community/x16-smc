@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "setup_ps2.h"
+#include "optimized_gpio.h"
 #define SCANCODE_TIMEOUT_MS 50
 
 enum PS2_CMD_STATUS : uint8_t {
@@ -43,8 +44,8 @@ class PS2Port
     };
 
     virtual void resetInput() {
-      pinMode(datPin, INPUT);
-      pinMode(clkPin, INPUT);
+      pinMode_opt(datPin, INPUT);
+      pinMode_opt(clkPin, INPUT);
       curCode = 0;
       parity = 0;
       rxBitCount = 0;
@@ -82,7 +83,7 @@ class PS2Port
       }
       lastBitMillis = curMillis;
 
-      byte curBit = digitalRead(datPin);
+      byte curBit = digitalRead_opt(datPin);
       switch (rxBitCount)
       {
         case 0:
@@ -95,11 +96,9 @@ class PS2Port
 
         case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8:
           // Data bit, LSb first
-          if (curBit) curCode |= 1 << (rxBitCount - 1);
-          parity += curBit;
-          rxBitCount++;
-          break;
-
+          curCode >>= 1;
+          if (curBit) curCode |= 0x80;
+          // fallthrough
         case 9:
           // parity bit
           parity += curBit;
@@ -174,12 +173,12 @@ class PS2Port
         case 7:
           //Output data bits 0-7
           if (outputBuffer[0] & 1) {
-            pinMode(datPin, INPUT);
-            digitalWrite(datPin, HIGH);
+            pinMode_opt(datPin, INPUT);
+            digitalWrite_opt(datPin, HIGH);
           }
           else {
-            digitalWrite(datPin, LOW);
-            pinMode(datPin, OUTPUT);
+            digitalWrite_opt(datPin, LOW);
+            pinMode_opt(datPin, OUTPUT);
           }
 
           //Update parity
@@ -195,12 +194,12 @@ class PS2Port
         case 8:
           //Send odd parity bit
           if ((parity & 1) == 1) {
-            digitalWrite(datPin, LOW);
-            pinMode(datPin, OUTPUT);
+            digitalWrite_opt(datPin, LOW);
+            pinMode_opt(datPin, OUTPUT);
           }
           else {
-            pinMode(datPin, INPUT);
-            digitalWrite(datPin, HIGH);
+            pinMode_opt(datPin, INPUT);
+            digitalWrite_opt(datPin, HIGH);
           }
 
           //Prepare for stop bit
@@ -209,8 +208,8 @@ class PS2Port
 
         case 9:
           //Stop bit
-          pinMode(datPin, INPUT);
-          digitalWrite(datPin, HIGH);
+          pinMode_opt(datPin, INPUT);
+          digitalWrite_opt(datPin, HIGH);
           rxBitCount++;
           break;
 
@@ -292,11 +291,11 @@ class PS2Port
 
       else if (timerCountdown == 3) {
         //Initiate request-to-send sequence
-        digitalWrite(clkPin, LOW);
-        pinMode(clkPin, OUTPUT);
+        digitalWrite_opt(clkPin, LOW);
+        pinMode_opt(clkPin, OUTPUT);
 
-        digitalWrite(datPin, LOW);
-        pinMode(datPin, OUTPUT);
+        digitalWrite_opt(datPin, LOW);
+        pinMode_opt(datPin, OUTPUT);
 
         ps2ddr = 1;
         timerCountdown--;
@@ -304,7 +303,7 @@ class PS2Port
 
       else if (timerCountdown == 1) {
         //We are at end of the request-to-send clock hold time of minimum 100 us
-        pinMode(clkPin, INPUT);
+        pinMode_opt(clkPin, INPUT);
 
         timerCountdown = 0;
         rxBitCount = 0;
@@ -597,15 +596,17 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
        writes the these changes to the buffer
     */
     bool putModifiers() {
+      uint8_t shifted_bit = 0x01;
       for (uint8_t i = 0; i < 8; i++) {
-        if ((modifier_state & (1 << i)) != (modifier_oldstate & (1 << i))) {
+        if ((modifier_state & shifted_bit) != (modifier_oldstate & shifted_bit)) {
           uint8_t mod = modifier_codes[i];
-          if (!(modifier_state & (1 << i))) {
+          if (!(modifier_state & shifted_bit)) {
             mod |= 0x80;
           }
           if (!bufferAdd(mod)) return false;
-          modifier_oldstate = (modifier_oldstate & ~(1 << i)) | (modifier_state & (1 << i));
+          modifier_oldstate = (modifier_oldstate & ~shifted_bit) | (modifier_state & shifted_bit);
         }
+        shifted_bit <<= 1;
       }
       return true;
     }
@@ -627,7 +628,10 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     }
 
     bool isCtrlAltDown() {
-      return ((modifier_state & PS2_MODIFIER_STATE::LCTRL) || (modifier_state & PS2_MODIFIER_STATE::RCTRL)) && ((modifier_state & PS2_MODIFIER_STATE::LALT) || (modifier_state & PS2_MODIFIER_STATE::RALT));
+      uint8_t tmp = modifier_state; // Make a non-volatile copy
+      if ((tmp & (PS2_MODIFIER_STATE::LCTRL | PS2_MODIFIER_STATE::RCTRL)) == 0) return false;
+      if ((tmp & (PS2_MODIFIER_STATE::LALT | PS2_MODIFIER_STATE::RALT)) == 0) return false;
+      return true;
     }
 };
 
