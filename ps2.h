@@ -334,6 +334,7 @@ enum PS2_MODIFIER_STATE : uint8_t {
   RWIN = 128
 };
 
+// Conversion table: PS/2 regular non-extended scan codes to IBM System/2 key numbers
 const uint8_t PS2_REG_SCANCODES[] PROGMEM = {
   120, 0, 116, 114, 112, 113, 123, 0,
   121, 119, 117, 115, 16, 1, 0, 0,
@@ -357,6 +358,32 @@ const uint8_t PS2_REG_SCANCODES[] PROGMEM = {
 template<uint8_t clkPin, uint8_t datPin, uint8_t size>
 class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
 {
+  /*
+   * This class transforms PS/2 keyboard scan codes to 
+   * IBM System/2 key numbers. The IBM key numbers are stored
+   * in a buffer to be fetched by the X16 Kernal over I2C.
+   * 
+   * The IBM key numbers are one byte, whereof bits 0-6 identify a
+   * key, and bit 7 indicates key down (0) or key up (1) events.
+   * 
+   * A complete list of IBM key numbers is available in the X16 Kernal sources,
+   * x16-rom/inc/keycode.inc.
+   * 
+   * In the event of buffer overflow, subsequent key events are
+   * ignored until the content of the buffer has been read by
+   * the X16 Kernal. Modifier key events are, however, tracked
+   * during buffer overflow, and modifier key state changes that
+   * happened during a buffer overflow are pushed to the buffer
+   * when it's empty again. This is to prevent "sticky" modifer keys.
+   * 
+   * This class also detects and handles the following two key
+   * combinations that are available even if the X16 Kernal
+   * is not responding:
+   * 
+   * - Ctrl+Alt+Del, triggers system reset
+   * - Ctrl+Alt+PrtScr/Restore, triggers system NMI
+   */
+   
   protected:
     volatile bool buffer_overrun = false;       // Set to true on buffer full, and to false when buffer is empty again
     volatile uint8_t scancode_state = 0x00;     // Tracks the type and byte position of the scan code currently being received (bits 4-7 = scan code type, bits 0-3 = number of bytes)
@@ -364,7 +391,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     volatile uint8_t modifier_oldstate = 0x00;  // Previous modifier key state, used to compare what's changed during buffer full
     volatile bool reset_request = false;
     volatile bool nmi_request = false;
-    uint8_t modifier_codes[8] = {0x11, 0x12, 0x14, 0x59, 0x11, 0x14, 0x1f, 0x27};  // Last byte of modifier key scan codes: LALT, LSHIFT, LCTRL, RSHIFT, RALT, RCTRL, LWIN, RWIN
+    uint8_t modifier_key_codes[8] = {60, 44, 58, 57, 62, 64, 59, 63}; // IBM PS/2 key numbers for left Alt, left Shift, left Control, right Shift, right Alt, right Control, left Win and right Win
     volatile uint8_t bat = 0;
 
     /// @brief Converts a PS/2 Set 2 scan code to a IBM System/2 key number
@@ -599,7 +626,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
       uint8_t shifted_bit = 0x01;
       for (uint8_t i = 0; i < 8; i++) {
         if ((modifier_state & shifted_bit) != (modifier_oldstate & shifted_bit)) {
-          uint8_t mod = modifier_codes[i];
+          uint8_t mod = modifier_key_codes[i];
           if (!(modifier_state & shifted_bit)) {
             mod |= 0x80;
           }
