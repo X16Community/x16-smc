@@ -324,6 +324,8 @@ void PowerOffSeq() {
 
 void PowerOnSeq() {
   assertReset();
+  digitalWrite_opt(PS2_KBD_CLK, LOW);         // hold PS/2 clock during power-on procedure
+  pinMode_opt(PS2_KBD_CLK, OUTPUT);
   digitalWrite_opt(PWR_ON, LOW);              // turn on power supply
   unsigned long TimeDelta = 0;
   unsigned long StartTime = millis();         // get current time

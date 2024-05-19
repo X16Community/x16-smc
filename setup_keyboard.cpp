@@ -3,6 +3,7 @@
 #include "ps2.h"
 #include "smc_pins.h"
 #include "setup_ps2.h"
+#include "smc_pins.h"
 
 /*
     State Machine
@@ -10,10 +11,12 @@
 
 // Setup
 #define KBD_STATE_OFF                   0x00
-#define KBD_STATE_BAT                   0x01
-#define KBD_STATE_SET_LEDS              0x02
-#define KBD_STATE_SET_LEDS_ACK          0x03
-#define KBD_STATE_READY                 0x04
+#define KBD_STATE_CLOCK_HOLD            0x01
+#define KBD_STATE_CLOCK_RELEASE         0x02
+#define KBD_STATE_BAT                   0x03
+#define KBD_STATE_SET_LEDS              0x04
+#define KBD_STATE_SET_LEDS_ACK          0x05
+#define KBD_STATE_READY                 0x06
 
 // Reset
 #define KBD_STATE_RESET                 0x10
@@ -64,10 +67,22 @@ void keyboardTick() {
     switch (kbd_init_state) {
         case KBD_STATE_OFF:
             if (SYSTEM_POWERED) {
-                kbd_init_state = KBD_STATE_BAT;
+                kbd_init_state = KBD_STATE_CLOCK_HOLD;
+                watchdogExpiryState = KBD_STATE_CLOCK_RELEASE;
                 watchdog = WATCHDOG_ARM;
             }
             break;
+
+        case KBD_STATE_CLOCK_HOLD:
+          // Just wait for watchdog timer to expire
+          break;
+
+        case KBD_STATE_CLOCK_RELEASE:
+          pinMode_opt(PS2_KBD_CLK, INPUT);
+          watchdogExpiryState = KBD_STATE_RESET;
+          watchdog = WATCHDOG_ARM;
+          kbd_init_state = KBD_STATE_BAT;
+          break;
 
         case KBD_STATE_BAT:
             if (Keyboard.BAT() == PS2_BAT_OK) {
