@@ -40,6 +40,8 @@ The SMC is responsible for
 | 0x90      | Master write      | 1 byte            | Set flash page (0-127)        |
 | 0x91      | Master read       | 1 byte            | Read flash                    |
 | 0x92      | Master write      | 1 byte            | Write flash                   |
+| 0x93      | Master read       | 1 byte            | Get flash write mode          |
+| 0x93      | Master write      | 1 byte            | Request flash write mode      |
 
 
 ## Power, Reset and Non-Maskable Interrupt (0x01, 0x02, 0x03)
