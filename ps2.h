@@ -44,8 +44,8 @@ class PS2Port
     };
 
     virtual void resetInput() {
-      pinMode_opt(datPin, INPUT);
-      pinMode_opt(clkPin, INPUT);
+      gpio_inputWithPullup(datPin);
+      gpio_inputWithPullup(clkPin);
       curCode = 0;
       parity = 0;
       rxBitCount = 0;
@@ -173,12 +173,10 @@ class PS2Port
         case 7:
           //Output data bits 0-7
           if (outputBuffer[0] & 1) {
-            pinMode_opt(datPin, INPUT);
-            digitalWrite_opt(datPin, HIGH);
+            gpio_inputWithPullup(datPin);
           }
           else {
-            digitalWrite_opt(datPin, LOW);
-            pinMode_opt(datPin, OUTPUT);
+            gpio_driveLow(datPin);
           }
 
           //Update parity
@@ -194,12 +192,10 @@ class PS2Port
         case 8:
           //Send odd parity bit
           if ((parity & 1) == 1) {
-            digitalWrite_opt(datPin, LOW);
-            pinMode_opt(datPin, OUTPUT);
+            gpio_driveLow(datPin);
           }
           else {
-            pinMode_opt(datPin, INPUT);
-            digitalWrite_opt(datPin, HIGH);
+            gpio_inputWithPullup(datPin);
           }
 
           //Prepare for stop bit
@@ -208,8 +204,7 @@ class PS2Port
 
         case 9:
           //Stop bit
-          pinMode_opt(datPin, INPUT);
-          digitalWrite_opt(datPin, HIGH);
+          gpio_inputWithPullup(datPin);
           rxBitCount++;
           break;
 
@@ -291,11 +286,8 @@ class PS2Port
 
       else if (timerCountdown == 3) {
         //Initiate request-to-send sequence
-        digitalWrite_opt(clkPin, LOW);
-        pinMode_opt(clkPin, OUTPUT);
-
-        digitalWrite_opt(datPin, LOW);
-        pinMode_opt(datPin, OUTPUT);
+        gpio_driveLow(clkPin);
+        gpio_driveLow(datPin);
 
         ps2ddr = 1;
         timerCountdown--;
@@ -303,7 +295,7 @@ class PS2Port
 
       else if (timerCountdown == 1) {
         //We are at end of the request-to-send clock hold time of minimum 100 us
-        pinMode_opt(clkPin, INPUT);
+        gpio_inputWithPullup(clkPin);
 
         timerCountdown = 0;
         rxBitCount = 0;
