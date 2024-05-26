@@ -69,15 +69,15 @@ static void pinMode_opt_params_not_known_compiletime(uint8_t pin, uint8_t mode) 
   uint8_t tmp = SREG;
   cli();
   if (mode == INPUT) {
-    *ddr_reg &= ~bitmask;
-    *port_reg &= ~bitmask;
+    *ddr_reg &= ~bitmask;  // Intermediate step -> Input + (high Z or pullup)
+    *port_reg &= ~bitmask; // Input + High Z
   }
   else if (mode == INPUT_PULLUP) {
-    *ddr_reg &= ~bitmask;
-    *port_reg |= bitmask;
+    *ddr_reg &= ~bitmask; // Intermediate step -> Input + (high Z or pullup)
+    *port_reg |= bitmask; // Input + pullup
   }
   else {
-    *ddr_reg |= bitmask;
+    *ddr_reg |= bitmask; // Output, high/low is undefined
   }
   SREG = tmp;
 }
@@ -174,5 +174,44 @@ inline uint8_t digitalRead_opt(uint8_t pin)
     // pin is not known at compile time.
     // Call a non-inlined function from this inline function.
     return digitalRead_opt_params_not_known_compiletime(pin);
+  }
+}
+
+
+inline void gpio_inputWithPullup(uint8_t pin)
+{
+  // pinMode_opt changes both ddr and port when setting to INPUT_PULLUP
+  pinMode_opt(pin, INPUT_PULLUP);
+}
+
+
+// If pin is not known compile-time, the inlined gpio_driveLow will call this non-inlined function
+static void gpio_driveLow_params_not_known_compiletime(uint8_t pin) __attribute__((noinline));
+static void gpio_driveLow_params_not_known_compiletime(uint8_t pin)
+{
+  volatile uint8_t *ddr_reg = get_ddr_address_from_pin(pin);
+  volatile uint8_t *port_reg = get_port_address_from_pin(pin);
+  uint8_t bitmask = get_bitmask_from_pin(pin);
+  uint8_t tmp = SREG;
+  cli();
+  *port_reg &= ~bitmask; // Set port LOW -> Intermediate step, either high Z or driving pin low
+  *ddr_reg |= bitmask;   // Set DDR HIGH -> Drive pin low
+  SREG = tmp;
+}
+
+inline void gpio_driveLow(uint8_t pin)
+{
+  if (__builtin_constant_p(pin)) {
+    // pin and val is known at compile time.
+    // This will be inlined to two cbi/sbi instructions.
+    digitalWrite_opt(pin, LOW);
+    pinMode_opt(pin, OUTPUT);
+  }
+  else
+  {
+    // pin is not known at compile time.
+    // Implementation cannot use cbi/sbi. Hence, atomic pin manipulation is required.
+    // Call a non-inlined function from this inline function.
+    gpio_driveLow_params_not_known_compiletime(pin);
   }
 }
