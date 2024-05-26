@@ -185,8 +185,8 @@ void setup() {
 
   // Setup Power Supply
   pinMode_opt(PWR_OK, INPUT);
-  pinMode_opt(PWR_ON, OUTPUT);
   digitalWrite_opt(PWR_ON, HIGH);
+  pinMode_opt(PWR_ON, OUTPUT);
 
   // Turn Off Activity LED
   pinMode_opt(ACT_LED, OUTPUT);
@@ -337,6 +337,8 @@ void PowerOffSeq() {
   digitalWrite_opt(ACT_LED, ACT_LED_OFF);     // Ensure activity LED is off
   _delay_ms(AUDIOPOP_HOLDTIME_MS);                // Wait for audio system to stabilize before power is turned off
   digitalWrite_opt(PWR_ON, HIGH);             // Turn off supply
+  Keyboard.reset();                           // Reset and deactivate pullup
+  Mouse.reset();                              // Reset and deactivate pullup
   SYSTEM_POWERED = 0;                         // Global Power state Off
   _delay_ms(RESB_HOLDTIME_MS);                    // Mostly here to add some delay between presses
   deassertReset();
@@ -345,6 +347,8 @@ void PowerOffSeq() {
 void PowerOnSeq() {
   assertReset();
   digitalWrite_opt(PWR_ON, LOW);              // turn on power supply
+  Keyboard.reset();                           // Reset and activate pullup
+  Mouse.reset();                              // Reset and activate pullup
   unsigned long TimeDelta = 0;
   unsigned long StartTime = millis();         // get current time
   while (!digitalRead_opt(PWR_OK)) {          // Time how long it takes
@@ -356,8 +360,6 @@ void PowerOnSeq() {
     // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
   }
   else {
-    Keyboard.flush();
-    Mouse.reset();
     defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
     _delay_ms(RESB_HOLDTIME_MS);                // Allow system to stabilize
     SYSTEM_POWERED = 1;                     // Global Power state On
@@ -688,4 +690,21 @@ ISR(TIMER1_COMPA_vect) {
 #endif
   Keyboard.timerInterrupt();
   Mouse.timerInterrupt();
+}
+
+bool PWR_ON_active()
+{
+  // Returns the status of the PWR_ON output port.
+  // PWR_ON is active low.
+  // Thus, return true if DDR is output (1) and if PORT is low (0).
+  // Similar to the SYSTEM_POWERED variable, but this is more accurate when power is changing.
+  // A future code improvement can be to make gpio functions to read from PORT/DDR register
+
+  // The following code assumes PWR_ON is pin 5, which is PA5.
+#if PWR_ON != 5
+  #error Please adjust PWR_ON_active()
+#endif
+
+  if ((DDRA & _BV(5)) == 0) return false; // Port is input. This is the case when mouse and keyboard objects are created
+  return (PORTA & _BV(5)) ? false : true;
 }

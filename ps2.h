@@ -4,6 +4,8 @@
 #include "optimized_gpio.h"
 #define SCANCODE_TIMEOUT_MS 50
 
+bool PWR_ON_active();
+
 enum PS2_CMD_STATUS : uint8_t {
   IDLE = 0,
   CMD_PENDING = 1,
@@ -44,8 +46,15 @@ class PS2Port
     };
 
     virtual void resetInput() {
-      gpio_inputWithPullup(datPin);
-      gpio_inputWithPullup(clkPin);
+      if (PWR_ON_active()) {
+        gpio_inputWithPullup(datPin);
+        gpio_inputWithPullup(clkPin);
+      } else {
+        // Prevent powering the keyboard via the pull-ups when system is off
+        // Call reset() after changing PWR_ON
+        pinMode_opt(datPin, INPUT);
+        pinMode_opt(clkPin, INPUT);
+      }
       curCode = 0;
       parity = 0;
       rxBitCount = 0;
