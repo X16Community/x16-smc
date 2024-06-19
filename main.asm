@@ -17,6 +17,7 @@ KERNAL_CHKIN        = $ffc6
 KERNAL_CLRCHN       = $ffcc
 KERNAL_READST       = $ffb7
 KERNAL_CHRIN        = $ffcf
+KERNAL_SCREEN_MODE  = $ff5f
 
 ROM_BANK            = $01
 tmp1                = $22
@@ -38,8 +39,7 @@ tmp1                = $22
     pha
     stz ROM_BANK
 
-    ; Print app info
-    print str_appname
+    print str_appinfo
 
     ; Check bootloader presence and version
     ldx #I2C_ADDR
@@ -63,14 +63,22 @@ unsupported_bootloader:
     print str_unsupported_bootloader
     pla
     jsr util_print_num
-    bra exit
+    jmp exit
 
-    ; Print warning
 warning:
+    ; Print standard warning
     print str_warning
 
+    ; Print warning about v2 bootloader corruption on some production boards
+    lda bootloader_version
+    cmp #2
+    bne :+
+    print str_warning2
+
+:   print str_read_instructions
+
     ; Confirm to continue
-:   print str_continue
+    print str_continue
     jsr util_input
     cpy #1
     bne :-
@@ -273,22 +281,30 @@ next_byte:
 exit:
     lda bootloader_version
     cmp #2
-    bcs :+
-    print str_done
-    bra reboot
+    bcs reboot2
 
-:   print str_done2
+reboot1:
+    print str_done
+    ldx #I2C_ADDR
+    ldy #$82
+    jsr I2C_WRITE
+:   bra :-
+
+reboot2:
+    print str_done2
     ldx #5
     jsr util_countdown
-    
-    ; Reboot
-reboot:
+
     ldx #I2C_ADDR
     ldy #$82
     jsr I2C_WRITE
 
-    cli
-    rts
+    ; Wait 2 seconds
+    jsr util_delay
+
+    ; Bad bootloader if we are still here
+    print str_bad_v2_bootloader
+:   bra :-
 
 updatefailed:
     print str_updatefailed

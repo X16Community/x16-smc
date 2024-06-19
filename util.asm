@@ -5,15 +5,108 @@
 ;                       Y = Pointer to string, address high
 ; Returns.............: Nothing
 .proc util_print_str
+    ; Store input
     stx tmp1
     sty tmp1+1
+    sta align
+
+    ; Get screen width
+    sec
+    jsr KERNAL_SCREEN_MODE
+    stx screen_width
+
+begin_line:
+    ldy #0
+    stz breakat
+    stz controlchars
+
+search:
+    lda (tmp1),y
+    beq setend
+    cmp #13
+    beq setend
+    cmp #32
+    bne :+
+
+    ; Remember index of last blank space
+    sty breakat
+
+:   ; Check if control char
+    lda (tmp1),y
+    cmp #COL_DEFAULT
+    beq :+
+    cmp #COL_BG
+    beq :+
+    cmp #COL_WARN
+    beq :+
+    cmp #COL_OK
+    beq :+
+    cmp #COL_ERR
+    beq :+
+    cmp #COL_SWAP
+    beq :+
+    cmp #SCR_CLS
+    beq :+
+    cmp #SCR_PETSCII
+    beq :+
+    cmp #SCR_LOWER
+    beq :+
+    bra :++
+
+:   inc controlchars
+
+    ; Check if at end of line
+:   iny
+    sec
+    tya
+    sbc controlchars
+    cmp screen_width
+    bcs output
+    bra search
+
+setend:
+    sty breakat
+
+output:
     ldy #0
 :   lda (tmp1),y
-    beq :+
+    beq exit
     jsr KERNAL_CHROUT
+    cmp #13
+    beq advance
+    cpy breakat
+    beq breakhere
     iny
     bra :-
-:   rts
+
+breakhere:
+    sec
+    tya
+    ina
+    sbc controlchars
+    cmp screen_width
+    bcs advance
+    lda #13
+    jsr KERNAL_CHROUT
+
+advance:
+    clc
+    tya
+    ina
+    adc tmp1
+    sta tmp1
+    lda tmp1+1
+    adc #0
+    sta tmp1+1
+    jmp begin_line
+    
+exit:
+    rts
+
+breakat: .res 1
+controlchars: .res 1
+screen_width: .res 1
+align: .res 1
 .endproc
 
 ;******************************************************************************
