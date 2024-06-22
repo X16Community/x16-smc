@@ -37,6 +37,11 @@ The SMC is responsible for
 | 0x43      | Master read       | 1 byte            | Get PS/2 Data Fast            |
 | 0x8e      | Master write      | 1 byte            | Get Bootloader Version        |
 | 0x8f      | Master write      | 0x31              | Start bootloader              |
+| 0x90      | Master write      | 1 byte            | Set flash page (0-127)        |
+| 0x91      | Master read       | 1 byte            | Read flash                    |
+| 0x92      | Master write      | 1 byte            | Write flash                   |
+| 0x93      | Master read       | 1 byte            | Get flash write mode          |
+| 0x93      | Master write      | 1 byte            | Request flash write mode      |
 
 
 ## Power, Reset and Non-Maskable Interrupt (0x01, 0x02, 0x03)

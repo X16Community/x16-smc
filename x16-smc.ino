@@ -30,6 +30,7 @@
 #include "smc_wire.h"
 #include "setup_ps2.h"
 
+#include <avr/boot.h>
 #include <util/delay.h>
 
 // ----------------------------------------------------------------
@@ -58,29 +59,33 @@
 // I2C
 #define I2C_ADDR               0x42 // General slave address
 
-#define I2C_CMD_POW_OFF            0x01
-#define I2C_CMD_RESET              0x02
-#define I2C_CMD_NMI                0x03
-#define I2C_CMD_SET_ACT_LED        0x05
-#define I2C_CMD_GET_KEYCODE        0x07
-#define I2C_CMD_ECHO               0x08
-#define I2C_CMD_DBG_OUT            0x09
-#define I2C_CMD_GET_LONGPRESS      0x09
-#define I2C_CMD_GET_KBD_STATUS     0x18
-#define I2C_CMD_KBD_CMD1           0x19
-#define I2C_CMD_KBD_CMD2           0x1a
-#define I2C_CMD_SET_MOUSE_ID       0x20
-#define I2C_CMD_GET_MOUSE_MOV      0x21
-#define I2C_CMD_GET_MOUSE_ID       0x22
-#define I2C_CMD_GET_VER1           0x30
-#define I2C_CMD_GET_VER2           0x31
-#define I2C_CMD_GET_VER3           0x32
-#define I2C_CMD_SET_DFLT_READ_OP   0x40
-#define I2C_CMD_GET_KEYCODE_FAST   0x41
-#define I2C_CMD_GET_MOUSE_MOV_FAST 0x42
-#define I2C_CMD_GET_PS2DATA_FAST   0x43
-#define I2C_CMD_GET_BOOTLDR_VER    0x8e
-#define I2C_CMD_BOOTLDR_START      0x8f
+#define I2C_CMD_POW_OFF               0x01
+#define I2C_CMD_RESET                 0x02
+#define I2C_CMD_NMI                   0x03
+#define I2C_CMD_SET_ACT_LED           0x05
+#define I2C_CMD_GET_KEYCODE           0x07
+#define I2C_CMD_ECHO                  0x08
+#define I2C_CMD_DBG_OUT               0x09
+#define I2C_CMD_GET_LONGPRESS         0x09
+#define I2C_CMD_GET_KBD_STATUS        0x18
+#define I2C_CMD_KBD_CMD1              0x19
+#define I2C_CMD_KBD_CMD2              0x1a
+#define I2C_CMD_SET_MOUSE_ID          0x20
+#define I2C_CMD_GET_MOUSE_MOV         0x21
+#define I2C_CMD_GET_MOUSE_ID          0x22
+#define I2C_CMD_GET_VER1              0x30
+#define I2C_CMD_GET_VER2              0x31
+#define I2C_CMD_GET_VER3              0x32
+#define I2C_CMD_SET_DFLT_READ_OP      0x40
+#define I2C_CMD_GET_KEYCODE_FAST      0x41
+#define I2C_CMD_GET_MOUSE_MOV_FAST    0x42
+#define I2C_CMD_GET_PS2DATA_FAST      0x43
+#define I2C_CMD_GET_BOOTLDR_VER       0x8e
+#define I2C_CMD_BOOTLDR_START         0x8f
+#define I2C_CMD_SET_FLASH_PAGE        0x90
+#define I2C_CMD_READ_FLASH            0x91
+#define I2C_CMD_WRITE_FLASH           0x92
+#define I2C_CMD_SELF_PROGRAMMING_MODE 0x93
 
 // Bootloader
 #define FLASH_SIZE            (0x2000)
@@ -115,9 +120,18 @@ volatile PS2KeyboardPort<PS2_KBD_CLK, PS2_KBD_DAT, 16> Keyboard;
 volatile PS2MousePort<PS2_MSE_CLK, PS2_MSE_DAT, 16> Mouse;
 uint8_t defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
 
-// Bootloader
-volatile uint16_t bootloaderTimer = 0;
-volatile uint8_t bootloaderFlags = 0;
+// Button combination, used to start bootloader or activate self programming mode
+volatile uint16_t buttonCombinationTimer = 0;
+volatile uint8_t buttonCombinationFlags = 0;
+enum BUTTON_COMBINATION_ACTION : uint8_t {
+  START_BOOTLOADER = 0,
+  SELF_PROGRAMMING_MODE = 1
+};
+volatile BUTTON_COMBINATION_ACTION buttonCombinationAction = START_BOOTLOADER; // 0: Start bootloader, 1: Activate self programming mode
+volatile uint8_t selfProgrammingModeActive = 0; // 0: Not active, 1: active
+
+volatile uint16_t flash_read_offset = 0;
+volatile uint8_t spm_lowByte = 0;
 
 // ----------------------------------------------------------------
 // Setup
@@ -247,15 +261,21 @@ void loop() {
     Keyboard.ackNMIRequest();
   }
 
-  // Bootloader Countdown
-  if (bootloaderTimer > 0) {
-    bootloaderTimer--;
+  // Button combination Countdown
+  if (buttonCombinationTimer > 0) {
+    buttonCombinationTimer--;
   }
 
   // Short Delay
   _delay_ms(10);
 }
 
+void initializeButtonCombination(BUTTON_COMBINATION_ACTION action)
+{
+  buttonCombinationAction = action;
+  buttonCombinationTimer = 2000;
+  buttonCombinationFlags = 0;
+}
 
 // ----------------------------------------------------------------
 // Power, NMI and Reset
@@ -263,9 +283,9 @@ void loop() {
 
 void DoPowerToggle() {
   LONGPRESS_START=0;		// Ensure longpress flag is 0
-  if (bootloaderTimer > 0) {
-    bootloaderFlags |= 1;
-    startBootloader();
+  if (buttonCombinationTimer > 0) {
+    buttonCombinationFlags |= 1;
+    evaluateButtonCombination();
   }
   else if (SYSTEM_POWERED == 0) {                  // If Off, turn on
     PowerOnSeq();
@@ -284,10 +304,10 @@ void DoLongPressPowerToggle() {
 
 void DoReset() {
   LONGPRESS_START=0;
-  if (bootloaderTimer > 0) {
-    // Bootload init procedure is running, check if Power + Reset pressed
-    bootloaderFlags |= 2;
-    startBootloader();
+  if (buttonCombinationTimer > 0) {
+    // Button combination procedure is running, check if Power + Reset pressed
+    buttonCombinationFlags |= 2;
+    evaluateButtonCombination();
   }
   else if (SYSTEM_POWERED == 1) {
     assertReset();
@@ -305,7 +325,7 @@ void DoReset() {
 }
 
 void DoNMI() {
-  if (SYSTEM_POWERED == 1 && bootloaderTimer == 0 ) {   // Ignore unless Powered On; also ignore if bootloader timer is active
+  if (SYSTEM_POWERED == 1 && buttonCombinationTimer == 0 ) {   // Ignore unless Powered On; also ignore if button combination timer is active
     digitalWrite_opt(NMIB_PIN, LOW);                // Press NMI
     _delay_ms(NMI_HOLDTIME_MS);
     digitalWrite_opt(NMIB_PIN, HIGH);
@@ -446,8 +466,62 @@ void I2C_Receive(int) {
 
     case I2C_CMD_BOOTLDR_START:
       if (I2C_Data[1] == 0x31) {
-        bootloaderTimer = 2000;
-        bootloaderFlags = 0;
+        initializeButtonCombination(START_BOOTLOADER);
+      }
+      break;
+
+    case I2C_CMD_SET_FLASH_PAGE:
+      // Set flash read pointer to page N (byte address 64 * N)
+      // There are 128 pages. Bootloader is the last 8 pages.
+      flash_read_offset = I2C_Data[1] * 64;
+      break;
+
+    case I2C_CMD_WRITE_FLASH:
+      // Write byte to flash buffer
+
+      // Flash manipulation must be activated with unlock cmd + [power + reset]
+      if (selfProgrammingModeActive != 1) break;
+
+      // Only allow flash write in boot area 0x1E00-0x1FFF
+      if (flash_read_offset < 0x1E00 || flash_read_offset > 0x1FFF) break;
+
+      // Flash is programmed one page at a time. One page is 64 bytes.
+      // A page is programmed by filling a temporary buffer for this purpose.
+      // This temporary buffer have to be filled one word (2 bytes) at a time.
+      // Thus, store the low byte in ram on every even address, and write the combined word to temporary buffer every odd address.
+      // Automatically erase and program the page once all 64 bytes have been written to the temporary buffer.
+
+      if ((flash_read_offset & 1) == 0) {
+        // low byte, we need a full word to fill the temp buffer
+        spm_lowByte = I2C_Data[1];
+        flash_read_offset++;
+      }
+      else
+      {
+        uint16_t spm_word = spm_lowByte | (I2C_Data[1] << 8);
+        uint16_t page = flash_read_offset & 0xFFC0;
+        boot_page_fill_safe(flash_read_offset++, spm_word);
+
+        if ((flash_read_offset & 0x3F) == 0)
+        {
+          // Automatically flash page on page boundary (64 bytes)
+          boot_page_erase(page);
+          boot_spm_busy_wait();       // Wait until the memory is erased.
+          boot_page_write(page);      // Store buffer in flash page.
+          boot_spm_busy_wait();       // Wait until the memory is written.
+        }
+      }
+      break;
+
+    case I2C_CMD_SELF_PROGRAMMING_MODE:
+      selfProgrammingModeActive = 0;
+      buttonCombinationAction = I2C_Data[1];
+      if (buttonCombinationAction == SELF_PROGRAMMING_MODE) {
+        initializeButtonCombination(SELF_PROGRAMMING_MODE);
+      }
+      else
+      {
+        buttonCombinationTimer = 0;
       }
       break;
   }
@@ -517,6 +591,14 @@ void I2C_Send() {
         smcWire.write(0xff);
       }
       break;
+
+    case I2C_CMD_READ_FLASH: // Raw read from flash
+      smcWire.write(pgm_read_byte(flash_read_offset++));
+      break;
+
+    case I2C_CMD_SELF_PROGRAMMING_MODE: // Check if self programming mode is activated
+      smcWire.write(selfProgrammingModeActive);
+      break;
   }
   
   I2C_Data[0] = defaultRequest;
@@ -570,14 +652,27 @@ void mouseClockIrq() {
 
 
 // ----------------------------------------------------------------
-// Bootloader Startup
+// Evaluate button combination (power + reset)
 // ----------------------------------------------------------------
-void startBootloader() {
-  if (bootloaderFlags == 3 && bootloaderTimer > 0) {
-    ((void(*)(void))BOOTLOADER_START_ADDR)();
+void evaluateButtonCombination() {
+  if (buttonCombinationFlags == 3 && buttonCombinationTimer > 0) {
+    // Button combination detected, perform the desired action
+    switch (buttonCombinationAction) {
+      case START_BOOTLOADER:
+        // Jump to bootloader
+        ((void(*)(void))BOOTLOADER_START_ADDR)();
+        break;
+
+      case SELF_PROGRAMMING_MODE:
+        selfProgrammingModeActive = 1;
+        break;
+
+      default:
+        break;
+    }
   }
   else {
-    bootloaderTimer = 50;
+    buttonCombinationTimer = 50;
   }
 }
 
