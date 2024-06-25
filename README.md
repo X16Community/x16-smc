@@ -8,11 +8,9 @@ transmitted over I2C.
 
 # Prerequisites
 
-To run the SMC update program a bootloader must be installed in the SMC, and the SMC firmware must support the bootloader.
+To run the SMC update program a bootloader must be installed in the SMC.
 
 * Bootloader: https://github.com/stefan-b-jakobsson/x16-smc-bootloader
-
-* Firmware support, not yet merged into the X16Community master branch: https://github.com/X16Community/x16-smc/pull/5
 
 
 # Usage
@@ -53,14 +51,17 @@ Err # | Description
 In the event of an error, the SMC update program attempts to resend the same packet 10 times before aborting the
 update.
 
-When the update is done the bootloader waits in an infinite loop for the user to remove power from the
-whole system. The SMC reboots to the new firmware as power is reconnected.
+When the update is done:
+
+- Bootloader v1: The bootloader enters into a loop waiting for the user to remove mains power
+- Bootloader v2: The bootloader resets the SMC which shuts down the system. You don't need to remove mains power, just press Power button to start the computer again.
+- Bootloader v2 (corrupted "bad" version): Some production boards comes with an unofficial corrupted v2 bootloader. The bootloader will not reset the system. Do not remove mains power, which will prevent the system from starting again. Instead you need to connect SMC pin #10 (reset) to ground with a jumper wire. This will turn off the system that can be started again with the Power button. A special warning is displayed in the update program if your board has the corrupted v2 bootloader.
 
 https://github.com/stefan-b-jakobsson/x16-smc-update/assets/70063525/6ac47834-bef9-4a48-8e94-7ce105d661d7
 
 # Unbricking the SMC
 
-Should the update process fail it is likely that the SMC is left in an inoperable state.
+Should the update process fail it is likely that the computer is left in an inoperable state.
 
 To unbrick the SMC you need to program it with an external programmer.
 
