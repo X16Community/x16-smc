@@ -56,9 +56,7 @@ update.
 When the update is done the bootloader waits in an infinite loop for the user to remove power from the
 whole system. The SMC reboots to the new firmware as power is reconnected.
 
-
-https://user-images.githubusercontent.com/70063525/232566890-c397f7e5-9286-43c7-a572-064be95392c7.mov
-
+https://github.com/stefan-b-jakobsson/x16-smc-update/assets/70063525/6ac47834-bef9-4a48-8e94-7ce105d661d7
 
 # Unbricking the SMC
 
