@@ -124,6 +124,33 @@ err:
 ;                      Length of file name in A
 ;Returns.............: C=0 if successful, else C=1
 .proc ihex_open
+    ;Save input
+    phx
+    phy
+    pha
+
+    ;Convert shifted PETSCII chars (193-223) to ASCII (65-95), needed for file name matching
+    stx tmp1
+    sty tmp1+1
+    sta tmp1+2
+    
+    ldy #0
+:   lda (tmp1),y
+    cmp #193
+    bcc :+
+    cmp #224
+    bcs :+
+    and #%01111111
+    sta (tmp1),y
+:   iny
+    cpy tmp1+2
+    bcc :--
+
+    ;Restore input
+    pla
+    ply
+    plx
+
     ;Close file #1, and open file #1 for reading
     jsr KERNAL_SETNAM
     
