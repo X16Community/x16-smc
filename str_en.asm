@@ -32,8 +32,8 @@ str_warning2:
     .byt "boards.", 13, 13, 0
 
 str_read_instructions:
-    .byt "Read instructions at https://github.com/X16Community/x16-smc before "
-    .byt "you proceed.", 13, 13, 0
+    .byt "Read instructions at github.com/X16Community/x16-docs, Upgrade Guide/SMC before "
+    .byt "proceeding.", 13, 13, 0
 
 str_continue:
     .byt "Continue (Y/N): ", 0
@@ -84,8 +84,8 @@ str_bad_v2_bootloader:
     .byt 13, 13, COL_WARN, "WARNING:", COL_DEFAULT, " Do NOT turn off the system.", 13, 13
     .byt "The bootloader is corrupted, preventing the update from finishing. "
     .byt "Complete the update by momentarily connecting SMC pin #10 (reset) "
-    .byt "to ground. Instructions available at "
-    .byt "www.github.com/X16Community/x16-smc", 0
+    .byt "to ground. Instructions available on "
+    .byt "github.com/X16Community/x16-docs, Upgrade Guide/SMC.", 0
 
 str_updatefailed:
     .byt 13, 13, COL_ERR, "Update failed.", COL_DEFAULT, 0
