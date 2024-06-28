@@ -33,10 +33,10 @@ str_warning2:
 
 str_read_instructions:
     .byt "Read instructions at github.com/X16Community/x16-docs, Upgrade Guide/SMC before "
-    .byt "proceeding.", 13, 13, 0
+    .byt "proceeding.", 13, 0
 
 str_continue:
-    .byt "Continue (Y/N): ", 0
+    .byt 13, "Continue (Y/N): ", 0
 
 str_filename:
     .byt 13, "HEX file name: ", 0

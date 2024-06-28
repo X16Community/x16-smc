@@ -78,14 +78,18 @@ warning:
 :   print str_read_instructions
 
     ; Confirm to continue
-    print str_continue
+:   print str_continue
     jsr util_input
     cpy #1
     bne :-
     lda util_input_buf
     cmp #'y'
     beq confirmed
+    cmp #'Y'
+    beq confirmed
     cmp #'n'
+    beq exit
+    cmp #'N'
     beq exit
     bra :-
     
