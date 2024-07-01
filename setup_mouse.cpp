@@ -180,7 +180,7 @@ void mouseTick() {
             break;
 
         case MOUSE_STATE_SET_SAMPLERATE:
-            Mouse.sendPS2Command(PS2_CMD_SET_SAMPLE_RATE, 40);
+            Mouse.sendPS2Command(PS2_CMD_SET_SAMPLE_RATE, 60);
             state = MOUSE_STATE_SET_SAMPLERATE_ACK;
             watchdog = WATCHDOG_ARM;
             break;
