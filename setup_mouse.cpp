@@ -166,9 +166,9 @@ void mouseTick() {
 
                 if (mouse_id == 0 || mouse_id == requestedmouse_id || mouse_id_prev == 3) {
                     // Intellimouse setup complete:
-                    // mouse_id == 0                 => Not an Intellimouse
+                    // mouse_id == 0                 => Not an Intellimouse, stop here
                     // mouse_id == requestedmouse_id => We got the requested ID, stop here
-                    // mouse_id_prev == 3            => This was the second round, unsuccessul config of ID=4, nohting more to do
+                    // mouse_id_prev == 3            => This was the second round, unsuccessul config of ID=4, nothing more to do
                     state = MOUSE_STATE_SET_SAMPLERATE;
                 }
                 else {
