@@ -73,6 +73,7 @@ static volatile uint8_t watchdogExpiryState = MOUSE_STATE_OFF;
 
 void mouseTick() {
     static uint8_t watchdog = WATCHDOG_DISABLE;
+    uint8_t mouse_id_prev;
     
     // Return to OFF state if system powered down
     if (!SYSTEM_POWERED && state != MOUSE_STATE_OFF) {
@@ -134,10 +135,12 @@ void mouseTick() {
             break;
 
         case MOUSE_STATE_INTELLI_2:
-            if (requestedmouse_id == 3) {
+            if (mouse_id == 0) {
+                // If mouse_id is 0, this is the 1st round of Intellimouse setup, go for ID=3
                 Mouse.sendPS2Command(PS2_CMD_SET_SAMPLE_RATE, 100);
             }
             else {
+                // If mouse_id is not 0, this is the 2nd round of Intellimouse setup, go for ID=4
                 Mouse.sendPS2Command(PS2_CMD_SET_SAMPLE_RATE, 200);
             }
             state = MOUSE_STATE_INTELLI_2_ACK;
@@ -158,20 +161,19 @@ void mouseTick() {
         
         case MOUSE_STATE_INTELLI_GET_ID:
             if (Mouse.available()) {
+                mouse_id_prev = mouse_id;
                 mouse_id = Mouse.next();
-                if (mouse_id == requestedmouse_id || (mouse_id == 0 && requestedmouse_id == 3)) {
-                    // Setup succeded, or accept downgrade from mouse ID 3 to mouse ID 0
+
+                if (mouse_id == 0 || mouse_id == requestedmouse_id || mouse_id_prev == 3) {
+                    // Intellimouse setup complete:
+                    // mouse_id == 0                 => Not an Intellimouse, stop here
+                    // mouse_id == requestedmouse_id => We got the requested ID, stop here
+                    // mouse_id_prev == 3            => This was the second round, unsuccessul config of ID=4, nothing more to do
                     state = MOUSE_STATE_SET_SAMPLERATE;
                 }
-                else if (mouse_id == 0 && requestedmouse_id == 4) {
-                    // Setup failed, try to downgrade to mouse ID 3
-                    requestedmouse_id = 3;
-                    state = MOUSE_STATE_RESET;
-                }
                 else {
-                    // Setup failed, try to downgrade to mouse ID 0
-                    requestedmouse_id = 0;
-                    state = MOUSE_STATE_RESET;
+                    // Run Intellimouse setup again to test ID=4
+                    state = MOUSE_STATE_INTELLI_1;
                 }
                 watchdog = WATCHDOG_DISABLE;
             }
