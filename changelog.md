@@ -28,16 +28,13 @@ bootloader memory.
 procedure fails during this stage, the bootloader can be started 
 by holding down the Reset button.
 - After all pages have been written the bootloader reset command will
-reset and power off the system. It should also be safe to just
-unplug power at this stage.
+reset and power off the system.
 
 ## Backward compatibility
-- Current firmware will not now how to get the bootloader version.
-The bootloader version is planned to be moved to the end of flash (not yet implemented).
-Current firmware can, however, start bootloader v3 and do an update.
+- Current firmware will not know how to get the bootloader version.
+The bootloader version is planned to be moved to the end of flash.
+Current firmware can, however, start bootloader v3 and do an update anyway.
 - The current firmware version may extract the bootloader version using the general flash read function
 - Sven's X16-Flash utility will say that there is no bootloader installed, but even so
-it continues doing the update. The update will be successful. It doesn't matter
-if you disconnect power or send the bootloader reset command, so whatever is
-said in the X16-Flash utility is OK.
+it continues doing the update. The update will be successful.
 - The SMCUPDATE tool aborts the update as it can't determine the bootloader version.
