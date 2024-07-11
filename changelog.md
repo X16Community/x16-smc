@@ -1,8 +1,8 @@
 ## Power-on procedure
 - Reset vector (0x0000) jumps to start of bootloader memory (0x1e00)
 - At start of bootloader memory, there is a jump table. It has two
-items (0x1e00=system start, and 0x1e02=start update).
-- The system start checks if the Reset button is held down. If so
+items (0x1e00=SMC start, and 0x1e02=start update).
+- The SMC start checks if the Reset button is held down. If so
 it first powers on the system and then starts the update procedure.
 - If the Reset button is not held down, the bootloader jumps
 to the firmware vector EE_RDY which during the update is made
