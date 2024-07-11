@@ -1,4 +1,4 @@
-; Copyright 2023 Stefan Jakobsson
+; Copyright 2023-2024 Stefan Jakobsson
 ; 
 ; Redistribution and use in source and binary forms, with or without modification, 
 ; are permitted provided that the following conditions are met:
@@ -26,10 +26,6 @@
 ; Slave settings
 .equ I2C_SLAVE_ADDRESS         = 0x42
 
-; I2C Pins
-.equ I2C_CLK                   = 2
-.equ I2C_SDA                   = 0
-
 ; I2C states
 .equ STATE_CHECK_ADDRESS       = 0x01
 .equ STATE_WAIT_SLAVE_ACK      = 0x02
@@ -53,16 +49,6 @@
 ;******************************************************************************
 .cseg
 
-; Import commands
-.include "commands.asm"
-
-;******************************************************************************
-; Function...: i2c_init
-; Description: Intialize the controller as an I2C slave with the address
-;              I2C_SLAVE_ADDRESS
-; In.........: Nothing
-; Out........: Nothing
-i2c_init:
     ; Pin function when two-wire mode enabled according to the ATTiny861a 
     ; datasheet p. 134:
     ;
@@ -81,6 +67,12 @@ i2c_init:
     ;   SDA |  0  |  1   | DDR selects input or output, value set by USIDR
     ;   CLK |  1  |  1   | DDR=1 enables the USI module to hold the CLK
 
+;******************************************************************************
+; Function...: i2c_main
+; Description: I2C init and main loop
+; In.........: Nothing
+; Out........: Nothing
+i2c_main:
     ; Pin setup
     cbi DDRB,I2C_SDA                ; SDA as input
     sbi DDRB,I2C_CLK                ; CLK as output, don't touch!
@@ -90,10 +82,16 @@ i2c_init:
     ; Setup USI control & status register
     ldi r16, I2C_IDLE
     out USICR,r16
-    ldi r16,I2C_COUNT_BYTE
+
+    ldi r16, I2C_COUNT_BYTE
     out USISR,r16
-    
-    ret
+
+i2c_main_loop:
+    sbic USISR,7
+    rcall i2c_isr_start
+    sbic USISR,6
+    rcall i2c_isr_overflow
+    rjmp i2c_main_loop
 
 ;******************************************************************************
 ; Function...: i2c_isr_start
@@ -115,16 +113,16 @@ i2c_isr_start2:
     breq i2c_isr_start2
 
     ; Start or stop?
-    ldi r16,I2C_ACTIVE              ; Control value after start condition detected
+    ldi r17,I2C_ACTIVE              ; Control value after start condition detected
     sbrc r16,I2C_SDA                ; Skip next line if SDA is low (start condition)
-    ldi r16,I2C_IDLE                ; Control value after stop condition detected
-    out USICR,r16                   ; Write to control register
+    ldi r17,I2C_IDLE                ; Control value after stop condition detected
+    out USICR,r17                   ; Write to control register
 
     ; Configure, clear all flags and count in byte
     ldi r16,(I2C_CLEAR_STARTFLAG | I2C_COUNT_BYTE)
     out USISR,r16
     
-    reti
+    ret
 
 ;******************************************************************************
 ; Function...: i2c_isr_overflow
@@ -167,7 +165,7 @@ i2c_ack:
     sbi DDRB,I2C_SDA                    ; SDA as output
     ldi r16,I2C_COUNT_BIT
     out USISR,r16                       ; Set Status Register to count 1 bit
-    reti
+    ret
 
 ; Wait for slave ack
 ;--------------------------------------------
@@ -192,7 +190,7 @@ i2c_wait_slave_ack2:
     cbi DDRB,I2C_SDA                    ; SDA as input
     ldi r16,I2C_COUNT_BYTE
     out USISR,r16                       ; Set Status Register to count 1 byte
-    reti
+    ret
 
 ; Restart
 ;--------------------------------------------
@@ -205,7 +203,7 @@ i2c_restart:
     out USICR,r16
     ldi r16,I2C_COUNT_BYTE
     out USISR,r16
-    reti
+    ret
 
 ; Receive data
 ;--------------------------------------------
@@ -227,6 +225,7 @@ i2c_receive_byte2:
     cpi i2c_command,0x80
     brne i2c_ack
     CMD_RECEIVE_PACKET
+    clr i2c_command
     rjmp i2c_ack
 
 ; Transmit byte
@@ -240,7 +239,7 @@ i2c_transmit_byte2:
     ldi i2c_state,STATE_PREP_MASTER_ACK
 
     ; Load default value
-    ldi r17,0                           ; Return 0 if offset unkown
+    ldi r17, 0x00                      ; Return 0 if offset unkown
 
     ; Offset 0x81 - Commit
     cpi i2c_command,0x81
@@ -254,7 +253,8 @@ i2c_transmit_byte3:
     sbi DDRB,I2C_SDA                    ; SDA as output
     ldi r16,I2C_COUNT_BYTE
     out USISR,r16                       ; Set Status Register to count 1 byte
-    reti
+    clr i2c_command
+    ret
 
 ; Prepare to receive master ack
 ;--------------------------------------------
@@ -269,14 +269,13 @@ i2c_prep_master_ack:
     cbi DDRB,I2C_SDA                    ; SDA as input
     ldi r16,I2C_COUNT_BIT
     out USISR,r16                       ; Set Status Register to count 1 bit
-    reti
+    ret
 
 ; Wait for master ack
 ;--------------------------------------------
 i2c_wait_master_ack:    
     ; Get master ack/nack
-    in r16,USIDR                        ; Read Data Register
-    sbrc r16,0                          ; Master response as bit 0, skip next line if ACK
+    sbic USIDR, 0                       ; Master response as bit 0, skip next line if ACK
     rjmp i2c_restart                    ; It was a NACK, goto restart
 
     ; Master ACK, transmit next byte

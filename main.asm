@@ -1,4 +1,4 @@
-; Copyright 2023 Stefan Jakobsson
+; Copyright 2023-2024 Stefan Jakobsson
 ; 
 ; Redistribution and use in source and binary forms, with or without modification, 
 ; are permitted provided that the following conditions are met:
@@ -22,143 +22,29 @@
 ;    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF 
 ;    THE POSSIBILITY OF SUCH DAMAGE.
 
-
+; Definitions
 .include "tn861def.inc"
+.include "pins.inc"
+.include "registers.inc"
 
-;******************************************************************************
-; Global variables persistent in CPU registers
-;******************************************************************************
-.def packet_tailL           = r2              ; Pointer to current RAM buffer tail
-.def packet_tailH           = r3
+; Macros
+.include "command.inc"
 
-.def packet_headL           = r4              ; Pointer to current RAM buffer head
-.def packet_headH           = r5
-
-.def target_addrL           = r6              ; Target address in flash memory
-.def target_addrH           = r7
-
-.def packet_size            = r20             ; Current packet byte count
-.def packet_count           = r21             ; Number of packets received since last flash write
-.def checksum               = r22             ; Current packet checksum
-.def i2c_state              = r23             ; Current state for I2C state machine
-.def i2c_ddr                = r24             ; I2C data direction, bit 0=0 if master write else master read
-.def i2c_command            = r25             ; Current I2C command
-
-;******************************************************************************
-; Program segment
-;******************************************************************************
 .cseg
-.org 0x0f00     ; = byte address 0x1E00
 
-version_id:
-    .db 0x8a, 0x02
+.org 0xf00
+
+;******************************************************************************
+; Bootloader jump table
+rjmp main                   ; Byte address: 0x1e00
+rjmp bootloader_start       ; Byte address: 0x1e02
 
 ;******************************************************************************
 ; Function...: main
-; Description: Main entry point for the bootloader
+; Description: Bootloader main entry
 ; In.........: Nothing
 ; Out........: Nothing
 main:
-    cli
-    
-    ; Init global variables
-    ldi YL,low(flash_zp_buf)
-    ldi YH,high(flash_zp_buf)
-    movw packet_tailH:packet_tailL, YH:YL
-    movw packet_headH:packet_headL, YH:YL
-
-    clr packet_size
-    clr packet_count
-    clr checksum
-
-    ; Clear zero page buffer
-    ldi r16,0xff
-    ldi r17,0xff
-    ldi r18,PAGE_SIZE/2
-    rcall flash_fillbuffer
-
-    ; Setup USI Start and Overflow vectors
-    ldi YL,low(flash_buf)                               ; Pointer to start of default buffer
-    ldi YH,high(flash_buf)
-    
-    ldi r16,0x18                                        ; Fill buffer with opcode for RETI instruction to disable all interrupts
-    ldi r17,0x95
-    ldi r18,19                                          ; 19 items in vector table
-    rcall flash_fillbuffer
-
-    ; Reset vector (word address 0x0000)
-    subi YL,19*2
-    ldi r16, low(0b1100000000000000 + post_reset - 1)
-    st Y+,r16
-    ldi r16, high(0b1100000000000000 + post_reset - 1)
-    st Y+,r16
-
-    ; USI Start vector (word address 0x0007)
-    subi YL, -6*2
-    ldi r16, low(0b1100000000000000 + i2c_isr_start - 1  - 7)
-    st Y+,r16
-    ldi r16, high(0b1100000000000000 + i2c_isr_start - 1  - 7)
-    st Y+,r16
-
-    ; USI Overflow vector (word address 0x0008)
-    ldi r16, low(0b1100000000000000 + i2c_isr_overflow - 1 - 8)
-    st Y+,r16
-    ldi r16, high(0b1100000000000000 + i2c_isr_overflow - 1 - 8)
-    st Y+,r16
-
-    clr ZL                                              ; Set target addess to 0x0000
-    clr ZH
-    rcall flash_write_buf                               ; Write buffer that contains vector table for the bootloader to flash memory
-
-    ; Set target address to start of second page = 0x0040
-    ldi r16,0x40
-    clr r17
-    movw target_addrH:target_addrL, r17:r16
-
-    ; Init I2C handler
-    rcall i2c_init
-
-    sei
-
-wait:
-    rjmp wait
-
-;******************************************************************************
-; Function...: post_reset
-; Description: Entry point for reset after update complete.
-;
-;              The reset vector (addess 0x0000) is set to point to this function 
-;              in the bootloader main function. The reset is initiated by the 
-;              I2C reboot command (0x82).
-;
-;              This function first disables the WDT. This is to prevent repeated
-;              resets that would otherwise occur.
-;
-;              The function then writes firmware code to the first 64 byte 
-;              flash memory page. The code must be present in the RAM buffer
-;              "flash_zp_buf" before the WDT reset is initiated. That buffer is
-;              filled when you upload the first 64 bytes of data with the 
-;              I2C functions transmit (0x80) and commit (0x81).
-;
-;              The RAM buffer is not affected by the WDT reset, as stated here:
-;
-;              https://microchip.my.site.com/s/article/AVR-Memory-Content-after-RESET-and-SLEEP
-;              "Memory Content after a Watchdog Reset:
-;              I/O registers will be set to their initial value according to the datasheet.
-;              SRAM will be unchanged.
-;              32 general purpose registers will be unchanged."
-;
-;              The I/O registers are, however, set to their default values, which will
-;              power off the computer.
-;
-;              Finally, the function jumps to the start vector (0x0000) of
-;              the new firmware. The firmware should then be active without
-;              further user interaction.
-;
-; In.........: flash_zp_buf: RAM buffer containing the first 64 bytes of
-;                            the new firmware code
-; Out........: Nothing
-post_reset:
     ; Disable interrupts
     cli
     
@@ -172,18 +58,78 @@ post_reset:
     ldi r16,0
     out WDTCSR,r16
 
-    ; Write zero page to flash memory
-    clr ZL
-    clr ZH
-    ldi YL,low(flash_zp_buf)
-    ldi YH,high(flash_zp_buf)
-    rcall flash_write
+    ; Configure Reset button pin (PB4) as input pullup
+    cbi DDRB, RESET_BTN
+    sbi PORTB, RESET_BTN
+    rcall short_delay
+    
+    ; Jump to power on sequence if Reset button is low
+    sbis PINB, RESET_BTN
+    rjmp power_on_seq
+    
+    ; Jump to start vector stored in EE_RDY (=ERDYaddr)
+loop:
+    rjmp ERDYaddr
 
-    ; Enable interrupts
-    sei
+;******************************************************************************
+; Function...: system_power_on_seq
+; Description: System power on sequence
+; In.........: Nothing
+; Out........: Nothing
+power_on_seq:
+    ; Assert RESB
+    sbi DDRA, RESB
+    cbi PORTA, RESB
 
-    ; Jump to firmware reset vector
-    rjmp 0x0000
+    ; PSU on
+    sbi DDRA, PWR_ON
+    cbi PORTA, PWR_ON
 
-.include "i2c.asm"
+    ; RESB hold time is 500 ms
+    ldi r18, 0x29
+    ldi r17, 0xff
+resb_hold_delay:
+    rcall short_delay
+    dec r17
+    brne resb_hold_delay
+    dec r18
+    brne resb_hold_delay
+
+    ; Deassert RESB
+    cbi DDRA, RESB
+
+;******************************************************************************
+; Function...: bootloader_start:
+; Description: 
+; In.........: Nothing
+; Out........: Nothing
+bootloader_start:
+    ; Disable interrupts
+    cli
+
+    ; Setup
+    clr chip_erased
+    ldi YL, low(flash_buf)
+    ldi YH, high(flash_buf)
+    clr packet_count
+    clr packet_size
+    clr checksum
+
+    ; Start I2C
+    rjmp i2c_main
+
+;******************************************************************************
+; Function...: short_delay
+; Description: Delays approx 48 us
+; In.........: Nothing
+; Out........: Nothing
+short_delay:
+    ldi r16, 0xff
+short_delay_loop:
+    dec r16
+    brne short_delay_loop
+    ret
+
 .include "flash.asm"
+.include "i2c.asm"
+

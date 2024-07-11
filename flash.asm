@@ -1,4 +1,4 @@
-; Copyright 2023 Stefan Jakobsson
+; Copyright 2023-2024 Stefan Jakobsson
 ; 
 ; Redistribution and use in source and binary forms, with or without modification, 
 ; are permitted provided that the following conditions are met:
@@ -22,8 +22,8 @@
 ;    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF 
 ;    THE POSSIBILITY OF SUCH DAMAGE.
 
-
-.equ PAGE_SIZE      = 64    ; In bytes
+.equ PAGE_SIZE      = 0x40      ; In bytes
+.equ FIRMWARE_SIZE  = 0x1e00    ; In bytes
 
 ;******************************************************************************
 ; Data segment
@@ -31,7 +31,6 @@
 .dseg
 
 flash_buf:          .byte PAGE_SIZE
-flash_zp_buf:       .byte PAGE_SIZE
 
 ;******************************************************************************
 ; Program segment
@@ -39,14 +38,26 @@ flash_zp_buf:       .byte PAGE_SIZE
 .cseg
 
 ;******************************************************************************
-; Function...: flash_write_buf
-; Description: Writes flash_buf (64 bytes) to flash memory
-; In.........: ZH:ZL Flash memory target address (in bytes, not words)
-; Out........: Nothing
-flash_write_buf:
-    ldi YL,low(flash_buf)           ; Y = RAM buffer pointer
-    ldi YH,high(flash_buf)
-    ; Fallthrough to flash_write
+; Function...: flash_erase
+; Description: Erases firmware (byte address 0x0000-0x1dff),
+;              starting from the last page; target address is guaranteed to
+;              be 0x0000 when returning from this function
+; In.........: Nothing
+; Out........: target_addr = 0x0000
+flash_erase:
+    ldi target_addrL, low(FIRMWARE_SIZE - PAGE_SIZE)
+    ldi target_addrH, high(FIRMWARE_SIZE - PAGE_SIZE)
+flash_erase_loop:
+    ldi r17, (1<<PGERS) + (1<<SPMEN)
+    rcall flash_spm
+    subi ZL, 64
+    sbci ZH, 0
+    brcc flash_erase_loop
+
+    clr target_addrL
+    clr target_addrH
+
+    ret
 
 ;******************************************************************************
 ; Function...: flash_write
@@ -55,26 +66,28 @@ flash_write_buf:
 ;              ZH:ZL Flash memory target address (in bytes, not words)
 ; Out........: Nothing
 flash_write:
-    ; Erase page
-    ldi r17, (1<<PGERS) + (1<<SPMEN)
-    rcall flash_spm                 ; Perform erase
-
-    ; Copy data from RAM buffer pointed to by Y into SPM temp buffer
+    ldi YL,low(flash_buf)
+    ldi YH,high(flash_buf)
     ldi r16, PAGE_SIZE              ; Init counter
+    
 flash_write_loop:
+    ; Copy data from RAM buffer pointed to by Y into SPM temp buffer
     ld r0, Y+                       ; Copy one word from buffer into r0:r1
     ld r1, Y+
     ldi r17, (1<<SPMEN)
     rcall flash_spm                 ; Perform copy
   
-    subi ZL,-2                      ; Z = Z - (-2) => Z = Z + 2
-    subi r16,2                      ; counter = counter - 2
+    adiw ZH:ZL, 2                   ; Z = Z + 2
+    subi r16, 2                     ; counter = counter - 2
     brne flash_write_loop           ; Check if we're done
 
     ; Write page
-    subi ZL,PAGE_SIZE               ; Restore flash memory address to its start value
+    sbiw ZH:ZL, PAGE_SIZE/2         ; Restore flash memory address to its start value
+    sbiw ZH:ZL, PAGE_SIZE/2
+
     ldi r17, (1<<PGWRT) + (1<<SPMEN)
-    rjmp flash_spm                  ; Perform write
+    
+    ; Fallthrough to flash_spm
 
 ;******************************************************************************
 ; Function...: flash_spm
@@ -87,31 +100,12 @@ flash_spm:
     sbrc r19, SPMEN
     rjmp flash_spm
 
-flash_spm2:
-    in r19, EECR                    ; Wait for EEPROM not busy
-    sbrc r19, EEPE
-    rjmp flash_spm2
-
     out SPMCSR, r17                 ; Perform SPM
     spm
 
-flash_spm3:
+flash_spm2:
     in r19, SPMCSR                  ; Wait for SPM to finish
     and r19,r17
-    brne flash_spm3
+    brne flash_spm2
 
-    ret
-
-;******************************************************************************
-; Function...: flash_fillbuffer
-; Description: Fills RAM buffer
-; In.........: YH:YL   Pointer to RAM where fill starts
-;              r17:r16 Fill value
-;              r18     Number of words to fill
-; Out........: Nothing
-flash_fillbuffer:
-    st Y+,r16
-    st Y+,r17
-    dec r18
-    brne flash_fillbuffer
     ret
