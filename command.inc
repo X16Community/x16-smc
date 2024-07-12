@@ -160,3 +160,16 @@ cmd_reboot_3:
     ; Wait here until reset
     rjmp cmd_reboot_3
 .endm
+
+;******************************************************************************
+; Function...: CMD_GET_VERSION
+; Description: Returns bootloader version stored at 0x1fff
+; In.........: Nothing
+; Out........: r17 Version number
+.macro CMD_GET_VERSION
+    movw r19:r18, ZH:ZL
+    ldi ZL, 0xff
+    ldi ZH, 0x1f
+    lpm r17, Z
+    movw ZH:ZL, r19:r18
+.endm

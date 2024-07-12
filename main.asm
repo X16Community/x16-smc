@@ -132,4 +132,4 @@ short_delay_loop:
 
 .include "flash.asm"
 .include "i2c.asm"
-
+.include "version.asm"

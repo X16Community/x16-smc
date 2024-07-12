@@ -181,7 +181,7 @@ i2c_wait_slave_ack:
     ; If master is reading, jump to transmit byte
 i2c_wait_slave_ack2:
     sbrc i2c_ddr,0
-    rjmp i2c_transmit_byte2
+    rjmp i2c_transmit_byte
 
     ; Next state is receive a byte
     ldi i2c_state,STATE_RECEIVE_BYTE
@@ -209,7 +209,7 @@ i2c_restart:
 ;--------------------------------------------
 i2c_receive_byte:
     cpi i2c_state,STATE_RECEIVE_BYTE
-    brne i2c_transmit_byte
+    brne i2c_prep_master_ack
 
     ; Get byte from Data Register
     in r16,USIDR
@@ -227,34 +227,6 @@ i2c_receive_byte2:
     CMD_RECEIVE_PACKET
     clr i2c_command
     rjmp i2c_ack
-
-; Transmit byte
-;--------------------------------------------
-i2c_transmit_byte:
-    cpi i2c_state,STATE_TRANSMIT_BYTE
-    brne i2c_prep_master_ack
-
-i2c_transmit_byte2:
-    ; Set next state
-    ldi i2c_state,STATE_PREP_MASTER_ACK
-
-    ; Load default value
-    ldi r17, 0x00                      ; Return 0 if offset unkown
-
-    ; Offset 0x81 - Commit
-    cpi i2c_command,0x81
-    brne i2c_transmit_byte3
-    CMD_COMMIT
-
-i2c_transmit_byte3:
-    out USIDR,r17                       ; Store value in Data Register
-
-    ; Configure to send one byte
-    sbi DDRB,I2C_SDA                    ; SDA as output
-    ldi r16,I2C_COUNT_BYTE
-    out USISR,r16                       ; Set Status Register to count 1 byte
-    clr i2c_command
-    ret
 
 ; Prepare to receive master ack
 ;--------------------------------------------
@@ -274,9 +246,42 @@ i2c_prep_master_ack:
 ; Wait for master ack
 ;--------------------------------------------
 i2c_wait_master_ack:    
+    cpi i2c_state, STATE_WAIT_MASTER_ACK
+    brne i2c_transmit_byte
+
     ; Get master ack/nack
     sbic USIDR, 0                       ; Master response as bit 0, skip next line if ACK
     rjmp i2c_restart                    ; It was a NACK, goto restart
 
     ; Master ACK, transmit next byte
-    rjmp i2c_transmit_byte2
+    rjmp i2c_transmit_byte
+
+; Transmit byte
+;--------------------------------------------
+i2c_transmit_byte:
+    ; Set next state
+    ldi i2c_state,STATE_PREP_MASTER_ACK
+
+    ; Load default value
+    ldi r17, 0x00                      ; Return 0 if offset unkown
+
+    ; Offset 0x81 - Commit
+    cpi i2c_command,0x81
+    brne i2c_transmit_byte3
+    CMD_COMMIT
+    rjmp i2c_transmit_byte4
+
+i2c_transmit_byte3:
+    cpi i2c_command, 0x83
+    brne i2c_transmit_byte4
+    CMD_GET_VERSION
+
+i2c_transmit_byte4:
+    out USIDR,r17                       ; Store value in Data Register
+
+    ; Configure to send one byte
+    sbi DDRB,I2C_SDA                    ; SDA as output
+    ldi r16,I2C_COUNT_BYTE
+    out USISR,r16                       ; Set Status Register to count 1 byte
+    clr i2c_command
+    ret

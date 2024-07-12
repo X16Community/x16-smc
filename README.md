@@ -1,23 +1,89 @@
 # Purpose
 
-This is a custom "bootloader" for the Commander X16 ATTiny861 based System Management Controller (SMC).
+This is a custom bootloader for the Commander X16 ATTiny861 based System Management Controller (SMC).
 
 The purpose of the project is to make it possible to update the SMC firmware from the Commander X16 without using an external programmer.
 
 Firmware data is transmitted from the computer to the SMC over I2C.
 
+# How it works
+
+## SMC memory map
+
+| Byte address  | Size        | Description                |
+|-------------- |-------------| ---------------------------|
+| 0x0000-0x1DFF | 7,680 bytes | Firmware area              |
+| 0x0000        | 2 bytes     | Reset vector               |
+| 0x0012        | 2 bytes     | EE_RDY vector              |
+| 0x1E00-0x1FFF | 512 bytes   | Bootloader area            |
+| 0x1E00        | 2 bytes     | Bootloader main vector     |
+| 0x1E02        | 2 bytes     | Start update vector        |
+| 0x1FFE        | 2 bytes     | Bootloader version         |    
+
+The reset vector normally jumps to the start of the firmware. When installing
+the bootloader, it is changed to point to the bootloader on
+reset vector instead.
+
+The firmware's original reset vector is moved to the unused EE_RDY vector.
+
+## SMC reset procedure
+
+On SMC reset the reset vector at address 0x0000 is always executed.
+This happens both when mains power is connected to the computer
+and when the SMC reset pin #10 is grounded.
+
+The reset vector jumps to the bootloader main vector.
+
+The bootloader main function checks if the Reset button is being pressed. 
+It powers on the system and automatically starts the
+update procedure.
+
+If the Reset button was not pressed, the bootloader jumps to
+the EE_RDY vector, which holds the firmware´s original reset vector. 
+The SMC firmware is started normally.
+
+## Firmware update procedure
+
+The update procedure can be started in two ways. One alternative
+is to hold down Reset when the SMC is reset or powered on. 
+The other alternative is to call the bootloader start update vector. Calling this 
+vector is initiated from the X16 while it is running normally.
+
+Firmware data is transmitted from the CPU to the SMC over I2C as
+follows:
+
+- Transmit 8 bytes of firmware data and one checksum byte using
+the 0x80 I2C command
+
+- Send the 0x81 I2C command to commit the previous 8 bytes.
+
+- The flash memory is updated in pages of 64 bytes (pages). On every
+8th commit, firmware data will be written to flash
+memory.
+
+- Just before writing the first flash memory page, all of
+the firmware flash area is erased, starting from the last page.
+
+- After all firmware data has been transmitted to the 
+bootloader, the process is finished by sending the 0x82
+I2C command to reboot the system. This will also write
+any remaining data to flash memory. The X16 is 
+powered off.
+
 
 # Building the project
 
-The bootloader is made in AVR assembly for the AVRA assembler: https://github.com/Ro5bert/avra
+You first need to copy the firmware file (x16-smc.ino.hex) to resources/x16-smc.ino.hex. You may download that file from the x16-smc Github release page. If you compile the firmware yourself it's easier to find the resulting file if you enable verbose output during compilation. Go to the IDE's preferences dialog to do that.
 
-The bootloader may be built with the build.sh script. This outputs the file build/bootloader.hex.
+The bootloader is built with make. This outputs the file build/bootloader.hex. If resources/x16-smc.ino.hex is available it will also create the file build/firmware_with_bootloader.hex that contains both the firmware and the bootloader.
 
-The SMC firmware may be built with the Arduino IDE. This outputs the file x16-smc.ino.hex.
+Build dependencies:
 
-Use the merge.sh script to concatenate the firmware file x16-smc.ino.hex and build/bootloader.hex. The resulting file is build/firmware+bootloader.hex, which is the file you need to upload to the SMC.
+- AVRA assembler https://github.com/Ro5bert/avra
 
-To make it a bit easier to find where the x16.smc.ino.hex file is stored in your file system, you may enable verbose output in the IDE. Go to Arduino/Preferences and tick the Show verbose output during compilation box.
+- Python 3
+
+- Python intelhex, install with pip3 intelhex
 
 
 # Fuse settings
@@ -33,25 +99,26 @@ Finally, the extended fuse value must be 0xFE to enable self-programming of the 
 
 # Initial programming of the SMC with avrdude
 
-The initial programming of the SMC must be done with an external programmer.
-
-The avrdude command line utility is the recommended software tool to be used for programming.
+Before SMC firmware version 47.2.3 it was not possible to update the bootloader from within
+the X16 system. In that case the initial programming of the SMC must be done with an
+external programmer. The command line utility avrdude is the recommended software to be used
+for this purpose.
 
 Example 1. Set fuses
 ```
-avrdude -cstk500v1 -pattiny861 -P/dev/cu.usbmodem24201 -b19200 -Ulfuse:w:0xF1:m -Uhfuse:w:0xD4:m -Uefuse:w:0xFE:m
+avrdude -cstk500v1 -pattiny861 -P<your port> -b19200 -Ulfuse:w:0xF1:m -Uhfuse:w:0xD4:m -Uefuse:w:0xFE:m
 ```
 
 Example 2. Write to flash
 ```
-avrdude -cstk500v1 -pattiny861 -P/dev/cu.usbmodem24201 -b19200 -Uflash:w:firmware+bootloader.hex:i
+avrdude -cstk500v1 -pattiny861 -P<your port> -b19200 -Uflash:w:build/firmware_with_bootloader.hex:i
 ```
 
 The -c option selects programmer-id; stk500v1 is for using Arduino UNO as an In-System Programmer. If you have another ISP programmer, you may need to change this value accordingly.
 
 The -p option selects the target device, always attiny861.
 
-The -P option selects port name on the host computer. Your port will probable have another name than in the example.
+The -P option selects port name on the host computer.
 
 The -b option sets transmission baudrate; 19200 is a good value.
 
@@ -61,15 +128,7 @@ Please note that some fuse settings may "brick" the ATtiny861, and resetting req
 
 The Arduino IDE also uses avrdude in the background. If you have installed the IDE can use it to program the SMC, you may enable verbose output and see what parameters are used by the IDE when it starts avrdude.
 
-# Memory map
-
-Address         | Description
---------------- | -------------
-0x0000..0x1DFF  | Firmware section
-0x1E00..0x1FFF  | Bootloader section
-0x1E00          | Bootloader magic value = 0x8A
-0x1E01          | Bootloader API version
-0x1E02          | Bootloader entry point
+From SMC firmware verision 47.2.3 it is also possible to update the firmware from within the system. Use the file build/bootloader.hex if you try this option.
 
 # I2C API
 
@@ -97,27 +156,27 @@ Value | Description
 4     | Reserved
 5     | Error, overwriting bootloader section
 
+The firmware flash memory are will be erased on the 8th successful commit, just before writing the first 64 bytes to flash memory.
+
 ## Command 0x82 = Reboot (master write)
 
 The reboot command must always be called after the last packet
-has been committed. If not, the SMC will be left in an inoperable
+has been committed. If not, the SMC may be left in an inoperable
 state.
 
 The command first writes any buffered data to flash.
 
-The bootloader then resets the SMC. After the reset the bootloader writes new firmware data to the first flash memory page
-of 64 bytes, and jumps to the start vector of the new firmware (address 0x0000). The SMC reset shuts down the computer. It
-can be restarted by pressing the power button.
+The bootloader then resets the SMC. The SMC reset shuts down the computer. It
+can be restarted by pressing the power button. It is not necessary to power cycle the system
+after an update.
 
 # Typical usage
 
-A client program will typically work as set out below:
+A client program running on the X16 will typically work as set out below:
 
 * Verify that it supports the bootloader API version
 
-* Request that the SMC firmware jumps to the bootloader entry point
-
-* Wait for the bootloader to initialize
+* Request that the SMC firmware jumps to the bootloader start update vector
 
 * Send a data packet with command 0x80
 
