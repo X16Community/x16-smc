@@ -29,13 +29,16 @@
 .def packet_tailH                  = r3
 .def chip_erased                   = r4
 
-; r7-r15 free
+; r5-r13 free
+
+.def zeroL                         = r14
+.def zeroH                         = r15
 
 ; r16-r19 reserved for temporary use
 
-.def packet_count                  = r20      
-.def packet_size                   = r21      ; Current packet size
-.def checksum                      = r22      ; Current packet checksum
+.def packet_size                   = r20      ; Current packet size
+.def checksum                      = r21      ; Current packet checksum
+.def packet_count                  = r22            
 .def i2c_state                     = r23      ; For the I2C state machine
 .def i2c_ddr                       = r24      ; Current data direction
 .def i2c_command                   = r25      ; Current I2C command

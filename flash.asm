@@ -54,16 +54,14 @@ flash_erase_loop:
     sbci ZH, 0
     brcc flash_erase_loop
 
-    clr target_addrL
-    clr target_addrH
+    movw target_addrH:target_addrL, zeroH:zeroL
 
     ret
 
 ;******************************************************************************
 ; Function...: flash_write
 ; Description: Writes one page (64 bytes) to flash memory
-; In.........: YH:YL Pointer to RAM buffer holding values to be written
-;              ZH:ZL Flash memory target address (in bytes, not words)
+; In.........: ZH:ZL Flash memory target address (in bytes, not words)
 ; Out........: Nothing
 flash_write:
     ldi YL,low(flash_buf)
@@ -96,16 +94,35 @@ flash_write_loop:
 ;                  SPM command
 ; Out........: Nothing
 flash_spm:
-    in r19, SPMCSR                  ; Wait for SPM not busy (SPMEN=0)
+    ; Wait for SPM not busy (SPMEN=0)
+    in r19, SPMCSR
     sbrc r19, SPMEN
     rjmp flash_spm
 
-    out SPMCSR, r17                 ; Perform SPM
+    ; Perform SPM
+    out SPMCSR, r17
     spm
 
 flash_spm2:
-    in r19, SPMCSR                  ; Wait for SPM to finish
-    and r19,r17
+    ; Wait for SPM to finish
+    in r19, SPMCSR
+    and r19, r17
     brne flash_spm2
 
+    ret
+
+;******************************************************************************
+; Function...: flash_clear_buf
+; Description: Fills buffer with 0xff
+; In.........: Nothing
+; Out........: YH:YL = flash_buf
+flash_clear_buf:
+    ldi YL, low(flash_buf + PAGE_SIZE)
+    ldi YH, high(flash_buf + PAGE_SIZE)
+    ldi r16, PAGE_SIZE
+    ldi r17, 0xff
+flash_clear_buf_loop:
+    st -Y, r17
+    dec r16 
+    brne flash_clear_buf_loop
     ret

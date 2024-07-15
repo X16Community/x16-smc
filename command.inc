@@ -25,7 +25,7 @@
 
 ;******************************************************************************
 ; Function...: CMD_RECEIVE_PACKET
-; Description: Receives a packet byte and stores it into a RAM buffer. This
+; Description: Receives a packet byte and stores it into an SRAM buffer. This
 ;              function keeps track of and updates the pointer to the
 ;              head of the RAM buffer, the current packet size and the
 ;              checksum of the current packet.
@@ -41,11 +41,11 @@
     breq cmd_receive_byte2                              ; 9th byte is the checksum
                                                             
     ; Store byte in buffer
-    st Y+,r16                                           ; Store byte in buffer and increment Y = packet_addressH:packet_addressL
+    st Y+, r16                                          ; Store byte in buffer and increment Y = packet_addressH:packet_addressL
 
     ; Update checksum
 cmd_receive_byte2:
-    add checksum,r16                                    ; Add without carry
+    add checksum, r16                                   ; Add without carry
 
     ; Increment packet size
 cmd_receive_byte3:
@@ -98,8 +98,8 @@ cmd_commit_write:
     sbiw r27:r26, ERDYaddr
     andi r27, 0b11001111
     ori r27, 0b11000000
-    sts flash_buf+(ERDYaddr*2),r26
-    sts flash_buf+(ERDYaddr*2)+1,r27
+    sts flash_buf+(ERDYaddr*2), r26
+    sts flash_buf+(ERDYaddr*2)+1, r27
 
     ; Replace reset vector with rjmp 0xf00 (= 0xceff)
     ldi r16, 0xff
@@ -112,12 +112,11 @@ cmd_commit_write2:
     rcall flash_write
 
     ; Update target addr
-    adiw target_addrH:target_addrL,32
-    adiw target_addrH:target_addrL,32
+    adiw target_addrH:target_addrL, 32
+    adiw target_addrH:target_addrL, 32
  
-    ; Reset buffer pointer
-    ldi packet_headL, low(flash_buf)
-    ldi packet_headH, high(flash_buf)
+    ; Clear buffer
+    rcall flash_clear_buf
 
     ; Reset packet count
     clr packet_count
@@ -132,11 +131,10 @@ cmd_commit_ok:
 
 cmd_commit_err:
     ; Rewind buffer head to tail
-    movw packet_headH:packet_headL,packet_tailH:packet_tailL
+    movw packet_headH:packet_headL, packet_tailH:packet_tailL
 
 cmd_commit_exit:
-    clr packet_size
-    clr checksum
+    movw checksum:packet_size, zeroH:zeroL
 
 .endm
 

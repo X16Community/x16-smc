@@ -37,7 +37,7 @@
 ;******************************************************************************
 ; Bootloader jump table
 rjmp main                   ; Byte address: 0x1e00
-rjmp bootloader_start       ; Byte address: 0x1e02
+rjmp update_firmware        ; Byte address: 0x1e02
 
 ;******************************************************************************
 ; Function...: main
@@ -50,29 +50,34 @@ main:
     
     ; Disable watchdog timer
     wdr
-    ldi r16,0
-    out MCUSR,r16
-    in r16,WDTCSR
-    ori r16,(1<<WDCE) | (1<<WDE)
-    out WDTCSR,r16
-    ldi r16,0
-    out WDTCSR,r16
+    ldi r16, 0
+    out MCUSR, r16
+    in r16, WDTCSR
+    ori r16, (1<<WDCE) | (1<<WDE)
+    out WDTCSR, r16
+    ldi r16, 0
+    out WDTCSR, r16
+
+    ; Set stack pointer to end of SRAM
+    ldi r16, low(RAMEND)
+    out SPL, r16
+    ldi r16, high(RAMEND)
+    out SPH, r16
 
     ; Configure Reset button pin (PB4) as input pullup
     cbi DDRB, RESET_BTN
     sbi PORTB, RESET_BTN
     rcall short_delay
     
-    ; Jump to power on sequence if Reset button is low
+    ; Jump to power on sequence if Reset button is pressed (low)
     sbis PINB, RESET_BTN
     rjmp power_on_seq
     
-    ; Jump to start vector stored in EE_RDY (=ERDYaddr)
-loop:
+    ; Else jump to firmware start vector, stored in EE_RDY (=ERDYaddr)
     rjmp ERDYaddr
 
 ;******************************************************************************
-; Function...: system_power_on_seq
+; Function...: power_on_seq
 ; Description: System power on sequence
 ; In.........: Nothing
 ; Out........: Nothing
@@ -81,11 +86,11 @@ power_on_seq:
     sbi DDRA, RESB
     cbi PORTA, RESB
 
-    ; PSU on
+    ; Turn on PSU
     sbi DDRA, PWR_ON
     cbi PORTA, PWR_ON
 
-    ; RESB hold time is 500 ms
+    ; RESB hold time 500 ms
     ldi r18, 0x29
     ldi r17, 0xff
 resb_hold_delay:
@@ -98,29 +103,32 @@ resb_hold_delay:
     ; Deassert RESB
     cbi DDRA, RESB
 
+    ; Fallthrough to update_firmware
+
 ;******************************************************************************
-; Function...: bootloader_start:
-; Description: 
+; Function...: update_firmware
+; Description: Starts firmare update procedure
 ; In.........: Nothing
 ; Out........: Nothing
-bootloader_start:
+update_firmware:
     ; Disable interrupts
     cli
 
     ; Setup
-    clr chip_erased
-    ldi YL, low(flash_buf)
-    ldi YH, high(flash_buf)
+    clr zeroL
+    clr zeroH
+    rcall flash_clear_buf
+    movw checksum:packet_size, zeroH:zeroL
+    movw target_addrH:target_addrL, zeroH:zeroL
     clr packet_count
-    clr packet_size
-    clr checksum
+    clr chip_erased
 
     ; Start I2C
     rjmp i2c_main
 
 ;******************************************************************************
 ; Function...: short_delay
-; Description: Delays approx 48 us
+; Description: Delay is approx 48 us
 ; In.........: Nothing
 ; Out........: Nothing
 short_delay:
