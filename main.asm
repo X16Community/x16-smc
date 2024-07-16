@@ -58,16 +58,15 @@ main:
     ldi r16, 0
     out WDTCSR, r16
 
-    ; Set stack pointer to end of SRAM
-    ldi r16, low(RAMEND)
-    out SPL, r16
-    ldi r16, high(RAMEND)
-    out SPH, r16
-
     ; Configure Reset button pin (PB4) as input pullup
     cbi DDRB, RESET_BTN
     sbi PORTB, RESET_BTN
-    rcall short_delay
+    
+    ; Short delay, approx 48 us
+    ldi r16, 0xff
+main2:
+    dec r16
+    brne main2
     
     ; Jump to power on sequence if Reset button is pressed (low)
     sbis PINB, RESET_BTN
@@ -93,8 +92,10 @@ power_on_seq:
     ; RESB hold time 500 ms
     ldi r18, 0x29
     ldi r17, 0xff
+    ldi r16, 0xff
 resb_hold_delay:
-    rcall short_delay
+    dec r16
+    brne resb_hold_delay
     dec r17
     brne resb_hold_delay
     dec r18
@@ -114,6 +115,12 @@ update_firmware:
     ; Disable interrupts
     cli
 
+    ; Set stack pointer to end of SRAM
+    ldi r16, low(RAMEND)
+    out SPL, r16
+    ldi r16, high(RAMEND)
+    out SPH, r16
+
     ; Setup
     clr zeroL
     clr zeroH
@@ -125,18 +132,6 @@ update_firmware:
 
     ; Start I2C
     rjmp i2c_main
-
-;******************************************************************************
-; Function...: short_delay
-; Description: Delay is approx 48 us
-; In.........: Nothing
-; Out........: Nothing
-short_delay:
-    ldi r16, 0xff
-short_delay_loop:
-    dec r16
-    brne short_delay_loop
-    ret
 
 .include "flash.asm"
 .include "i2c.asm"
