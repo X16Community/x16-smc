@@ -171,3 +171,37 @@ cmd_reboot_3:
     lpm r17, Z
     movw ZH:ZL, r19:r18
 .endm
+
+;******************************************************************************
+; Function...: CMD_SET_ADDR_PAGE
+; Description: Sets target address page (0x00-0x77). Address page out of range
+;              ignored
+; In.........: r16 address page
+; Out........: Nothing
+.macro CMD_SET_ADDR_PAGE
+    ; Verify input
+    cpi r16, 0x78
+    brsh cmd_set_addr_page2
+
+    ; Move input to address register high byte (=> page * 256)
+    mov target_addrH, r16
+    clr target_addrL
+    
+    ; Divide by 4 to get byte address (=> page * 256 / 4 = page * 64)
+    lsr target_addrH
+    ror target_addrL
+    lsr target_addrH
+    ror target_addrL
+
+cmd_set_addr_page2:
+.endm
+
+;******************************************************************************
+; Function...: CMD_READ_FLASH
+; Description: Reads one byte from flash memory and advances target
+;              address pointer
+; In.........: Nothing
+; Out........: r17 byte value
+.macro CMD_READ_FLASH
+    lpm r17, Z+
+.endm

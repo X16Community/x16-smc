@@ -171,12 +171,20 @@ i2c_receive:
     CMD_REBOOT                          ; Guaranteed not to return
 
 i2c_receive2:
-    cpi i2c_command,0x80
-    brne i2c_send_ack
-
+    cpi i2c_command, 0x80
+    brne i2c_receive3
     CMD_RECEIVE_PACKET
+    rjmp i2c_receive4
+
+i2c_receive3:
+    cpi i2c_command, 0x84
+    brne i2c_send_ack
+    CMD_SET_ADDR_PAGE
+
+i2c_receive4:
     clr i2c_command
     rjmp i2c_send_ack
+
 
 ;******************************************************************************
 ; Function...: i2c_transmit
@@ -200,6 +208,12 @@ i2c_transmit2:
     CMD_GET_VERSION
 
 i2c_transmit3:
+    ; Command 0x85 - Read flash
+    cpi i2c_command, 0x85
+    brne i2c_transmit4
+    CMD_READ_FLASH
+
+i2c_transmit4:
     ; Store value in data register
     out USIDR, r17
 
