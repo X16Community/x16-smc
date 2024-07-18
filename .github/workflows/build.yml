@@ -16,7 +16,7 @@ jobs:
       - name: Install build enviroment
         run: |
           sudo apt-get update
-          sudo apt-get install -y make build-essentials
+          sudo apt-get install -y make build-essential
           git clone https://github.com/Ro5bert/avra.git
           cd avra
           make
