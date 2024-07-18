@@ -7,7 +7,7 @@ $(BUILD_DIR)/bootloader.hex: $(SRC_FILES)
 	avra -o $@ -W NoRegDef main.asm
 	rm -f main.eep.hex	
 	rm -f main.obj
-	./merge.py
+	python merge.py
  
 # Clean
 clean:
