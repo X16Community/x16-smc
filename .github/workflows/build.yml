@@ -8,9 +8,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-python@v5
         with:
           python-version: '3.9'
+
+      - name: Install build enviroment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make build-essentials
+          git clone https://github.com/Ro5bert/avra.git
+          cd avra
+          make
+          sudo make install 
+          cd ..
+          git clone https://github.com/cc65/cc65.git
+          cd cc65
+          make -j4
+          sudo make install
+          cd ..
+
+      - name: Install IntelHex library
+        run: pip install intelhex
+
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
       - name: Install ATTinyCore platform
@@ -18,48 +38,29 @@ jobs:
           arduino-cli core update-index --additional-urls file://$PWD/package_drazzy.com_index.json
           arduino-cli core install ATTinyCore:avr --additional-urls file://$PWD/package_drazzy.com_index.json
       - name: Compile Arduino default sketch
-        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-path .build/default
-      - name: Compile Arduino sketch with Community X16 pin support
-        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-property "build.extra_flags=-DCOMMUNITYX16_PINS" --build-path .build/community
-      - name: Install IntelHex library
-        run: pip install intelhex
-      - name: Make default SMC.BIN file
-        run: python make_bin.py ./.build/default/x16-smc.ino.hex .build/default
-      - name: Make SMC.BIN file with CommunityX16 pin support
-        run: python make_bin.py ./.build/community/x16-smc.ino.hex .build/community
+        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-path .build
+      
+      - name: Make SMC.BIN file
+        run: python make_bin.py ./.build/x16-smc.ino.hex .build
 
       - name: Move readme files to build folders
         run: |
-          mv .doc/readme-default .build/default/readme
-          mv .doc/readme-community .build/community/readme
-
-      - name: Fetch bootloader
-        run: wget -O .build/bootloader.hex https://github.com/stefan-b-jakobsson/x16-smc-bootloader/releases/download/2/bootloader.hex 
-      
-      - name: Create firmware_with_bootloader files
+          mv .doc/readme-default .build/readme
+ 
+      - name: Compile bootloader
         run: |
-          ./merge_bootloader.sh .build/default/x16-smc.ino.hex .build/bootloader.hex .build/default/firmware_with_bootloader.hex
-          ./merge_bootloader.sh .build/community/x16-smc.ino.hex .build/bootloader.hex .build/community/firmware_with_bootloader.hex
+          cd bootloader
+          make
+          cd ..          
 
       - name: Archive default firmware
         uses: actions/upload-artifact@v4
         with:
-          name: SMC default firmware
+          name: SMC firmware
           path: |
-            .build/default/firmware_with_bootloader.hex
-            .build/default/x16-smc.ino.elf
-            .build/default/x16-smc.ino.hex
-            .build/default/SMC*.BIN
-            .build/default/readme
-
-      - name: Archive CommunityX16 firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: SMC CommunityX16 firmware
-          path: |
-            .build/community/firmware_with_bootloader.hex
-            .build/community/x16-smc.ino.elf
-            .build/community/x16-smc.ino.hex
-            .build/community/SMC*.BIN
-            .build/community/readme
+            .build/firmware_with_bootloader.hex
+            .build/x16-smc.ino.elf
+            .build/x16-smc.ino.hex
+            .build/SMC*.BIN
+            .build/readme
             
