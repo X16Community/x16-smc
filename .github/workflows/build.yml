@@ -27,6 +27,7 @@ jobs:
           make -j4
           sudo make install
           cd ..
+          mkdir -p build
 
       - name: Install IntelHex library
         run: pip install intelhex
@@ -37,30 +38,37 @@ jobs:
         run: |
           arduino-cli core update-index --additional-urls file://$PWD/package_drazzy.com_index.json
           arduino-cli core install ATTinyCore:avr --additional-urls file://$PWD/package_drazzy.com_index.json
+      
       - name: Compile Arduino default sketch
-        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-path .build
+        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-path build
       
       - name: Make SMC.BIN file
-        run: python make_bin.py ./.build/x16-smc.ino.hex .build
+        run: python make_bin.py build/x16-smc.ino.hex build
 
       - name: Move readme files to build folders
         run: |
-          mv .doc/readme-default .build/readme
+          mv .doc/readme-default build/readme
  
       - name: Compile bootloader
         run: |
           cd bootloader
           make
-          cd ..          
+          cd ..
+      
+      - name: Compile SMCUPDATE program
+        run: |
+          cd update
+          make
+          cd ..
 
       - name: Archive default firmware
         uses: actions/upload-artifact@v4
         with:
           name: SMC firmware
           path: |
-            .build/firmware_with_bootloader.hex
-            .build/x16-smc.ino.elf
-            .build/x16-smc.ino.hex
-            .build/SMC*.BIN
-            .build/readme
-            
+            bootloader/build/firmware_with_bootloader.hex
+            update/build/SMCUPDATE*.PRG
+            build/x16-smc.ino.elf
+            build/x16-smc.ino.hex
+            build/SMC*.BIN
+            build/readme

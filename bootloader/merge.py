@@ -4,7 +4,7 @@ from intelhex import IntelHex
 # Load firmware
 try:
     firmware = IntelHex()
-    firmware.fromfile("../.build/x16-smc.ino.hex", format="hex")
+    firmware.fromfile("../build/x16-smc.ino.hex", format="hex")
 except:
     print("Error loading firmware")
     quit()
@@ -30,7 +30,7 @@ firmware[0x01] = 0xce
 # Merge firmware and bootloader into new file
 try:
     firmware.merge(bootloader, overlap="error")
-    firmware.tofile("../.build/firmware_with_bootloader.hex", format="hex")
+    firmware.tofile("build/firmware_with_bootloader.hex", format="hex")
 except:
     print("Merge error")
     quit()
