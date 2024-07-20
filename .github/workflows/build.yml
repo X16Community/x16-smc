@@ -54,20 +54,22 @@ jobs:
           cd bootloader
           make
           cd ..
+          cp bootloader/build/firmware_with_bootloader.hex build/
       
       - name: Compile SMCUPDATE program
         run: |
           cd update
           make
           cd ..
+          cp update/build/SMCUPDATE*.PRG build/
 
       - name: Archive default firmware
         uses: actions/upload-artifact@v4
         with:
           name: SMC firmware
           path: |
-            bootloader/build/firmware_with_bootloader.hex
-            update/build/SMCUPDATE*.PRG
+            build/firmware_with_bootloader.hex
+            build/SMCUPDATE*.PRG
             build/x16-smc.ino.elf
             build/x16-smc.ino.hex
             build/SMC*.BIN
