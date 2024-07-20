@@ -1,6 +1,6 @@
 name: X16 SMC firmware build
 
-on: [workflow_dispatch]
+on: [push, pull_request]
 
 jobs:
   build:
