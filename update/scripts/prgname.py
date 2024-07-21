@@ -1,4 +1,4 @@
-f = open("../version.h")
+f = open("../../version.h")
 
 version = {}
 version["version_major"] = 0
