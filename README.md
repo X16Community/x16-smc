@@ -12,7 +12,7 @@ The SMC is responsible for
 
 # Upgrading the SMC firmware
 
-Read the [Upgrade guide](upgrade_guide.md) if you're planning to upgrade the
+Read the [Upgrade guide](doc/upgrade_guide.md) if you're planning to upgrade the
 SMC firmware.
 
 # I2C API

@@ -8,6 +8,7 @@ $(BUILD_DIR)/bootloader.hex: $(SRC_FILES)
 	rm -f main.eep.hex	
 	rm -f main.obj
 	python merge.py
+	python convert2bin.py
  
 # Clean
 clean:
