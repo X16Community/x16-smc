@@ -108,6 +108,6 @@ The bootloader will not be updated when using it to update the main program. Thu
 
 Changelog:
 
-Prelim 1: Version presented in pull request #38, May 31st.
-Prelim 2: Suggesting to use an updated version of SMCUPDATE.PRG, with some usage instructions. Recommending version 47.2.2 or later. Minor improvements to readme. Updated smc-flash-manipulation subfolder with version recommendation.
-Version 1: Referring to SMC release 47.2.3, SMCUPDATE version 2, and highlighting that the procedure have only been tested with ROM and VERA release R47. July 13th
+- Prelim 1: Version presented in pull request #38, May 31st.
+- Prelim 2: Suggesting to use an updated version of SMCUPDATE.PRG, with some usage instructions. Recommending version 47.2.2 or later. Minor improvements to readme. Updated smc-flash-manipulation subfolder with version recommendation.
+- Version 1: Referring to SMC release 47.2.3, SMCUPDATE version 2, and highlighting that the procedure have only been tested with ROM and VERA release R47. July 13th
