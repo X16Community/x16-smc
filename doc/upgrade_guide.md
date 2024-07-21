@@ -59,7 +59,7 @@ from mains power. Doing that will brick the SMC firmware, requiring
 you to update it with an external programmer.
 
 There is a tested procedure to make the update work with the
-bad bootloader. Read about it [here](bad_bootloader.md).
+bad bootloader. Read about it [here](update_bad_v2.md).
 
 ### Bootloader v3
 
