@@ -77,16 +77,19 @@ If this worked, you now have a method of updating your SMC without needing an ex
 ### Images
 
 1: Overview
+![1-overview](https://github.com/user-attachments/assets/32d6b78e-199e-4f2e-b331-6e8da4597f05)
 
 2: Reset pin, GND pin and screw hole highlighted
+![2-highlighted pins](https://github.com/user-attachments/assets/b4d28823-d1ba-4407-8f1a-5a6e9a705ba8)
 
 3: Notch, ensure that the chip is oriented with the notch upwards
+![3-notch](https://github.com/user-attachments/assets/0ff98684-9946-47a4-b297-52aafb07772a)
 
 4: Option 1, male to male jumper wire: One end on the metal around the screw hole, one end on the reset pin
+![4-male-to-male](https://github.com/user-attachments/assets/0de57b8b-59ee-41ac-bb08-35aaeaad4282)
 
 5: Option 2, male to female jumper wire: Female on a GND pin (lower right), male on the reset pin
-
-
+![5-male-to-female](https://github.com/user-attachments/assets/667dc564-631a-406f-9f4c-4e450e2db79a)
 
 ## Technical details below, for those interested
 
