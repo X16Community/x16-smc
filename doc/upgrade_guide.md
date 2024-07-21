@@ -121,7 +121,7 @@ To prevent damaging the X16 board, it is recommended
 to use an anti-static wrist band when touching the board
 or its components.
 
-It is possible to program the SMC with a TLL866 series
+It is possible to program the SMC with a TL866 series
 programmer, but at least some of the programmers in that
 series have problem setting the extended fuse correctly.
 
