@@ -2,10 +2,10 @@
 
 ## Introduction
 
-This section describes how you can program the SMC using an
-Arduino Uno as external programmer.
+This guide describes how you can program the SMC using an
+Arduino Uno as external programmer to recover the firmware.
 
-To follow this tutorial you need the following:
+To follow the guide you need the following:
 
 - An Arduino Uno
   
@@ -19,7 +19,7 @@ To follow this tutorial you need the following:
   
 - It is recommended that you use an anti-static wristband during the procedure to protect the circuits
 
-Even though the risk of damaging the X16 and/or the SMC is small, there is as always a risk. Follow the
+Even though the risk of damaging the X16 or the SMC is small, there is as always a risk. Follow the
 instructions below to minimize that risk.
 
 ## Install the Arduino IDE on your PC
@@ -28,19 +28,19 @@ Begin by downloading and installing the Arduino IDE if you do not already have i
 
 It can be downloaded from https://www.arduino.cc/en/software. This tutorial is based on version 1.8.19.
 
-## Configure the Arduino UNO as ICSP programmer
+## Configure the Arduino Uno as ICSP programmer
 
-The Arduino UNO does not by default work as a programmer. You need to upload some code to the Arduino for this to work:
+The Arduino Uno does not by default work as a programmer. You need to upload some code to the Arduino for this to work:
       
 - In the Arduino IDE, click File/Examples/11.ArduinoISP/ArduinoISP. This will open a project containing all code that we need to install.
       
 - Ensure that nothing is attached to the Arduino’s pin headers.
       
-- Attach a USB cable between your computer and the Arduino UNO.
+- Attach a USB cable between your computer and the Arduino Uno.
       
-- In the IDE, select Tools/Board/Arduino AVR boards/Arduino UNO.
+- In the IDE, select Tools/Board/Arduino AVR boards/Arduino Uno.
       
-- Verify under Tools/Port that the port you attached the Arduino UNO to is selected.
+- Verify under Tools/Port that the port you attached the Arduino Uno to is selected.
       
 - Click on Sketch/Upload to upload the ArduinoISP code to your board.
 
@@ -52,17 +52,18 @@ To add support for it, open the Preferences dialog, and add the following text t
 
 While you are there, also tick the option Show verbose output during compilation and upload.
 
-Go to Tools/Manage Libraries... and select ATTinyCore. Click install.
+Go to Tools/Manage Libraries... and select ATTinyCore. Click install. If you cannot see the
+ATTinyCore library, you may need to restart the IDE.
 
 ## Make a dry test upload
 
-The command line program avrdude will be used later on in this tutorial to actually program the SMC. The Arduino IDE also uses avrdude behind the scenes. The purpose of the dry test upload is to retrieve information about how avrdude is called on your system.
+The command line program avrdude will be used later in this tutorial to actually program the SMC. The Arduino IDE also uses avrdude behind the scenes. The purpose of the dry test upload is to retrieve information about how avrdude is called on your system.
 
 Follow these steps:
 
 - Ensure that nothing is attached to the Arduino’s pin headers.
 
-- Verify that the Arduino is still connected to your PC with the USB cable.
+- Ensure that the Arduino is still connected to your PC with the USB cable.
 
 - Under Tools/Board/ATTinyCore, select ATtiny261/461/861 (a). Do not select the one that ends with Optiboot.
       
@@ -128,10 +129,9 @@ Programming the SMC requires you to first set some board options that are called
 
 ```avrdude -cstk500v1 -pattiny861 -P<yourport> -b19200 -Ulfuse:w:0xF1:m -Uhfuse:w:0xD4:m -Uefuse:w:0xFE:m```
 
-Even though the command was split into two lines above, you should type it all in as one line. It is important that you do not change the values 
-after -Ulfuse, -Uhfuse or -Uefuse as there is a risk of bricking the Attiny if you do so.
+It is important that you do not change the values after -Ulfuse, -Uhfuse or -Uefuse as there is a risk of bricking the Attiny if you do so.
 
-If any of the values for -c, -p, -P or -b was different in step "Make a dry test upload" above, use that value instead.
+If any of the values for -c, -p, -P or -b was different in step ["Make a dry test upload"](#make-a-dry-test-upload) above, use that value instead.
 
 After that you can write the actual firmware to the SMC with the following command.
 
