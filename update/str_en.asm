@@ -10,7 +10,7 @@ SCR_LOWER   = $0e
 
 str_appinfo:
     .byt SCR_PETSCII, SCR_LOWER, COL_BG, COL_SWAP, COL_DEFAULT, SCR_CLS
-    .byt "COMMANDER X16 SYSTEM MANAGEMENT CONTROLLER UPDATE", 13, 13
+    .byt "COMMANDER X16 SYSTEM MANAGEMENT CONTROLLER UPDATE", 13, 13, 0
 
 str_nobootloader:
     .byt COL_ERR, "ERROR:" , COL_DEFAULT, " SMC bootloader not installed or bootloader version could not be determined.", 0
