@@ -111,6 +111,9 @@ Now do the following:
 |ICSP-6 GND		| 6-GND          |
 |Digital Pin 10	| 10-PB7/RESET   |
 
+<img width="814" alt="Making connections" src="https://github.com/user-attachments/assets/458ce10b-69ec-48f0-8e91-1abecedc64a4">
+
+
 ## Download the SMC firmware
 
 Download the SMC firmware from https://github.com/X16Community/x16-smc/releases.
