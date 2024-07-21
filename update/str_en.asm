@@ -10,9 +10,7 @@ SCR_LOWER   = $0e
 
 str_appinfo:
     .byt SCR_PETSCII, SCR_LOWER, COL_BG, COL_SWAP, COL_DEFAULT, SCR_CLS
-    .byt "COMMANDER X16 SYSTEM MANAGEMENT CONTROLLER UPDATE", 13
-    .byt "Version 2.0", 13, 13
-    .byt "This tool updates the firmware of the ATtiny861 based SMC for the Commander X16 Gen-1.",13, 13, 0
+    .byt "COMMANDER X16 SYSTEM MANAGEMENT CONTROLLER UPDATE", 13, 13
 
 str_nobootloader:
     .byt COL_ERR, "ERROR:" , COL_DEFAULT, " SMC bootloader not installed or bootloader version could not be determined.", 0
@@ -32,7 +30,7 @@ str_warning2:
     .byt "boards.", 13, 13, 0
 
 str_read_instructions:
-    .byt "Instructions at github.com/X16Community/x16-docs, Upgrade Guide/SMC.", 13, 0
+    .byt "Instructions at github.com/X16Community/x16-smc", 13, 0
 
 str_continue:
     .byt 13, "Continue (Y/N): ", 0
@@ -64,8 +62,8 @@ str_bad_v2_bootloader:
     .byt 13, 13, COL_WARN, "WARNING:", COL_DEFAULT, " Do NOT turn off the system.", 13, 13
     .byt "The bootloader is corrupted, preventing the update from finishing. "
     .byt "Complete the update by momentarily connecting SMC pin #10 (reset) "
-    .byt "to ground. Instructions available on "
-    .byt "github.com/X16Community/x16-docs, Upgrade Guide/SMC.", 0
+    .byt "to ground. Instructions available at "
+    .byt "github.com/X16Community/x16-smc.", 0
 
 str_updatefailed:
     .byt 13, 13, COL_ERR, "Update failed.", COL_DEFAULT, 0
@@ -77,9 +75,9 @@ str_automatic_fw_ver:
     .byt .sprintf("New firware version to be installed: %u.%u.%u.", version_major, version_minor, version_patch), 13, 13, 0
 
 str_automatic_info:
-    .byt "Read instructions at github.com/X16Community/x16-docs, Upgrade Guide/SMC.", 13, 13
-    .byt COL_WARN, "WARNING:", COL_DEFAULT, "The update will continue automatically after the countdown and can only be "
-    .byt "aborted by disconnecting the computer from mains power.", 13, 13, 0
+    .byt "Instructions at github.com/X16Community/x16-smc.", 13, 13
+    .byt COL_WARN, "WARNING:", COL_DEFAULT, "The update continues automatically after the countdown. Disconnect the computer "
+    .byt "from mains power before the countdown ends if you want to abort.", 13, 13, 0
 
 str_automatic_countdown:
     .byt "Update starts... ", 0

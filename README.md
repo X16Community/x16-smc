@@ -10,6 +10,11 @@ The SMC is responsible for
 - Interfacing a PS/2 keyboard
 - Interfacing a PS/2 mouse
 
+# Upgrading the SMC firmware
+
+Read the [Upgrade guide](upgrade_guide.md) if you're planning to upgrade the
+SMC firmware.
+
 # I2C API
 
 ## Table of commands
@@ -35,6 +40,7 @@ The SMC is responsible for
 | 0x41      | Master read       | 1 byte            | Get Keycode Fast              |
 | 0x42      | Master read       | 1 byte            | Get Mouse Movement Fast       |
 | 0x43      | Master read       | 1 byte            | Get PS/2 Data Fast            |
+| 0x80..0x8d|                   |                   | Reserved for bootloader       |
 | 0x8e      | Master write      | 1 byte            | Get Bootloader Version        |
 | 0x8f      | Master write      | 0x31              | Start bootloader              |
 | 0x90      | Master write      | 1 byte            | Set flash page (0-127)        |
@@ -187,8 +193,9 @@ update process is not carried through.
 
 The firmware is automatically built on every push and pull request.
 
-You may download the resulting artifacts from the Actions view. Each build creates two artifacts:
+You may download the resulting artifacts from the Actions view.
 
-- "SMC default firmware", compatible with the official Commander X16 board sold by TexElec
 
-- "SMC CommunityX16 firmware", compatible with the CommunityX16 board designed by Joe Burks ("Wavicle")
+# Bootloader
+
+There's a special section on the SMC bootloader that you find [here](bootloader/README.md)
