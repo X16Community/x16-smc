@@ -47,7 +47,7 @@ jobs:
 
       - name: Move readme files to build folders
         run: |
-          mv .doc/readme-default build/readme
+          mv doc/readme_artifacts.txt build/README
  
       - name: Compile bootloader
         run: |
@@ -55,6 +55,7 @@ jobs:
           make
           cd ..
           cp bootloader/build/firmware_with_bootloader.hex build/
+          cp bootloader/build/bootloader.hex build/
       
       - name: Compile SMCUPDATE program
         run: |
@@ -73,4 +74,5 @@ jobs:
             build/x16-smc.ino.elf
             build/x16-smc.ino.hex
             build/SMC*.BIN
-            build/readme
+            build/bootloader.hex
+            build/README
