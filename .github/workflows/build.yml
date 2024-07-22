@@ -52,6 +52,7 @@ jobs:
       - name: Compile bootloader
         run: |
           cd bootloader
+          mkdir -p build
           make
           cd ..
           cp bootloader/build/firmware_with_bootloader.hex build/
@@ -60,6 +61,8 @@ jobs:
       - name: Compile SMCUPDATE program
         run: |
           cd update
+          mkdir -p resources
+          mkdir -p build
           make
           cd ..
           cp update/build/SMCUPDATE*.PRG build/
