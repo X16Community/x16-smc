@@ -32,10 +32,7 @@ remapped and always jumps to the bootloader main vector (0x1E00).
 
 The bootloader main function checks if the Reset button is being pressed. 
 If the button is pressed, the computer is powered on and the 
-bootloader's firmware update process is started. The keyboard and mouse will
-not work, and the update program needs to stored as AUTOBOOT.X16
-on the SD card to automatically load and run. The update program
-muset not require any user input from the keyboard or mouse.
+bootloader's firmware update process is started.
 
 If the Reset button was not pressed, the bootloader jumps to
 the vector stored in EE_RDY (0x0012). The firmware's original
@@ -56,11 +53,14 @@ While the update procedure is active, firmware data
 is transmitted from the CPU to the SMC over I2C as
 follows:
 
-- A packet of 8 bytes plus 1 checksum byte is transmitted
+- 8 bytes plus 1 checksum byte are transmitted
 using the 0x80 I2C command (Transmit).
 
-- The 0x81 I2C command (Commit) is sent after each
-packet has been committed.
+- The transmitted bytes are committed with
+the 0x81 I2C command (Commit).
+
+- Transmitting and committing data is
+repeated for the rest of the firmware.
 
 - The flash memory is updated in pages of 64 bytes (pages). On every
 8th commit, firmware data will actually be written to flash
@@ -69,18 +69,24 @@ memory.
 - Just before writing the first flash memory page, all of
 the firmware flash area is erased, starting from the last page.
 
-- After all firmware data has been transmitted to the 
-bootloader, the process is finished by sending the 0x82
-I2C command (Reboot) to reset the SMC. This will also write
-any remaining data to flash memory, and the X16 is 
-powered off.
+- Finally, the update program is expected to call
+the 0x82 I2C command (Reboot) to reset the SMC and power
+off the system. This will also write
+any remaining data to flash memory.
+
+If the update procedure was started by holding down
+the Reset button, the system has no keyboard or mouse
+connection. SMCUPDATE-x.x.x.PRG needs to stored as AUTOBOOT.X16
+on the SD card so that it is automatically loaded and run.
 
 
 # Building the project
 
-You first need to build or download the firmare file (x16-smc.ino.hex) and store it in the firmware build folder.
+The firmware hex file (x16-smc.ino.hex) is expected to be found at x16-smc/build. You need
+to build or download the firmware and store it there. The firmware is
+typically built with the Arduino IDE.
 
-Type make to build the bootloader.
+Type ```make``` to build the bootloader.
 
 Build dependencies:
 
@@ -93,7 +99,7 @@ Build dependencies:
 
 # Fuse settings
 
-The bootloader and the SMC firmware depend on several fuse settings as set out below.
+The bootloader and the SMC firmware depend on several ATtiny fuse settings as set out below.
 
 The recommended low fuse value is 0xF1. This will run the SMC at 16 MHz.
 
@@ -104,10 +110,11 @@ Finally, the extended fuse value must be 0xFE to enable self-programming of the 
 
 # Initial programming of the SMC with avrdude
 
-Before SMC firmware version 47.2.3 it was not possible to update the bootloader from within
-the X16 system. In that case the initial programming of the SMC must be done with an
-external programmer. The command line utility avrdude is the recommended software to be used
-for this purpose.
+The initial programming of the SMC must be done with an
+external programmer.
+
+The command line utility avrdude is the recommended tool together
+with a programmer that is compatible with avrdude.
 
 Example 1. Set fuses
 ```
@@ -129,7 +136,7 @@ The -b option sets transmission baudrate; 19200 is a good value.
 
 The -U option performs a memory operation. "-U flash:w:filename:i" writes to flash memory. "-U lfuse:w:0xF1:m" writes the low fuse value.
 
-Please note that some fuse settings may "brick" the ATtiny861, and resetting requires equipment for high voltage programming. Be careful if you choose not to use the recommended values.
+Please note that some fuse settings may cause the ATtiny861 not to respond. Resetting might require equipment for high voltage programming. Be careful if you choose not to use the recommended values.
 
 The Arduino IDE also uses avrdude in the background. If you have installed the IDE can use it to program the SMC, you may enable verbose output and see what parameters are used by the IDE when it starts avrdude.
 
@@ -173,3 +180,28 @@ The command first writes any buffered data to flash.
 The bootloader then resets the SMC. The SMC reset shuts down the computer. It
 can be restarted by pressing the power button. It is not necessary to power cycle the system
 after an update.
+
+## Command 0x83 = Get bootloader version (master read)
+
+This command returns the bootloader version.
+
+Available since bootloader v3.
+
+## Command 0x84 = Set target address page (master write)
+
+Sets the target address page that is used when reading from or writing
+to the SMC.
+
+The byte address is 64 * the target address.
+
+Available since bootloader v3.
+
+## Command 0x85 = Read flash memory
+
+Reads one byte of flash memory at the current target address.
+
+This function is primarily intended to be used for verifying the
+content of the flash memory after an update.
+
+Available since bootloader v3.
+
