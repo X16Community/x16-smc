@@ -57,6 +57,7 @@ jobs:
           cd ..
           cp bootloader/build/firmware_with_bootloader.hex build/
           cp bootloader/build/bootloader.hex build/
+          cp bootloader/build/bootloader.bin build/
       
       - name: Compile SMCUPDATE program
         run: |
