@@ -192,7 +192,7 @@ Available since bootloader v3.
 Sets the target address page that is used when reading from or writing
 to the SMC.
 
-The byte address is 64 * the target address.
+The byte address is 64 * page.
 
 Available since bootloader v3.
 

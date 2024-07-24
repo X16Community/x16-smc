@@ -12,8 +12,24 @@ IMPORTANT INFORMATION - PLEASE READ BEFORE INSTALLING
     requiring the SMC to be programmed with an external
     programmer.
     
+2. The SMCUPDATE-x.x.x.PRG file
 
-1. The firmware_with_bootloader.hex file
+    This is a program that you can run on the
+    X16 to update the firmware. The firmware is 
+    emedded into the program and you do not need any
+    other files.
+
+
+3. The SMC-x.x.x.BIN file
+
+    This file contains the firmware in binary format plus
+    a header needed if you program the SMC with the
+    following tool:
+
+    https://github.com/FlightControl-User/x16-flash
+
+
+4. The firmware_with_bootloader.hex file
 
     This file contains the firmware and a bootloader
     that makes it possible to update the SMC from the
@@ -23,27 +39,23 @@ IMPORTANT INFORMATION - PLEASE READ BEFORE INSTALLING
     the SMC with an external programmer.
 
 
-2. The x16-smc.ino.hex file
+5. The x16-smc.ino.hex and x16-smc.ino.elf files
 
-    This file contains the firmare in Intel HEX format.
-    It does not contain a bootloader.
+    These files contain the firmare in hex and elf format
+    without a bootloader.
 
-    It is an alternative option if you are programming
+    They are alternative options if you are programming
     the SMC with an external programmer.
 
 
-4. The SMCUPDATE-x.x.x.PRG file
+6. The bootloader.bin file
 
-    This file is a program that you can run on the
-    X16 to update the firmware. The firmware is 
-    emedded into the program and you do not need any
-    other files.
+    This is the the bootloader in binary format without
+    firmware. It can be used to update the bootloader
+    with the tool SMCBLW16.PRG that runs on the X16.
 
 
-5. The SMC-x.x.x.BIN file
+7. The bootloader.hex file
 
-    This file contains the firmware in binary format plus
-    a header needed if you program the SMC with the
-    following tool:
-
-    https://github.com/FlightControl-User/x16-flash
+    This is the bootloader in hex format without
+    firmware.
