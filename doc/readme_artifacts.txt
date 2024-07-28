@@ -7,10 +7,14 @@ IMPORTANT INFORMATION - PLEASE READ BEFORE INSTALLING
     Controller of the Commander X16 official prototype 4 
     board that is sold through texelec.com.
 
+    It is also compatible with the OtterX board made
+    by Joe Burks (Wavicle).
+
     It is not recommended to use this firmware with
-    any other board. Doing so may break your system,
+    other boards. Doing so may break your system,
     requiring the SMC to be programmed with an external
     programmer.
+    
     
 2. The SMCUPDATE-x.x.x.PRG file
 

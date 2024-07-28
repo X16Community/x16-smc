@@ -68,12 +68,12 @@ main2:
     dec r16
     brne main2
     
-    ; Jump to power on sequence if Reset button is pressed (low)
-    sbis PINB, RESET_BTN
-    rjmp power_on_seq
-    
-    ; Else jump to firmware start vector, stored in EE_RDY (=ERDYaddr)
+    ; Jump to firmware start vector, stored in EE_RDY (=ERDYaddr),
+    ; if Reset button is not pressed (high)
+    sbic PINB, RESET_BTN
     rjmp ERDYaddr
+    
+    ; Else fallthrough to power_on_seq
 
 ;******************************************************************************
 ; Function...: power_on_seq
