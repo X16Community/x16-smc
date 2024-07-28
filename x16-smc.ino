@@ -589,6 +589,9 @@ void I2C_Send() {
       if (pgm_read_byte(0x1e00) == 0x8a) {
         smcWire.write(pgm_read_byte(0x1e01));
       }
+      else if (pgm_read_byte(0x1ffe) == 0x8a) {
+        smcWire.write(pgm_read_byte(0x1fff));
+      } 
       else {
         smcWire.write(0xff);
       }

@@ -1,0 +1,4 @@
+build/bootloader.hex
+build/firmware_with_bootloader.hex
+resources/x16-smc.ino.hex
+build/bootloader.hex
