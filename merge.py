@@ -4,7 +4,7 @@ from intelhex import IntelHex
 # Load firmware
 try:
     firmware = IntelHex()
-    firmware.fromfile("../build/x16-smc.ino.hex", format="hex")
+    firmware.fromfile("resources/x16-smc.ino.hex", format="hex")
 except:
     print("Error loading firmware")
     quit()
