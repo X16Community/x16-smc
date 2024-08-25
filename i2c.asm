@@ -174,11 +174,10 @@ i2c_receive2:
     cpi i2c_command, 0x80
     brne i2c_receive3
     CMD_RECEIVE_PACKET
-    rjmp i2c_receive4
 
 i2c_receive3:
     cpi i2c_command, 0x84
-    brne i2c_send_ack
+    brne i2c_receive4
     CMD_SET_ADDR_PAGE
 
 i2c_receive4:
@@ -199,7 +198,6 @@ i2c_transmit:
     cpi i2c_command,0x81
     brne i2c_transmit2
     CMD_COMMIT
-    rjmp i2c_transmit3
 
 i2c_transmit2:
     ; Command 0x83 - Get version

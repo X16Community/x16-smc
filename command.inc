@@ -71,7 +71,7 @@ cmd_receive_byte_exit:
     cpi packet_size, 9                           ; Packet size == 9?
     brne cmd_commit_err
     
-    ldi r17,3
+    ldi r17, 3
     cpi checksum, 0                              ; Checksum == 0?
     brne cmd_commit_err
     
@@ -174,15 +174,10 @@ cmd_reboot_3:
 
 ;******************************************************************************
 ; Function...: CMD_SET_ADDR_PAGE
-; Description: Sets target address page (0x00-0x77). Address page out of range
-;              ignored
+; Description: Sets target address page. Byte address is page * 64.
 ; In.........: r16 address page
 ; Out........: Nothing
 .macro CMD_SET_ADDR_PAGE
-    ; Verify input
-    cpi r16, 0x78
-    brsh cmd_set_addr_page2
-
     ; Move input to address register high byte (=> page * 256)
     mov target_addrH, r16
     clr target_addrL
@@ -192,8 +187,6 @@ cmd_reboot_3:
     ror target_addrL
     lsr target_addrH
     ror target_addrL
-
-cmd_set_addr_page2:
 .endm
 
 ;******************************************************************************
