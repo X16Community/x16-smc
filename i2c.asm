@@ -178,7 +178,7 @@ i2c_receive2:
 i2c_receive3:
     cpi i2c_command, 0x84
     brne i2c_receive4
-    CMD_SET_ADDR_PAGE
+    CMD_REWIND_TARGET_ADDR
 
 i2c_receive4:
     clr i2c_command

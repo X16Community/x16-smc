@@ -187,12 +187,9 @@ This command returns the bootloader version.
 
 Available since bootloader v3.
 
-## Command 0x84 = Set target address page (master write)
+## Command 0x84 = Rewind target address (master write)
 
-Sets the target address page that is used when reading from or writing
-to the SMC.
-
-The byte address is 64 * page.
+Rewinds the target address to 0.
 
 Available since bootloader v3.
 

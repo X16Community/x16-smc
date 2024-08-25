@@ -173,20 +173,12 @@ cmd_reboot_3:
 .endm
 
 ;******************************************************************************
-; Function...: CMD_SET_ADDR_PAGE
-; Description: Sets target address page. Byte address is page * 64.
-; In.........: r16 address page
+; Function...: CMD_REWIND_TARGET_ADDR
+; Description: Sets target address to 0
+; In.........: Nothing
 ; Out........: Nothing
-.macro CMD_SET_ADDR_PAGE
-    ; Move input to address register high byte (=> page * 256)
-    mov target_addrH, r16
-    clr target_addrL
-    
-    ; Divide by 4 to get byte address (=> page * 256 / 4 = page * 64)
-    lsr target_addrH
-    ror target_addrL
-    lsr target_addrH
-    ror target_addrL
+.macro CMD_REWIND_TARGET_ADDR
+    movw ZH:ZL, zeroH:zeroL
 .endm
 
 ;******************************************************************************
