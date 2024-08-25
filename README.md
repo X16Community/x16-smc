@@ -2,7 +2,7 @@
 
 This is a custom bootloader for the Commander X16 ATTiny861 based System Management Controller (SMC).
 
-The purpose of the project is to make it possible to update the SMC firmware from the Commander X16 without using an external programmer.
+The purpose of the bootloader is to make it possible to update the SMC firmware from the Commander X16 without using an external programmer.
 
 Firmware data is transmitted from the computer to the SMC over I2C.
 
@@ -20,11 +20,6 @@ Firmware data is transmitted from the computer to the SMC over I2C.
 | 0x1E02        | 2 bytes     | Start update vector        |
 | 0x1FFE        | 2 bytes     | Bootloader version         |    
 
-The reset vector normally jumps to the start of the firmware. When installing
-the bootloader, it is changed to point to the bootloader on
-reset vector instead.
-
-The firmware's original reset vector is moved to the unused EE_RDY vector.
 
 ## SMC reset procedure
 
@@ -32,50 +27,66 @@ On SMC reset the reset vector at address 0x0000 is always executed.
 This happens both when mains power is connected to the computer
 and when the SMC reset pin #10 is grounded.
 
-The reset vector jumps to the bootloader main vector.
+When the bootloader is installed, the reset vector is 
+remapped and always jumps to the bootloader main vector (0x1E00).
 
 The bootloader main function checks if the Reset button is being pressed. 
-It powers on the system and automatically starts the
-update procedure.
+If the button is pressed, the computer is powered on and the 
+bootloader's firmware update process is started.
 
 If the Reset button was not pressed, the bootloader jumps to
-the EE_RDY vector, which holds the firmware´s original reset vector. 
-The SMC firmware is started normally.
+the vector stored in EE_RDY (0x0012). The firmware's original
+reset vector is always moved to this address when updating
+the firmware.
+
 
 ## Firmware update procedure
 
-The update procedure can be started in two ways. One alternative
-is to hold down Reset when the SMC is reset or powered on. 
-The other alternative is to call the bootloader start update vector. Calling this 
-vector is initiated from the X16 while it is running normally.
+The update procedure can be started by holding down the Reset 
+button as described [above](#smc-reset-procedure).
 
-Firmware data is transmitted from the CPU to the SMC over I2C as
+The procedure can also be started by requesting the
+firmware to call the start update vector (0x1e02). This is 
+done through the I2C command 0x8F (Start bootloader).
+
+While the update procedure is active, firmware data 
+is transmitted from the CPU to the SMC over I2C as
 follows:
 
-- Transmit 8 bytes of firmware data and one checksum byte using
-the 0x80 I2C command
+- 8 bytes plus 1 checksum byte are transmitted
+using the 0x80 I2C command (Transmit).
 
-- Send the 0x81 I2C command to commit the previous 8 bytes.
+- The transmitted bytes are committed with
+the 0x81 I2C command (Commit).
+
+- Transmitting and committing data is
+repeated for the rest of the firmware.
 
 - The flash memory is updated in pages of 64 bytes (pages). On every
-8th commit, firmware data will be written to flash
+8th commit, firmware data will actually be written to flash
 memory.
 
 - Just before writing the first flash memory page, all of
 the firmware flash area is erased, starting from the last page.
 
-- After all firmware data has been transmitted to the 
-bootloader, the process is finished by sending the 0x82
-I2C command to reboot the system. This will also write
-any remaining data to flash memory. The X16 is 
-powered off.
+- Finally, the update program is expected to call
+the 0x82 I2C command (Reboot) to reset the SMC and power
+off the system. This will also write
+any remaining data to flash memory.
+
+If the update procedure was started by holding down
+the Reset button, the system has no keyboard or mouse
+connection. SMCUPDATE-x.x.x.PRG needs to stored as AUTOBOOT.X16
+on the SD card so that it is automatically loaded and run.
 
 
 # Building the project
 
-You first need to copy the firmware file (x16-smc.ino.hex) to resources/x16-smc.ino.hex. You may download that file from the x16-smc Github release page. If you compile the firmware yourself it's easier to find the resulting file if you enable verbose output during compilation. Go to the IDE's preferences dialog to do that.
+The firmware hex file (x16-smc.ino.hex) is expected to be found at x16-smc/build. You need
+to build or download the firmware and store it there. The firmware is
+typically built with the Arduino IDE.
 
-The bootloader is built with make. This outputs the file build/bootloader.hex. If resources/x16-smc.ino.hex is available it will also create the file build/firmware_with_bootloader.hex that contains both the firmware and the bootloader.
+Type ```make``` to build the bootloader.
 
 Build dependencies:
 
@@ -83,12 +94,12 @@ Build dependencies:
 
 - Python 3
 
-- Python intelhex, install with pip3 intelhex
+- Python intelhex module, install with pip intelhex
 
 
 # Fuse settings
 
-The bootloader and the SMC firmware depend on several fuse settings as set out below.
+The bootloader and the SMC firmware depend on several ATtiny fuse settings as set out below.
 
 The recommended low fuse value is 0xF1. This will run the SMC at 16 MHz.
 
@@ -99,19 +110,20 @@ Finally, the extended fuse value must be 0xFE to enable self-programming of the 
 
 # Initial programming of the SMC with avrdude
 
-Before SMC firmware version 47.2.3 it was not possible to update the bootloader from within
-the X16 system. In that case the initial programming of the SMC must be done with an
-external programmer. The command line utility avrdude is the recommended software to be used
-for this purpose.
+The initial programming of the SMC must be done with an
+external programmer.
+
+The command line utility avrdude is the recommended tool together
+with a programmer that is compatible with avrdude.
 
 Example 1. Set fuses
 ```
-avrdude -cstk500v1 -pattiny861 -P<your port> -b19200 -Ulfuse:w:0xF1:m -Uhfuse:w:0xD4:m -Uefuse:w:0xFE:m
+avrdude -cstk500v1 -Cavrdude.conf -pattiny861 -P<your port> -b19200 -Ulfuse:w:0xF1:m -Uhfuse:w:0xD4:m -Uefuse:w:0xFE:m
 ```
 
 Example 2. Write to flash
 ```
-avrdude -cstk500v1 -pattiny861 -P<your port> -b19200 -Uflash:w:build/firmware_with_bootloader.hex:i
+avrdude -cstk500v1 -Cavrdude.conf -pattiny861 -P<your port> -b19200 -Uflash:w:build/firmware_with_bootloader.hex:i
 ```
 
 The -c option selects programmer-id; stk500v1 is for using Arduino UNO as an In-System Programmer. If you have another ISP programmer, you may need to change this value accordingly.
@@ -124,11 +136,10 @@ The -b option sets transmission baudrate; 19200 is a good value.
 
 The -U option performs a memory operation. "-U flash:w:filename:i" writes to flash memory. "-U lfuse:w:0xF1:m" writes the low fuse value.
 
-Please note that some fuse settings may "brick" the ATtiny861, and resetting requires equipment for high voltage programming. Be careful if you choose not to use the recommended values.
+Please note that some fuse settings may cause the ATtiny861 not to respond. Resetting might require equipment for high voltage programming. Be careful if you choose not to use the recommended values.
 
 The Arduino IDE also uses avrdude in the background. If you have installed the IDE can use it to program the SMC, you may enable verbose output and see what parameters are used by the IDE when it starts avrdude.
 
-From SMC firmware verision 47.2.3 it is also possible to update the firmware from within the system. Use the file build/bootloader.hex if you try this option.
 
 # I2C API
 
@@ -170,18 +181,27 @@ The bootloader then resets the SMC. The SMC reset shuts down the computer. It
 can be restarted by pressing the power button. It is not necessary to power cycle the system
 after an update.
 
-# Typical usage
+## Command 0x83 = Get bootloader version (master read)
 
-A client program running on the X16 will typically work as set out below:
+This command returns the bootloader version.
 
-* Verify that it supports the bootloader API version
+Available since bootloader v3.
 
-* Request that the SMC firmware jumps to the bootloader start update vector
+## Command 0x84 = Set target address page (master write)
 
-* Send a data packet with command 0x80
+Sets the target address page that is used when reading from or writing
+to the SMC.
 
-* Commit the data packet with command 0x81
+The byte address is 64 * page.
 
-* Resend the packet if an error occured, otherwise repeat until all packets have been sent and committed
+Available since bootloader v3.
 
-* Send reboot command
+## Command 0x85 = Read flash memory
+
+Reads one byte of flash memory at the current target address.
+
+This function is primarily intended to be used for verifying the
+content of the flash memory after an update.
+
+Available since bootloader v3.
+
