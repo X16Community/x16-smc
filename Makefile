@@ -1,7 +1,7 @@
 BUILD_DIR=build
 RES_DIR=resources
 SRC_FILES=$(wildcard *.asm *.inc)
-PRGFILE="SMCUPDATE.PRG"
+PRGFILE=$(shell python scripts/prgname.py)
 
 $(BUILD_DIR)/$(PRGFILE): $(SRC_FILES)
 	@mkdir -p $(BUILD_DIR)
