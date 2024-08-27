@@ -197,6 +197,8 @@ Available since bootloader v3.
 
 Reads one byte of flash memory at the current target address.
 
+The target address is post-incremented one byte.
+
 This function is primarily intended to be used for verifying the
 content of the flash memory after an update.
 
