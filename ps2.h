@@ -16,7 +16,6 @@ enum PS2_CMD_STATUS : uint8_t {
 enum PS2_CMD_TIMER : uint8_t {
   CMD_START = 255,
   CMD_DEVICE_READY = 253,
-  CMD_REWIND = 252,
   CMD_TIMEOUT = 1,
   CMD_INACTIVE = 0
 };
@@ -49,7 +48,7 @@ class PS2Port
     void resetReceiver() {
       resetInput();
       outputSize = 0;
-      timerCountdown = 0;
+      timerCountdown = PS2_CMD_TIMER::CMD_INACTIVE;
       flush();
     };
 
@@ -67,6 +66,7 @@ class PS2Port
       parity = 0;
       rxBitCount = 0;
       ps2ddr = 0;
+      timerCountdown = PS2_CMD_TIMER::CMD_INACTIVE;
     }
 
   public:
@@ -172,13 +172,13 @@ class PS2Port
        to the PS/2 device
     */
     void sendBit() {
-      if (timerCountdown >= 253) {
+      if (timerCountdown >= PS2_CMD_TIMER::CMD_DEVICE_READY) {
         //Ignore clock transitions during the request-to-send routine
         return;
       }
       else {
-        // Reset counter
-        timerCountdown = PS2_CMD_TIMER::CMD_REWIND;
+        // Rewind counter
+        timerCountdown = PS2_CMD_TIMER::CMD_DEVICE_READY - 1;
       }
 
       switch (rxBitCount)
