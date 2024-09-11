@@ -48,7 +48,6 @@ class PS2Port
     void resetReceiver() {
       resetInput();
       outputSize = 0;
-      timerCountdown = PS2_CMD_TIMER::CMD_INACTIVE;
       flush();
     };
 
