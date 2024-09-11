@@ -13,6 +13,14 @@ enum PS2_CMD_STATUS : uint8_t {
   CMD_ERR = 0xFE
 };
 
+enum PS2_CMD_TIMER : uint8_t {
+  CMD_START = 255,
+  CMD_DEVICE_READY = 253,
+  CMD_REWIND = 252,
+  CMD_TIMEOUT = 1,
+  CMD_INACTIVE = 0
+};
+
 /// @brief PS/2 IO Port handler
 /// @tparam size Circular buffer size for incoming data, must be a power of 2 and not more than 256
 template<uint8_t clkPin, uint8_t datPin, uint8_t size = 16> // Single keycodes can be 4 bytes long. We want a little bit of margin here.
@@ -164,11 +172,14 @@ class PS2Port
        to the PS/2 device
     */
     void sendBit() {
-      if (timerCountdown > 0) {
-        //Ignore clock transitions during the request-to-send
+      if (timerCountdown >= 253) {
+        //Ignore clock transitions during the request-to-send routine
         return;
       }
-
+      else {
+        // Reset counter
+        timerCountdown = PS2_CMD_TIMER::CMD_REWIND;
+      }
 
       switch (rxBitCount)
       {
@@ -259,7 +270,7 @@ class PS2Port
       outputBuffer[1] = 0;
       outputSize = 1;        //Output buffer size
 
-      timerCountdown = 3;       //Will determine clock hold time for the request-to-send initiated in the timer 1 interrupt handler
+      timerCountdown = PS2_CMD_TIMER::CMD_START;       //Will determine clock hold time for the request-to-send initiated in the timer 1 interrupt handler
     }
 
     /**
@@ -274,7 +285,7 @@ class PS2Port
       outputBuffer[1] = data;
       outputSize = 2;        //Output buffer size
 
-      timerCountdown = 3;       //Will determine clock hold time for the request-to-send initiated in the timer 1 interrupt handler
+      timerCountdown = PS2_CMD_TIMER::CMD_START;       //Will determine clock hold time for the request-to-send initiated in the timer 1 interrupt handler
     }
 
     PS2_CMD_STATUS getCommandStatus() {
@@ -288,32 +299,33 @@ class PS2Port
        a PS/2 device
     */
     void timerInterrupt() {
-      if (timerCountdown == 0x00) {
-        //The host is currently sending or receiving, no operation required
+      if (timerCountdown == PS2_CMD_TIMER::CMD_INACTIVE) {
+        //Do nothing
         return;
       }
 
-      else if (timerCountdown == 3) {
+      if (timerCountdown == PS2_CMD_TIMER::CMD_TIMEOUT) {
+        // Host to device time out (25,200 us)
+        resetInput();
+        commandStatus = CMD_ERR;
+      }
+
+      else if (timerCountdown == PS2_CMD_TIMER::CMD_START) {
         //Initiate request-to-send sequence
         gpio_driveLow(clkPin);
         gpio_driveLow(datPin);
-
         ps2ddr = 1;
-        timerCountdown--;
       }
 
-      else if (timerCountdown == 1) {
+      else if (timerCountdown == PS2_CMD_TIMER::CMD_DEVICE_READY) {
         //We are at end of the request-to-send clock hold time of minimum 100 us
         gpio_inputWithPullup(clkPin);
-
-        timerCountdown = 0;
         rxBitCount = 0;
         parity = 0;
       }
 
-      else {
-        timerCountdown--;
-      }
+      // Decrement counter
+      timerCountdown--;
     }
 
     uint8_t count() {
