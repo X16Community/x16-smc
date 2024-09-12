@@ -14,7 +14,7 @@ jobs:
           python-version: '3.9'
 
       - name: Create build folder
-        - run: make -p build
+        run: make -p build
       
       - name: Install IntelHex library
         run: pip install intelhex
