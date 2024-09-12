@@ -12,5 +12,10 @@ while line:
         version[parts[1].strip().lower()] = int(parts[2].strip())
     line = f.readline()
 
-# Return SMCUPDATE file name with version
-print("SMCUPDATE-" + str(version["version_major"]) + "." + str(version["version_minor"]) + "." + str(version["version_patch"]) + ".PRG")
+f.close()
+
+f = open("version.asm", "w")
+f.write("version_major = " + str(version["version_major"]) + "\n")
+f.write("version_minor = " + str(version["version_minor"]) + "\n")
+f.write("version_patch = " + str(version["version_patch"]) + "\n")
+f.close()

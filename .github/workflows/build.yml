@@ -7,59 +7,87 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Create build folder
+        - run: make -p build
+
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-python@v5
         with:
           python-version: '3.9'
+
+      - name: Install IntelHex library
+        run: pip install intelhex
+      
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
+      
       - name: Install ATTinyCore platform
         run: |
           arduino-cli core update-index --additional-urls file://$PWD/package_drazzy.com_index.json
           arduino-cli core install ATTinyCore:avr --additional-urls file://$PWD/package_drazzy.com_index.json
+      
       - name: Compile Arduino default sketch
-        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-path .build/default
+        run:  arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-path build/default
+      
       - name: Compile Arduino sketch with Community X16 pin support
-        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-property "build.extra_flags=-DCOMMUNITYX16_PINS" --build-path .build/community
-      - name: Install IntelHex library
-        run: pip install intelhex
+        run: arduino-cli compile -b ATTinyCore:avr:attinyx61 --board-options "chip=861,clock=16pll,pinmapping=new,TimerClockSource=default,LTO=enable,millis=enabled,eesave=aenable,bod=4v3" --build-property "build.extra_flags=-DCOMMUNITYX16_PINS" --build-path build/community
+      
       - name: Make default SMC.BIN file
-        run: python make_bin.py ./.build/default/x16-smc.ino.hex .build/default
+        run: python make_bin.py ./build/default/x16-smc.ino.hex build/default
+      
       - name: Make SMC.BIN file with CommunityX16 pin support
-        run: python make_bin.py ./.build/community/x16-smc.ino.hex .build/community
+        run: python make_bin.py ./build/community/x16-smc.ino.hex build/community
+
+      - name: Build SMCUPDATE programs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make build-essential
+          git clone https://github.com/cc65/cc65.git
+          cd cc65
+          make -j4
+          sudo make install
+          cd ..
+          cd update
+          make
+          cd ..
+          cp update/build/default/SMCUPDATE*.PRG build/default
+          cp update/build/community/SMCUPDATE*.PRG build/community
 
       - name: Move readme files to build folders
         run: |
-          mv .doc/readme-default .build/default/readme
-          mv .doc/readme-community .build/community/readme
+          mv .doc/readme-default build/default/readme
+          mv .doc/readme-community build/community/readme
 
       - name: Fetch bootloader
-        run: wget -O .build/bootloader.hex https://github.com/X16Community/x16-smc-bootloader/releases/download/v2/bootloader.hex
+        run: wget -O build/bootloader.hex https://github.com/X16Community/x16-smc-bootloader/releases/download/v2/bootloader.hex
       
       - name: Create firmware_with_bootloader files
         run: |
-          ./merge_bootloader.sh .build/default/x16-smc.ino.hex .build/bootloader.hex .build/default/firmware_with_bootloader.hex
-          ./merge_bootloader.sh .build/community/x16-smc.ino.hex .build/bootloader.hex .build/community/firmware_with_bootloader.hex
+          ./merge_bootloader.sh build/default/x16-smc.ino.hex build/bootloader.hex build/default/firmware_with_bootloader.hex
+          ./merge_bootloader.sh build/community/x16-smc.ino.hex build/bootloader.hex build/community/firmware_with_bootloader.hex
 
       - name: Archive default firmware
         uses: actions/upload-artifact@v4
         with:
           name: SMC default firmware
           path: |
-            .build/default/firmware_with_bootloader.hex
-            .build/default/x16-smc.ino.elf
-            .build/default/x16-smc.ino.hex
-            .build/default/SMC*.BIN
-            .build/default/readme
+            build/default/firmware_with_bootloader.hex
+            build/default/x16-smc.ino.elf
+            build/default/x16-smc.ino.hex
+            build/default/SMC*.BIN
+            build/default/SMCUPDATE*.PRG
+            build/default/readme
 
       - name: Archive CommunityX16 firmware
         uses: actions/upload-artifact@v4
         with:
           name: SMC CommunityX16 firmware
           path: |
-            .build/community/firmware_with_bootloader.hex
-            .build/community/x16-smc.ino.elf
-            .build/community/x16-smc.ino.hex
-            .build/community/SMC*.BIN
-            .build/community/readme
+            build/community/firmware_with_bootloader.hex
+            build/community/x16-smc.ino.elf
+            build/community/x16-smc.ino.hex
+            build/community/SMC*.BIN
+            build/community/SMCUPDATE*.PRG
+            build/community/readme
             
