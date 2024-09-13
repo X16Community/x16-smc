@@ -10,6 +10,10 @@ The SMC is responsible for
 - Interfacing a PS/2 keyboard
 - Interfacing a PS/2 mouse
 
+# Updating the SMC firmware
+
+If you want to update the SMC firmware, please read this [guide](doc/update-guide.md).
+
 # I2C API
 
 ## Table of commands
