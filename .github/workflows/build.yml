@@ -64,8 +64,8 @@ jobs:
       
       - name: Create firmware_with_bootloader files
         run: |
-          ./merge_bootloader.sh build/default/x16-smc.ino.hex build/bootloader.hex build/default/firmware_with_bootloader.hex
-          ./merge_bootloader.sh build/community/x16-smc.ino.hex build/bootloader.hex build/community/firmware_with_bootloader.hex
+          python merge_bootloader.py build/default/x16-smc.ino.hex build/bootloader.hex build/default/firmware_with_bootloader.hex
+          python merge_bootloader.py build/community/x16-smc.ino.hex build/bootloader.hex build/community/firmware_with_bootloader.hex
 
       - name: Archive default firmware
         uses: actions/upload-artifact@v4
