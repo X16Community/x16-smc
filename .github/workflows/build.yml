@@ -60,7 +60,7 @@ jobs:
           mv .doc/readme-community build/community/readme
 
       - name: Fetch bootloader
-        run: wget -O build/bootloader.hex https://github.com/X16Community/x16-smc-bootloader/releases/download/v2/bootloader.hex
+        run: wget -O build/bootloader.hex https://github.com/X16Community/x16-smc-bootloader/releases/download/v3/bootloader.hex
       
       - name: Create firmware_with_bootloader files
         run: |
