@@ -133,4 +133,4 @@ It is therefore recommended to program the SMC
 with the commmand line utility avrdude and a 
 programmer that is compatible with that utility.
 
-For further information, go to th [guide on recovery with an Arduino](recovery-with-arduino.md).
+For further information, go to the [guide on recovery with an Arduino](recovery-with-arduino.md).
