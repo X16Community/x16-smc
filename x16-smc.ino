@@ -4,6 +4,7 @@
 //     Michael Steil
 //     Joe Burks
 //     Stefan Jakobsson
+//     Eirik Stople
 
 // ----------------------------------------------------------------
 // Build Options
