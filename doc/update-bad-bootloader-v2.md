@@ -1,5 +1,5 @@
 # SMC update with bad bootloader v2 (July 13th)
-Author: Eirik Stolpe
+Author: Eirik Stople
 
 NB: Please read and understand the guide before attempting to use it to recover the SMC.
 

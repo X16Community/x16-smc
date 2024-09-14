@@ -1,5 +1,5 @@
 # SMC flash manipulation tools, v6
-Author: Eirik Stolpe
+Author: Eirik Stople
 
 These tools allows X16 to dump entire SMC flash, and manipulate bootloader.
 
