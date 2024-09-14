@@ -234,15 +234,18 @@ The target address is auto-incremented after the operation.
 In order to use this command, you first need to activate
 flash write mode with command offset 0x93.
 
-Example that writes the values 1 to 63 to start of bootloader
+Example that writes the values 0 to 63 to start of bootloader
 section (0x1E00). The example assumes that the SMC is already
-in flash write mode.
+in flash write mode. Please note that this program will
+destroy the bootloader.
 
 ```
-10 I2CPOKE $42,$90,$78
-20 FOR I=0 TO 63
-30 I2CPOKE $42,$92,I
-40 NEXT I
+10 REM THIS PROGRAM DESTROYS THE BOOTLOADER
+20 REM RUN ONLY IF YOU HAVE AN EXTERNAL PROGRAMMER 
+30 I2CPOKE $42,$90,$78
+40 FOR I=0 TO 63
+50 I2CPOKE $42,$92,I
+60 NEXT I
 ```
 
 ## Flash write mode (0x93)
