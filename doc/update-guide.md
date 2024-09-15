@@ -24,7 +24,7 @@ The firmware can be updated from within the X16 without any external tools:
 - The new firmware is embedded into the program and you need no other files
 - Follow the on-screen instructions
 
-There are slight differences depending on which bootloader version
+The update procedure differes slightly depending on which bootloader version
 is installed on your SMC.
 
 ### Bootloader v1
@@ -47,19 +47,33 @@ computer from mains power.
 Some production boards were delivered with a corrupted version
 of bootloader v2, often referred to as a "bad" bootloader.
 
+It is almost certain that you have got the bad bootloader if 
+```PRINT I2CPEEK($42,$8E)``` returns 2 (bootloader version) and 
+any of the following is true:
+
+- the serial number of your X16 board is between 100 and 900
+- the ```HELP``` command shows that you have got SMC firmware
+version 45.1.0
+
 The SMCUPDATE program will display a warning if there is a 
-risk that you have the bad bootloader.
+risk that you have got the bad bootloader. There is, however, no
+way for the program to determine for sure before the update has started.
 
 Even with the bad bootloader, the update works until the very
 final stage where it enters an infinite loop instead of resetting
 the SMC and powering off the system.
 
-If this happens it is important not to disconnect the computer
+The SMCUPDATE program will notify you at the end of the update
+process if you have got the bad bootloader.
+
+If this happens it is important **not** to disconnect the computer
 from mains power. Doing that will brick the SMC firmware, requiring
 you to update it with an external programmer.
 
 There is a tested procedure to make the update work with the
 bad bootloader. Read about it [here](update-with-bad-bootloader-v2.md).
+In short, you need to reset the SMC by connecting reset pin #10
+to ground using a piece of wire.
 
 ### Bootloader v3
 
