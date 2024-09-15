@@ -51,7 +51,7 @@ It is almost certain that you have got the bad bootloader if
 ```PRINT I2CPEEK($42,$8E)``` returns 2 (bootloader version) and 
 any of the following is true:
 
-- the serial number of your X16 board is between 100 and 900
+- the serial number of your X16 board is between PR00100 and PR00900
 - the ```HELP``` command shows that you have got SMC firmware
 version 45.1.0
 
