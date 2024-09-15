@@ -1,7 +1,7 @@
 # SMC flash manipulation tools, v6
 Author: Eirik Stople
 
-These tools allows X16 to dump entire SMC flash, and manipulate bootloader.
+The programs found in the [tools](../tools) folder allow X16 to dump entire SMC flash, and manipulate bootloader.
 
 
 ## New I2C commands
@@ -128,9 +128,9 @@ v3:
   by pressing the Power button.
 
 Changelog:
-- Bundle 1: Proof of concept, for use with a SMC without button protection
-- Bundle 2: New bootloader programmer for SMC with button protection, also more user friendly
-- Bundle 3: New bootloader programmer, changing text as button combo was changed from pwr+NMI to pwr+reset
-- Bundle 4: Improve readme.txt
-- Bundle 5: Specifies that SMC version 47.2.0 is minimum required version
-- Bundle 6: Markdown formatting, bootloader 3 support, some simplifactions
+- Version 1: Proof of concept, for use with a SMC without button protection
+- Version 2: New bootloader programmer for SMC with button protection, also more user friendly
+- Version 3: New bootloader programmer, changing text as button combo was changed from pwr+NMI to pwr+reset
+- Version 4: Improve readme.txt
+- Version 5: Specifies that SMC version 47.2.0 is minimum required version
+- Version 6: Markdown formatting, bootloader 3 support, some simplifactions
