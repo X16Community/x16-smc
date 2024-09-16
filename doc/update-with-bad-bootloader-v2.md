@@ -21,7 +21,7 @@ If you follow this guide, you will most likely be able to update the SMC without
 
 WARNING: Although this guide explains how to perform the update, there is still a risk of something failing, causing a bricked SMC (requiring an external programmer) or even a shorted X16, in case wrong pins are connected. Proceed at your own risk.
 
-The procedure has been tested with R47 and R48 Kernal and VERA 47.0.2. Enter "HELP" and ensure that you have these versions:
+The procedure has been tested with ROM R47 and R48 and VERA 47.0.2. Enter "HELP" and ensure that you have these versions:
 - COMMANDER X16 ROM RELEASE R47/R48
 - VERA: V47.0.2
 
