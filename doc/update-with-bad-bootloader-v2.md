@@ -19,19 +19,19 @@ If you have not updated your SMC yet, and your board is between PR00100 and PR00
 
 If you follow this guide, you will most likely be able to update the SMC without bricking it and having to use an external tool. But you do have to use a small patch wire.
 
-WARNING: Although this guide explains how to perform this update, there is still a risk of something failing, causing a bricked SMC (requiring an external programmer) or even a shorted X16, in case wrong pins are connected. Proceed at your own risk.
+WARNING: Although this guide explains how to perform the update, there is still a risk of something failing, causing a bricked SMC (requiring an external programmer) or even a shorted X16, in case wrong pins are connected. Proceed at your own risk.
 
-This procedure have only been tested with R47 ROM and VERA. Enter "HELP" and ensure that you have these versions:
-- COMMANDER X16 ROM RELEASE R47
+The procedure has been tested with R47 and R48 Kernal and VERA 47.0.2. Enter "HELP" and ensure that you have these versions:
+- COMMANDER X16 ROM RELEASE R47/R48
 - VERA: V47.0.2
 
-If you have an older version (e.g. R45), start upgrading to R47. See here for a guide: 
+If you have an older version (e.g. R45), start by upgrading to R47 or R48. See here for a guide: 
 - https://www.facebook.com/groups/CommanderX16/posts/1585423168875438/ or 
 - https://x16community.github.io/faq/articles/r47%20update%20guide.html
 
 IMPORTANT: DO NOT DOWNLOAD AND UPDATE SMC FIRMWARE AT THIS STEP!
 
-Once VERA and ROM have been updated to R47, type "HELP" and note the SMC version. You can also poll the bootloader version using "PRINT I2CPEEK($42,$8E)". If it shows "2", you may either have the good or the bad v2 bootloader. You may want to take a picture of the versions you have before you proceed. The bad bootloader seem to at least be present in PR boards between PR00100 and PR00831, with SMC version 45.1.0. From around PR00900, X16s are delivered with 47.0.0, likely with a good bootloader.
+Once VERA has been updated to 47.0.2 and the ROM has been updated to R47/R48, type "HELP" and note the SMC version. You can also poll the bootloader version using "PRINT I2CPEEK($42,$8E)". If it shows "2", you may either have the good or the bad v2 bootloader. You may want to take a picture of the versions you have before you proceed. The bad bootloader seems to at least be present in PR boards between PR00100 and PR00831, with SMC version 45.1.0. From around PR00900, X16s are delivered with 47.0.0, likely with a good bootloader.
 
 
 ### Update procedure
@@ -44,7 +44,7 @@ You should practice this operation before using it during an actual update. Star
 
 SMC reset procedure:
 - Power on the machine
-- Ensure that one end of the wire have good connection to GND, without touching anything else made of metal. Make sure the other end does not touch anything.
+- Ensure that one end of the wire has good connection to GND, without touching anything else made of metal. Make sure the other end does not touch anything.
 - While the first end is connected to GND, let the tip of the other end touch the reset pin of the SMC (bottom left). Make sure it only touches the reset pin and nothing else. This causes the SMC to reset, which also causes the PSU to power off, as if you had used the power button.
 - Disconnect the wire from the reset pin, and disconnect the other end from GND.
 
@@ -64,8 +64,10 @@ Copy "x16-smc.ino.hex" and "SMCUPDATE-2.0.PRG" to SD-card.
 On this page, you can see a video of what to expect on screen during the update: https://github.com/stefan-b-jakobsson/x16-smc-update
 
 Start your X16. Start the update program using the command
-- LOAD "SMCUPDATE-2.0.PRG"
-- RUN
+```
+LOAD "SMCUPDATE-2.0.PRG"
+RUN
+```
 
 Make note of reported bootloader version, it should be 1 or 2. Read the warning and press Y. Enter filename, "x16-smc.ino.hex", without quotes. Follow the on-screen instructions to start programming, using a button combination in the process. Once programming is done, you get a countdown before the X16 will "automatically power off". If the X16 automatically powers off, you have the good v2 bootloader already. If the machine does not power off, you either have bootloader 1, or a bad bootloader 2. If bootloader is version 2 and it does not power off, DO NOT disconnect power. Instead, you have to reset the SMC by connecting a wire from ground to the reset pin, as you have already practiced earlier. If, however, bootloader is reported to be version 1, you can power the machine off with either a wire, or by disconnecting its power.
 
@@ -95,13 +97,13 @@ If this worked, you now have a method of updating your SMC without needing an ex
 
 The first official firmware release after PR boards were shipped out was announced March 30th (r47, https://www.facebook.com/groups/CommanderX16/posts/1585423168875438/ ). Shortly after, many X16 users reported that the SMC stopped working after the update. To make the X16 usable again, they had to pop the SMC and program it with a PC and an external programmer / Arduino. As many users reported to have problems, users were encouraged to NOT update the SMC to avoid bricking it.
 
-There is a small, separate software installed on the SMC called the "Bootloader". This program is responsible for updating the main program of the SMC. Most production versions of X16 is shipped with bootloader version 2. Bootloader version 2 will update all of the SMC program, except the first 64 bytes, which is kept in ram. Once the rest of the program is updated, the SMC restarts (using a hardware watchdog and an infinite loop), in order to reset all hardware. Then it jumps to the bootloader again, to program the first 64 bytes from ram, and then it jumps to the main program. Which will power off the PSU and the machine.
+There is a small, separate software installed on the SMC called the "Bootloader". This program is responsible for updating the main program of the SMC. Most production versions of X16 are shipped with bootloader version 2. Bootloader version 2 will update all of the SMC program, except the first 64 bytes, which is kept in ram. Once the rest of the program is updated, the SMC restarts (using a hardware watchdog and an infinite loop), in order to reset all hardware. Then it jumps to the bootloader again, to program the first 64 bytes from ram, and then it jumps to the main program. Which will power off the PSU and the machine.
 
-Bootloader version 2 is stable and works quite good. However, due to a mistake when preparing the firmware file which was used for initial programming of production boards ("x16-smc-r45.1-bootloader.hex"), an incorrect version of bootloader version 2 was used, for a significant amount of production machines. This incorrect bootloader does not activate the watchdog before the infinite loop. This causes that the machine is stuck in the bootloader, while the PSU is powered on. Ref https://discord.com/channels/547559626024157184/1224366756320247942/1225169489662836908 , many SMCs were loaded with 45.1.0 firmware and the corrupt bootloader. This exact file, with bad bootloader, is confirmed in PR00102, PR00129, PR00147 and PR00831. These boards failed after programming, with the same bad bootloader: PR00100 and PR00638. Ref the thread https://discord.com/channels/547559626024157184/1224366756320247942 .
+Bootloader version 2 is stable and works quite well. However, due to a mistake when preparing the firmware file which was used for initial programming of production boards ("x16-smc-r45.1-bootloader.hex"), an incorrect version of bootloader version 2 was used, for a significant amount of production machines. This incorrect bootloader does not activate the watchdog before the infinite loop. This causes that the machine is stuck in the bootloader, while the PSU is powered on. Ref https://discord.com/channels/547559626024157184/1224366756320247942/1225169489662836908 , many SMCs were loaded with 45.1.0 firmware and the corrupt bootloader. This exact file, with bad bootloader, is confirmed in PR00102, PR00129, PR00147 and PR00831. These boards failed after programming, with the same bad bootloader: PR00100 and PR00638. Ref the thread https://discord.com/channels/547559626024157184/1224366756320247942 .
 
-If the SMC is in this state, and the user attempts to fix the problem by physically disconnecting the power, the SMC will no longer be stuck in the infinite loop. However, when the machine starts up again after restoring power, the SMC will still jump to bootloader, and write the first 64 bytes from ram. However, as the SMC have lost its power in the meantime, the contents of the RAM is gone. Thus, the first 64 bytes of flash will be programmed with 64 random bytes. Which, in all likelyhood, causes the SMC to be bricked, and requires a recovery using an external programmer.
+If the SMC is in this state, and the user attempts to fix the problem by physically disconnecting the power, the SMC will no longer be stuck in the infinite loop. However, when the machine starts up again after restoring power, the SMC will still jump to bootloader, and write the first 64 bytes from ram. However, as the SMC has lost its power in the meantime, the contents of the RAM is gone. Thus, the first 64 bytes of flash will be programmed with 64 random bytes. Which, in all likelyhood, causes the SMC to be bricked, and requires a recovery using an external programmer.
 
-There is another way to reset the SMC, which does not cut the power to the RAM. The SMC have a dedicated reset pin, which is active low. If you give a short low-pulse (GND) to this pin, the SMC will reset, and restart, jump to bootloader, and install the correct 64 bytes.
+There is another way to reset the SMC, which does not cut the power to the RAM. The SMC has a dedicated reset pin, which is active low. If you give a short low-pulse (GND) to this pin, the SMC will reset, and restart, jump to bootloader, and install the correct 64 bytes.
 
 The bootloader will not be updated when using it to update the main program. Thus, you have to fix it somehow, if you want to avoid using a wire every time you want to update. SMC version 47.2.0 and newer contains an interface to read and write bootloader flash.
 
