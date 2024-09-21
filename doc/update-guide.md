@@ -124,6 +124,13 @@ do an in-system update of the bootloader itself.
 Use the [Flash manipulation tools](flash-manipulation.md)
 to do that.
 
+**WARNING:** It is not recommended downgrade the bootloader from
+version 3 to version 2 or 1 using those tools. If you do 
+that the SMC firmware must be updated after the
+bootloader downgrade but before the SMC is reset or
+power cycled. Otherwise, the SMC will become
+non-functional.
+
 
 ## External programmer
 
