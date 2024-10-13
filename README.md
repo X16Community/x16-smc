@@ -26,6 +26,10 @@ If you want to update the SMC firmware, please read this [guide](doc/update-guid
 | 0x07      | Master read       | 1 byte            | Get keyboard keycode          | 
 | 0x08      | Master write      | 1 byte            | Echo                          |
 | 0x09      | Master write      | 1 byte            | Debug output                  |
+| 0x0a      | Master read       | 1 byte            | Get low fuse setting          |
+| 0x0b      | Master read       | 1 byte            | Get lock bits                 |
+| 0x0c      | Master read       | 1 byte            | Get extended fuse setting     |
+| 0x0d      | Master read       | 1 byte            | Get high fuse setting         |
 | 0x18      | Master read       | 1 byte            | Get keyboard command status   |
 | 0x19      | Master write      | 1 byte            | Send keyboard command         |
 | 0x1a      | Master write      | 2 bytes           | Send keyboard command         | 
@@ -78,6 +82,18 @@ codes is available in the Kernal source.
 Key codes are one byte. Bit 7 indicates if the key was pressed (0) or released (1).
 
 This command gets one keycode from the buffer. If the buffer is empty, it returns 0.
+
+## Get fuses and lock bits (0x0a..0x0d)
+
+These offsets returns the fuse settings and lock bits (low-lock-extended-high).
+
+Expected value:
+- Low: $F1
+- Lock: $FF
+- Extended: $FE
+- High: $D4
+
+The reason for this particular order, is size optimization in SMC FW.
 
 ## Get keyboard command status (0x18)
 
