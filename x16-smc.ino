@@ -608,7 +608,7 @@ void I2C_Send() {
         // Bootloader version 1 and 2
         smcWire.write(pgm_read_byte(0x1e01));
       }
-      else if (pgm_read_byte(01x0x1ffe) == 0x8a) {
+      else if (pgm_read_byte(0x1ffe) == 0x8a) {
         // From bootloader version 3
         smcWire.write(pgm_read_byte(0x1fff));
       }
