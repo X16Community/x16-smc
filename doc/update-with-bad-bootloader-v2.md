@@ -73,7 +73,7 @@ Make note of reported bootloader version, it should be 1 or 2. Read the warning 
 
 Push the power button to power on the SMC. Type "HELP" to check if you have updated to the newer version.
 
-If this worked, you now have a method of updating your SMC without needing an external programmer. However, you may want to repair the bootloader, so that you do not have to use a wire every time there is an update. The new SMC version contains an interface which can be used to repair the bootloader. See the [Flash manipulation guide](flash-manipulation.md) for details.
+If this worked, you now have a method of updating your SMC without needing an external programmer. However, you may want to repair the bootloader, so that you do not have to use a wire every time there is an update. The new SMC version contains an interface which can be used to repair the bootloader. See [SMC bootloader tools](smc-bootloader-tools.md) for details.
 
 
 ### Images
@@ -114,3 +114,4 @@ Changelog:
 - Prelim 2: Suggesting to use an updated version of SMCUPDATE.PRG, with some usage instructions. Recommending version 47.2.2 or later. Minor improvements to readme. Updated smc-flash-manipulation subfolder with version recommendation.
 - Version 1: Referring to SMC release 47.2.3, SMCUPDATE version 2, and highlighting that the procedure have only been tested with ROM and VERA release R47. July 13th
 - Version 2: Converted to Markdown format, minor simplifications and updates
+- Version 3: Update link to SMC bootloader tools
