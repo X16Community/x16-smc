@@ -6,7 +6,7 @@ Author: Eirik Stople
 1. [Introduction](#introduction)
 2. [Requirements](#requirements)
 3. [Prepare files](#prepare-files)
-4. [BootLoader Dumper (SMCBLD7.PRG)](#bootloader-dumper-smcbld7prg)
+4. [BootLoader Dumper (SMCBLD8.PRG)](#bootloader-dumper-smcbld8prg)
 5. [BootLoader Writer (SMCBLW19.PRG)](#bootloader-writer-smcblw19prg)
 6. [Appendix: Tools overview, more details](#appendix-tools-overview-more-details)
 7. [Appendix: Bootloader version history](#appendix-bootloader-version-history)
@@ -17,9 +17,9 @@ Author: Eirik Stople
 ## Introduction
 
 The programs found in the [tools](../tools) folder allows X16 to read and write to SMC flash, including the bootloader area. There are 3 tools and 3 use cases:
-- Read bootloader and compare against known versions (SMCBLD7.PRG) ("BootLoader Dump")
+- Read bootloader and compare against known versions (SMCBLD8.PRG) ("BootLoader Dump")
 - Replace the bootloader (SMCBLW19.PRG) ("BootLoader Write")
-- Dump the entire SMC flash (SMCDMP8.PRG)
+- Dump the entire SMC flash (SMCDMP9.PRG)
 
 
 ## Requirements
@@ -34,17 +34,17 @@ The programs found in the [tools](../tools) folder allows X16 to read and write 
 
 
 ## Prepare files
-- Download the files BOOT3.BIN, SMCBLD7.PRG and SMCBLW19.PRG from the tools folder https://github.com/X16Community/x16-smc
+- Download the files BOOT3.BIN, SMCBLD8.PRG and SMCBLW19.PRG from the tools folder https://github.com/X16Community/x16-smc
 - Copy the files to the SD card, e.g. inside UPDATE/SMCTOOLS
 - If you have older versions of the bootloader tools on the SD card (e.g. SMCBLW16.PRG), these should be deleted, as these introduces a risk of bricking the SMC if you currently have the v3 bootloader.
 
-## BootLoader Dumper (SMCBLD7.PRG)
+## BootLoader Dumper (SMCBLD8.PRG)
 
-Examine your current bootloader using SMCBLD7.PRG.
+Examine your current bootloader using SMCBLD8.PRG.
 
 ```
 @CD:/UPDATE/SMCTOOLS
-LOAD "SMCBLD7.PRG"
+LOAD "SMCBLD8.PRG"
 RUN
 ```
 - This will dump the bootloader section of flash ($1E00-$1FFF) to screen and to RAM ($7E00-$7FFF).
@@ -88,24 +88,24 @@ RUN
 
 - If mismatch, user can try again. If OK, programming have succeeded.
 
-- After programming, examine your current bootloader, using SMCBLD7.PRG
+- After programming, examine your current bootloader, using SMCBLD8.PRG
 	```
 	@CD:/UPDATE/SMCTOOLS
-	LOAD "SMCBLD7.PRG"
+	LOAD "SMCBLD8.PRG"
 	RUN
 	```
 
    This performs an independent validation that you have installed the correct bootloader version.
 
 - Boot v3 failsafe
-	- After installing bootloader v3 for the first time, the tool SMCBLD7.PRG will report that Boot v3 failsafe is not installed. This gets installed automatically after you use bootloader v3 to perform an SMC update, e.g. by installing the current SMC firmware version again (47.2.3 or newer).
+	- After installing bootloader v3 for the first time, the tool SMCBLD8.PRG will report that Boot v3 failsafe is not installed. This gets installed automatically after you use bootloader v3 to perform an SMC update, e.g. by installing the current SMC firmware version again (47.2.3 or newer).
 
 
 ## Appendix: Tools overview, more details
 
 Note: These tools are written in Basic
 
-SMCBLD7.PRG -> Bootloader dump
+SMCBLD8.PRG -> Bootloader dump
 - This will dump only the bootloader section ($1E00-$1FFF) to screen and to RAM ($7E00-$7FFF).
 - It will also evaluate the CRC-16, and compare it with CRC-16 for known bootloader versions.
 - It will also evaluste if BOOT V3 FAILSAFE is installed, and warn against downgrading bootloader if so.
@@ -115,9 +115,9 @@ SMCBLW19.PRG -> Bootloader programming
 - This tool will overwrite the bootloader section of flash ($1E00-$1FFF) with the contents of the specified .BIN file.
 - NB: After programming, it is recommended to run SMCBLD7.PRG again, to independently validate bootloader version.
 
-SMCDMP8.PRG -> Dump entire flash
+SMCDMP9.PRG -> Dump entire flash
 - This will dump the SMC flash to screen as a hex dump, and store it to RAM at address $6000-$7FFF.
-- You can store this to SD card using BSAVE "DUMPSMC.BIN",8,1,$6000,$7FFF
+- You can store this to SD card using BSAVE "DUMPSMC.BIN",8,1,$6000,$8000
 
 
 ## Appendix: Bootloader version history
@@ -187,3 +187,4 @@ New I2C commands to SMC application, added in SMC version 47.2.3:
 - Version 6 (inside git repo): Markdown formatting, bootloader 3 support, some simplifactions
 - Version 6 (zip): Add info about bootloader v3, new version of tools, and explain why bootloader should not be downgraded after v3 have been installed
 - Version 7 (inside git repo): Port the changes from v6 zip into the version inside git repo, and restructure the document
+- Version 8 (inside git repo): Fix the BSAVE commands inside SMCBLD/SMCDMP tools to include the last byte, and bump versions
