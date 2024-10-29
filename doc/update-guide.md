@@ -121,7 +121,7 @@ again and delete AUTOBOOT.X16.
 Since SMC firmware version 47.2.0 it is possible to
 do an in-system update of the bootloader itself.
 
-Use the [Flash manipulation tools](flash-manipulation.md)
+Use the [SMC bootloader tools](smc-bootloader-tools.md)
 to do that.
 
 **WARNING:** It is not recommended downgrade the bootloader from
