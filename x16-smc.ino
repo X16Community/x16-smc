@@ -605,7 +605,12 @@ void I2C_Send() {
 
     case I2C_CMD_GET_BOOTLDR_VER:
       if (pgm_read_byte(0x1e00) == 0x8a) {
+        // Bootloader version 1 and 2
         smcWire.write(pgm_read_byte(0x1e01));
+      }
+      else if (pgm_read_byte(0x1ffe) == 0x8a) {
+        // From bootloader version 3
+        smcWire.write(pgm_read_byte(0x1fff));
       }
       else {
         smcWire.write(0xff);
