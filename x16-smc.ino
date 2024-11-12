@@ -75,6 +75,7 @@
 #define I2C_CMD_GET_KBD_STATUS        0x18
 #define I2C_CMD_KBD_CMD1              0x19
 #define I2C_CMD_KBD_CMD2              0x1a
+#define I2C_CMD_KBD_INIT_STATE        0x1b
 #define I2C_CMD_SET_MOUSE_ID          0x20
 #define I2C_CMD_GET_MOUSE_MOV         0x21
 #define I2C_CMD_GET_MOUSE_ID          0x22
@@ -585,6 +586,10 @@ void I2C_Send() {
 
     case I2C_CMD_GET_KBD_STATUS:
       smcWire.write(Keyboard.getCommandStatus());
+      break;
+
+    case I2C_CMD_KBD_INIT_STATE:
+      smcWire.write(getKeyboardState());
       break;
 
     case I2C_CMD_GET_MOUSE_ID:

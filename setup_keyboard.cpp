@@ -1,5 +1,3 @@
-#pragma once
-
 #include "ps2.h"
 #include "smc_pins.h"
 #include "setup_ps2.h"
@@ -7,13 +5,6 @@
 /*
     State Machine
 */
-
-// Setup
-#define KBD_STATE_OFF                   0x00
-#define KBD_STATE_BAT                   0x01
-#define KBD_STATE_SET_LEDS              0x02
-#define KBD_STATE_SET_LEDS_ACK          0x03
-#define KBD_STATE_READY                 0x04
 
 // Reset
 #define KBD_STATE_RESET                 0x10
@@ -124,6 +115,6 @@ void keyboardReset() {
   kbd_init_state = KBD_STATE_RESET;
 }
 
-bool keyboardIsReady() {
-  return kbd_init_state == KBD_STATE_READY;
+uint8_t getKeyboardState() {
+  return kbd_init_state;
 }
