@@ -33,7 +33,7 @@ If you want to update the SMC firmware, please read this [guide](doc/update-guid
 | 0x18      | Master read       | 1 byte            | Get keyboard command status   |
 | 0x19      | Master write      | 1 byte            | Send keyboard command         |
 | 0x1a      | Master write      | 2 bytes           | Send keyboard command         | 
-| 0x1b      | Master read       | 1 byte            | Get keyboard init state       | 
+| 0x1b      | Master read       | 1 byte            | Get keyboard ready state      | 
 | 0x20      | Master write      | 1 byte            | Set requested mouse device ID |
 | 0x21      | Master read       | 1, 3 or 4 bytes   | Get mouse movement            |
 | 0x22      | Master read       | 1 byte            | Get mouse device ID           |
@@ -119,17 +119,12 @@ I2CPOKE $42,$19,$f5
 
 Offset 0x1a sends a command that expects a command number and one data byte. This can't be done with the I2CPOKE command.
 
-## Get keyboard init state (0x1b)
+## Keyboard ready state (0x1b)
 
-Returns keyboard init state, which can be any of the following:
+Returns keyboard ready state.
 
-- 0x00 = keyboard off, or not connected
-- 0x01 = Basic Assurance Test (BAT) succeded
-- 0x02 = set LEDs command sent
-- 0x03 = set LEDs command ACKed
-- 0x04 = keyboard ready
-
-During normal operation, the keyboard init state is 0x04 (ready).
+The return value 0x01 indicates that the keyboard is ready. Any other value means that the keyboard is not yet initialized.
+The exact meaning of other return values than 0x01 is subject to change.
 
 ## Set requested mouse device ID (0x20)
 
