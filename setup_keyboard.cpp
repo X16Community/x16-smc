@@ -3,14 +3,6 @@
 #include "setup_ps2.h"
 
 /*
-    State Machine
-*/
-
-// Reset
-#define KBD_STATE_RESET                 0x10
-#define KBD_STATE_RESET_ACK             0x11
-
-/*
     Watchdog
 */
 #define WATCHDOG_ARM                    255
