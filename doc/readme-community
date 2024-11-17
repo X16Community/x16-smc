@@ -1,0 +1,61 @@
+IMPORTANT INFORMATION - PLEASE READ BEFORE INSTALLING
+-----------------------------------------------------
+
+1. Target board for this firmware
+
+    This firmware is especially made for the 
+    CommunityX16 board designed by Joe Burks 
+    (a.k.a. Wavicle).
+
+    It is not recommended to use the firmware with
+    ANY other board. Doing so may break your system, 
+    requiring the SMC to be programmed with an external 
+    programmer.
+    
+    This firmware will ABSOLUTELY not work with the 
+    official Commander X16 board that is sold through 
+    texelec.com, nor with Joe Burk's OtterX board.
+
+2.  The SMCUPDATE-x.x.x.PRG file
+
+    This is an update program that runs on the
+    X16. The SMC firmware is embedded into the
+    file. Just run it and follow the on-screen
+    instructions.
+
+    This is the recommended tool for updating the 
+    SMC firmware.
+
+3.  The SMC-x.x.x.BIN file
+
+    This file contains the firmware in binary format. A header
+    is embedded in the file before the actual firmware,
+    needed if you program the SMC with this tool:
+
+    https://github.com/FlightControl-User/x16-flash
+
+    Please note that the file can't be used to program
+    the SMC with an external programmer due to 
+    the header.
+
+4.  The firmware_with_bootloader.hex file
+
+    This file contains the firmware and a bootloader
+    that makes it possible to update the SMC from the
+    X16.
+
+    The bootloader source code is available here:
+
+    https://github.com/X16Community/x16-smc-bootloader
+
+    This file can be used to program the SMC with
+    an external programmer.
+
+5. The x16-smc.ino.hex file
+
+    This file contains the firmare in Intel HEX format.
+    
+    This file can be used to program the SMC with
+    an external programmer.
+    
+    Please note that it does not contain a bootloader.

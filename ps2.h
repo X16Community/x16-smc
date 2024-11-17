@@ -1,4 +1,5 @@
 #pragma once
+
 #include <Arduino.h>
 #include "setup_ps2.h"
 #include "optimized_gpio.h"
@@ -477,7 +478,7 @@ class PS2KeyboardPort : public PS2Port<clkPin, datPin, size>
     */
     void processByteReceived(uint8_t value) {
       // Handle BAT success (0xaa) or fail (0xfc) code
-      if (!keyboardIsReady() && (value == 0xaa || value == 0xfc)) {
+      if (getKeyboardState() != KBD_STATE_READY && (value == 0xaa || value == 0xfc)) {
         bat = value;
         return;
       }

@@ -4,6 +4,7 @@
 //     Michael Steil
 //     Joe Burks
 //     Stefan Jakobsson
+//     Eirik Stople
 
 // ----------------------------------------------------------------
 // Build Options
@@ -67,9 +68,14 @@
 #define I2C_CMD_ECHO                  0x08
 #define I2C_CMD_DBG_OUT               0x09
 #define I2C_CMD_GET_LONGPRESS         0x09
+#define I2C_CMD_GET_FUSE_LOW          0x0a
+#define I2C_CMD_GET_FUSE_LOCK         0x0b
+#define I2C_CMD_GET_FUSE_EXT          0x0c
+#define I2C_CMD_GET_FUSE_HIGH         0x0d
 #define I2C_CMD_GET_KBD_STATUS        0x18
 #define I2C_CMD_KBD_CMD1              0x19
 #define I2C_CMD_KBD_CMD2              0x1a
+#define I2C_CMD_KBD_INIT_STATE        0x1b
 #define I2C_CMD_SET_MOUSE_ID          0x20
 #define I2C_CMD_GET_MOUSE_MOV         0x21
 #define I2C_CMD_GET_MOUSE_ID          0x22
@@ -531,8 +537,21 @@ void I2C_Receive(int) {
   I2C_Data[0] = defaultRequest;
 }
 
+// readFuse:
+// Function must be called with interrupts disabled.
+// 0: Low
+// 1: Lock
+// 2: Extended
+// 3: High
+uint8_t readFuse(uint8_t address)
+{
+  eeprom_busy_wait();
+  return boot_lock_fuse_bits_get(address);
+}
+
 void I2C_Send() { 
-  switch (I2C_Data[0]) {
+  uint8_t request = I2C_Data[0];
+  switch (request) {
     case I2C_CMD_GET_KEYCODE_FAST:
       if (!sendKeyCode()) smcWire.clearBuffer();
       break;
@@ -569,6 +588,10 @@ void I2C_Send() {
       smcWire.write(Keyboard.getCommandStatus());
       break;
 
+    case I2C_CMD_KBD_INIT_STATE:
+      smcWire.write(getKeyboardState());
+      break;
+
     case I2C_CMD_GET_MOUSE_ID:
       smcWire.write(getMouseId());
       break;
@@ -587,7 +610,12 @@ void I2C_Send() {
 
     case I2C_CMD_GET_BOOTLDR_VER:
       if (pgm_read_byte(0x1e00) == 0x8a) {
+        // Bootloader version 1 and 2
         smcWire.write(pgm_read_byte(0x1e01));
+      }
+      else if (pgm_read_byte(0x1ffe) == 0x8a) {
+        // From bootloader version 3
+        smcWire.write(pgm_read_byte(0x1fff));
       }
       else {
         smcWire.write(0xff);
@@ -600,6 +628,14 @@ void I2C_Send() {
 
     case I2C_CMD_SELF_PROGRAMMING_MODE: // Check if self programming mode is activated
       smcWire.write(selfProgrammingModeActive);
+      break;
+
+    case I2C_CMD_GET_FUSE_LOW:
+    case I2C_CMD_GET_FUSE_LOCK:
+    case I2C_CMD_GET_FUSE_EXT:
+    case I2C_CMD_GET_FUSE_HIGH: // Read fuses
+      // Size optimization: Assume that numeric values of these commands are in this order, to fit with hardware
+      smcWire.write(readFuse(request - I2C_CMD_GET_FUSE_LOW));
       break;
   }
   

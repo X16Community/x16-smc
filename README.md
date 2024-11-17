@@ -10,6 +10,10 @@ The SMC is responsible for
 - Interfacing a PS/2 keyboard
 - Interfacing a PS/2 mouse
 
+# Updating the SMC firmware
+
+If you want to update the SMC firmware, please read this [guide](doc/update-guide.md).
+
 # I2C API
 
 ## Table of commands
@@ -22,9 +26,14 @@ The SMC is responsible for
 | 0x07      | Master read       | 1 byte            | Get keyboard keycode          | 
 | 0x08      | Master write      | 1 byte            | Echo                          |
 | 0x09      | Master write      | 1 byte            | Debug output                  |
+| 0x0a      | Master read       | 1 byte            | Get low fuse setting          |
+| 0x0b      | Master read       | 1 byte            | Get lock bits                 |
+| 0x0c      | Master read       | 1 byte            | Get extended fuse setting     |
+| 0x0d      | Master read       | 1 byte            | Get high fuse setting         |
 | 0x18      | Master read       | 1 byte            | Get keyboard command status   |
 | 0x19      | Master write      | 1 byte            | Send keyboard command         |
 | 0x1a      | Master write      | 2 bytes           | Send keyboard command         | 
+| 0x1b      | Master read       | 1 byte            | Get keyboard ready state      | 
 | 0x20      | Master write      | 1 byte            | Set requested mouse device ID |
 | 0x21      | Master read       | 1, 3 or 4 bytes   | Get mouse movement            |
 | 0x22      | Master read       | 1 byte            | Get mouse device ID           |
@@ -75,6 +84,18 @@ Key codes are one byte. Bit 7 indicates if the key was pressed (0) or released (
 
 This command gets one keycode from the buffer. If the buffer is empty, it returns 0.
 
+## Get fuses and lock bits (0x0a..0x0d)
+
+These offsets returns the fuse settings and lock bits (low-lock-extended-high).
+
+Expected value:
+- Low: $F1
+- Lock: $FF
+- Extended: $FE
+- High: $D4
+
+The reason for this particular order, is size optimization in SMC FW.
+
 ## Get keyboard command status (0x18)
 
 This offset returns the status of the last host to keyboard command.
@@ -97,6 +118,13 @@ I2CPOKE $42,$19,$f5
 ```
 
 Offset 0x1a sends a command that expects a command number and one data byte. This can't be done with the I2CPOKE command.
+
+## Keyboard ready state (0x1b)
+
+Returns keyboard ready state.
+
+The return value 0x01 indicates that the keyboard is ready. Any other value means that the keyboard is not yet initialized.
+The exact meaning of other return values than 0x01 is subject to change.
 
 ## Set requested mouse device ID (0x20)
 
@@ -182,6 +210,93 @@ to actually  start. This is a safety measure, so that you don't
 start the bootloader by mistake. Doing so will leave the SMC inoperable if the
 update process is not carried through.
 
+## Set flash page (0x90)
+
+This command sets the target address for reading and writing
+the content of the flash memory with command offsets 0x91 and 0x92.
+
+The address is specified as the page index. A page is 64 bytes, and
+consequently the target address is the specified index multiplied by 64.
+
+There are a total of 128 pages. The first 120 pages represent the firmware
+area, and the last 8 pages hold the bootloader.
+
+Example that sets the target address to 0:
+
+```
+I2CPOKE $42,$90,$00
+```
+
+## Read flash (0x91)
+
+Reads one byte from flash memory at the target address specified
+with command offset 0x90. 
+
+The target address is incremented after the operation.
+
+Example that reads the value of flash memory address 0 and 1:
+
+```
+10 I2CPOKE $42,$90,$00
+20 PRINT I2CPEEK($42,$91)
+30 PRINT I2CPEEK($42,$91)
+```
+
+## Write flash (0x92)
+
+Writes one byte to flash memory at the target address
+specified with command offset 0x90. It is only possible to
+update the bootloader section of the flash memory (0x1E00-0x1FFF).
+
+Flash memory is programmed one page (64 bytes) at a time. Bytes
+sent with this command are stored in a temporary buffer until
+a page is filled. When a page is filled, the temporary buffer
+is automatically written to flash memory.
+
+The target address is incremented after the operation.
+
+In order to use this command, you first need to activate
+flash write mode with command offset 0x93.
+
+Example that writes the values 0 to 63 to start of bootloader
+section (0x1E00). The example assumes that the SMC is already
+in flash write mode. Please note that this program will
+destroy the bootloader.
+
+```
+10 REM THIS PROGRAM DESTROYS THE BOOTLOADER
+20 REM RUN ONLY IF YOU HAVE AN EXTERNAL PROGRAMMER 
+30 I2CPOKE $42,$90,$78
+40 FOR I=0 TO 63
+50 I2CPOKE $42,$92,I
+60 NEXT I
+```
+
+## Flash write mode (0x93)
+
+This command supports both reading and writing.
+
+Write the value 0x01 to this command offset to
+request flash write mode. A 20 second countdown is started. 
+Within that time, the user must momentarily press and release 
+the Power and Reset buttons at the same time. The flash write mode
+is enabled after the buttons have been pressed.
+
+Reading from this command offset returns the current
+flash write mode status (0x00 = not enabled, 0x01 = enabled).
+
+Example that requests that flash write mode, and
+then reads the status 20 times. The return value is 0 until
+the Power and Reset buttons have been pressed as described
+above.
+
+```
+10 I2CPOKE $42,$93,$01
+20 FOR X=1 TO 20
+30 FOR I=0 TO 2000:NEXT I
+40 PRINT I2CPEEK($42,$93)
+50 NEXT X
+```
 
 # Build artifacts
 
