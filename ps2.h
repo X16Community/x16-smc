@@ -299,29 +299,30 @@ class PS2Port
        a PS/2 device
     */
     void timerInterrupt() {
-      if (timerCountdown == PS2_CMD_TIMER::CMD_INACTIVE) {
-        //Do nothing
-        return;
-      }
+      switch (timerCountdown) {
+        case PS2_CMD_TIMER::CMD_INACTIVE:
+          // Do nothing
+          return;
 
-      if (timerCountdown == PS2_CMD_TIMER::CMD_TIMEOUT) {
-        // Host to device time out (25,200 us)
-        resetInput();
-        commandStatus = CMD_ERR;
-      }
+        case PS2_CMD_TIMER::CMD_TIMEOUT:
+          // Host to device time out
+          resetInput();
+          commandStatus = CMD_ERR;
+          break;
 
-      else if (timerCountdown == PS2_CMD_TIMER::CMD_START) {
-        //Initiate request-to-send sequence
-        gpio_driveLow(clkPin);
-        gpio_driveLow(datPin);
-        ps2ddr = 1;
-      }
-
-      else if (timerCountdown == PS2_CMD_TIMER::CMD_DEVICE_READY) {
-        //We are at end of the request-to-send clock hold time of minimum 100 us
-        gpio_inputWithPullup(clkPin);
-        rxBitCount = 0;
-        parity = 0;
+        case PS2_CMD_TIMER::CMD_START:
+          // Initiate request-to-send sequence
+          gpio_driveLow(clkPin);
+          gpio_driveLow(datPin);
+          ps2ddr = 1;
+          break;
+        
+        case PS2_CMD_TIMER::CMD_DEVICE_READY:
+          // We are at end of the request-to-send clock hold time of minimum 100 us
+          gpio_inputWithPullup(clkPin);
+          rxBitCount = 0;
+          parity = 0;
+          break;
       }
 
       // Decrement counter
