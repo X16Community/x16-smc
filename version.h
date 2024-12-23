@@ -1,3 +1,3 @@
-#define version_major 47
-#define version_minor 2
-#define version_patch 5
+#define version_major 48
+#define version_minor 0
+#define version_patch 0

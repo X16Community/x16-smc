@@ -8,7 +8,7 @@ import os
 from intelhex import IntelHex
 
 # Table of compatible Kernal versions (negative value is pre-release)
-kernal_versions = {-44, -45, 45, -46}
+kernal_versions = {-44, -45, 45, -46, 46, -47, 47, -48, 48}
 
 # Path to firmware hex file
 firmware_hex = sys.argv[1]
