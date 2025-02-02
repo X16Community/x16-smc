@@ -34,7 +34,19 @@
 #include <avr/boot.h>
 #include <util/delay.h>
 
+// The build system is set up for ATtiny861. However, the chip used by x16 is *861A.
+// These chips are logically identical. Almost. Causing that there are no big issue
+// building the code for *861.
+// One tiny difference is that the newer *861a have the ability to disable brownout
+// peripheral during sleep mode, to reduce power consumption.
+// This is done using BODS and BODSE bits in MCUCR.
+// 861 .h does not have BODS and BODSE bits implemented, as 861a .h have.
+// HACK: Manually define these bits, copied from 861a.h
+// These are required to enable sleep_bod_disable().
+#define BODSE 2
+#define BODS 7
 #include <avr/sleep.h>
+
 // ----------------------------------------------------------------
 // Definitions
 // ----------------------------------------------------------------
