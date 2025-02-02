@@ -34,6 +34,19 @@
 #include <avr/boot.h>
 #include <util/delay.h>
 
+// The build system is set up for ATtiny861. However, the chip used by x16 is *861A.
+// These chips are logically identical. Almost. Causing that there are no big issue
+// building the code for *861.
+// One tiny difference is that the newer *861a have the ability to disable brownout
+// peripheral during sleep mode, to reduce power consumption.
+// This is done using BODS and BODSE bits in MCUCR.
+// 861 .h does not have BODS and BODSE bits implemented, as 861a .h have.
+// HACK: Manually define these bits, copied from 861a.h
+// These are required to enable sleep_bod_disable().
+#define BODSE 2
+#define BODS 7
+#include <avr/sleep.h>
+
 // ----------------------------------------------------------------
 // Definitions
 // ----------------------------------------------------------------
@@ -86,6 +99,7 @@
 #define I2C_CMD_GET_KEYCODE_FAST      0x41
 #define I2C_CMD_GET_MOUSE_MOV_FAST    0x42
 #define I2C_CMD_GET_PS2DATA_FAST      0x43
+#define I2C_CMD_HALT                  0x44
 #define I2C_CMD_GET_BOOTLDR_VER       0x8e
 #define I2C_CMD_BOOTLDR_START         0x8f
 #define I2C_CMD_SET_FLASH_PAGE        0x90
@@ -357,12 +371,13 @@ void PowerOnSeq() {
   Mouse.reset();                              // Reset and activate pullup
   unsigned long TimeDelta = 0;
   unsigned long StartTime = millis();         // get current time
-  while (!digitalRead_opt(PWR_OK)) {          // Time how long it takes
-    TimeDelta = millis() - StartTime;       // for PWR_OK to go active.
+  while (!digitalRead_opt(PWR_OK) && (TimeDelta <= PWR_ON_MAX_MS)) { // Time how long it takes
+    TimeDelta = millis() - StartTime;                                // for PWR_OK to go active.
   }
   
   if ((PWR_ON_MIN_MS > TimeDelta) || (PWR_ON_MAX_MS < TimeDelta)) {
     PowerOffSeq();                          // FAULT! Turn off supply
+    halt(2);
     // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
   }
   else {
@@ -371,6 +386,44 @@ void PowerOnSeq() {
     SYSTEM_POWERED = 1;                     // Global Power state On
   }
   deassertReset();
+}
+
+__attribute__((noreturn)) void stopAndHalt(uint8_t errorcode)
+{
+  PowerOffSeq();
+  halt(errorcode);
+}
+
+void blink(uint8_t errorcode)
+{
+  for (uint8_t j = 0; j < errorcode; ++j)
+  {
+    // 2 blinks pr second
+    digitalWrite_opt(ACT_LED, ACT_LED_ON);
+    _delay_ms(100);
+    digitalWrite_opt(ACT_LED, ACT_LED_OFF);
+    _delay_ms(400);
+  }
+}
+
+__attribute__((noreturn)) void halt(uint8_t errorcode)
+{
+  // Communicates an error code via LED (3 rounds of N blinks), then, enters low power mode.
+  // This function will not actively modify the state of other GPIOs, e.g. PWR_ON.
+
+  for (uint8_t i = 0; i < 3; ++i)
+  {
+    blink(errorcode);
+    _delay_ms(2000);
+  }
+
+  cli();
+  PRR = 0x0F; // Disable power to peripherals (tim1, tim0, usi, adc)
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_enable();
+  sleep_bod_disable();
+  sleep_cpu(); // this should power off the SMC, requiring a power-cycle
+  for (;;) {} // infinite loop, just in case...
 }
 
 void HardReboot() {
@@ -470,6 +523,10 @@ void I2C_Receive(int) {
 
     case I2C_CMD_SET_DFLT_READ_OP:
       defaultRequest = I2C_Data[1];
+      break;
+
+    case I2C_CMD_HALT:
+      stopAndHalt(I2C_Data[1]);
       break;
 
     case I2C_CMD_BOOTLDR_START:
