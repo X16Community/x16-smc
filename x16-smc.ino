@@ -34,6 +34,7 @@
 #include <avr/boot.h>
 #include <util/delay.h>
 
+#include <avr/sleep.h>
 // ----------------------------------------------------------------
 // Definitions
 // ----------------------------------------------------------------
@@ -405,7 +406,12 @@ __attribute__((noreturn)) void halt(uint8_t errorcode)
   }
 
   cli();
-  for (;;) {} // infinite loop. TODO: Replace with low power mode?
+  PRR = 0x0F; // Disable power to peripherals (tim1, tim0, usi, adc)
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_enable();
+  sleep_bod_disable();
+  sleep_cpu(); // this should power off the SMC, requiring a power-cycle
+  for (;;) {} // infinite loop, just in case...
 }
 
 void HardReboot() {
