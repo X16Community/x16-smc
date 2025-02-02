@@ -86,6 +86,7 @@
 #define I2C_CMD_GET_KEYCODE_FAST      0x41
 #define I2C_CMD_GET_MOUSE_MOV_FAST    0x42
 #define I2C_CMD_GET_PS2DATA_FAST      0x43
+#define I2C_CMD_HALT                  0x44
 #define I2C_CMD_GET_BOOTLDR_VER       0x8e
 #define I2C_CMD_BOOTLDR_START         0x8f
 #define I2C_CMD_SET_FLASH_PAGE        0x90
@@ -373,6 +374,39 @@ void PowerOnSeq() {
   deassertReset();
 }
 
+__attribute__((noreturn)) void stopAndHalt(uint8_t errorcode)
+{
+  PowerOffSeq();
+  halt(errorcode);
+}
+
+void blink(uint8_t errorcode)
+{
+  for (uint8_t j = 0; j < errorcode; ++j)
+  {
+    // 2 blinks pr second
+    digitalWrite_opt(ACT_LED, ACT_LED_ON);
+    _delay_ms(100);
+    digitalWrite_opt(ACT_LED, ACT_LED_OFF);
+    _delay_ms(400);
+  }
+}
+
+__attribute__((noreturn)) void halt(uint8_t errorcode)
+{
+  // Communicates an error code via LED (3 rounds of N blinks), then, enters low power mode.
+  // This function will not actively modify the state of other GPIOs, e.g. PWR_ON.
+
+  for (uint8_t i = 0; i < 3; ++i)
+  {
+    blink(errorcode);
+    _delay_ms(2000);
+  }
+
+  cli();
+  for (;;) {} // infinite loop. TODO: Replace with low power mode?
+}
+
 void HardReboot() {
   PowerOffSeq();
   _delay_ms(1000);
@@ -470,6 +504,10 @@ void I2C_Receive(int) {
 
     case I2C_CMD_SET_DFLT_READ_OP:
       defaultRequest = I2C_Data[1];
+      break;
+
+    case I2C_CMD_HALT:
+      stopAndHalt(I2C_Data[1]);
       break;
 
     case I2C_CMD_BOOTLDR_START:
