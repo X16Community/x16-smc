@@ -358,8 +358,8 @@ void PowerOnSeq() {
   Mouse.reset();                              // Reset and activate pullup
   unsigned long TimeDelta = 0;
   unsigned long StartTime = millis();         // get current time
-  while (!digitalRead_opt(PWR_OK)) {          // Time how long it takes
-    TimeDelta = millis() - StartTime;       // for PWR_OK to go active.
+  while (!digitalRead_opt(PWR_OK) && (TimeDelta <= PWR_ON_MAX_MS)) { // Time how long it takes
+    TimeDelta = millis() - StartTime;                                // for PWR_OK to go active.
   }
   
   if ((PWR_ON_MIN_MS > TimeDelta) || (PWR_ON_MAX_MS < TimeDelta)) {
