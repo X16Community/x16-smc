@@ -283,6 +283,13 @@ void initializeButtonCombination(BUTTON_COMBINATION_ACTION action)
   buttonCombinationFlags = 0;
 }
 
+void resetPs2() {
+    Keyboard.reset();
+    Mouse.reset();
+    mouseReset();
+    keyboardReset();
+}
+
 // ----------------------------------------------------------------
 // Power, NMI and Reset
 // ----------------------------------------------------------------
@@ -321,10 +328,7 @@ void DoReset() {
     deassertReset();
     digitalWrite_opt(ACT_LED, ACT_LED_OFF);
     
-    Keyboard.flush();
-    Mouse.reset();
-    mouseReset();
-    keyboardReset();
+    resetPs2();
 
     defaultRequest = I2C_CMD_GET_KEYCODE_FAST;
   }
@@ -353,8 +357,7 @@ void PowerOffSeq() {
 void PowerOnSeq() {
   assertReset();
   digitalWrite_opt(PWR_ON, LOW);              // turn on power supply
-  Keyboard.reset();                           // Reset and activate pullup
-  Mouse.reset();                              // Reset and activate pullup
+  resetPs2();
   unsigned long TimeDelta = 0;
   unsigned long StartTime = millis();         // get current time
   while (!digitalRead_opt(PWR_OK)) {          // Time how long it takes
