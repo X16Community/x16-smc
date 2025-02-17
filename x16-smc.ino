@@ -34,6 +34,19 @@
 #include <avr/boot.h>
 #include <util/delay.h>
 
+// The build system is set up for ATtiny861. However, the chip used by x16 is *861A.
+// These chips are logically identical. Almost. Causing that there are no big issue
+// building the code for *861.
+// One tiny difference is that the newer *861a have the ability to disable brownout
+// peripheral during sleep mode, to reduce power consumption.
+// This is done using BODS and BODSE bits in MCUCR.
+// 861 .h does not have BODS and BODSE bits implemented, as 861a .h have.
+// HACK: Manually define these bits, copied from 861a.h
+// These are required to enable sleep_bod_disable().
+#define BODSE 2
+#define BODS 7
+#include <avr/sleep.h>
+
 // ----------------------------------------------------------------
 // Definitions
 // ----------------------------------------------------------------
@@ -114,6 +127,7 @@ volatile bool powerOffRequest = false;
 volatile bool hardRebootRequest = false;
 volatile bool resetRequest = false;
 volatile bool NMIRequest = false;
+volatile bool powerSaveRequest = false;
 uint8_t LONGPRESS_START = 0;	// Used to let CPU know NMI has come with pwr on
 
 // I2C
@@ -213,6 +227,9 @@ void setup() {
   // PS/2 host init
   Keyboard.begin(keyboardClockIrq);
   Mouse.begin(mouseClockIrq);
+
+  // Start in power save mode
+  powerSaveRequest = true;
 }
 
 // ----------------------------------------------------------------
@@ -222,6 +239,7 @@ void loop() {
   // Shutdown on PSU Fault Condition
   if ((SYSTEM_POWERED == 1) && (!digitalRead_opt(PWR_OK))) {
     PowerOffSeq();
+    powerSaveRequest = true;
   }
   
   // Update Button State
@@ -238,7 +256,7 @@ void loop() {
   // Process Requests Received over I2C
   if (powerOffRequest) {
     powerOffRequest = false;
-    PowerOffSeq();
+    powerSaveRequest = true;
   }
 
   if (hardRebootRequest) {
@@ -254,6 +272,14 @@ void loop() {
   if (NMIRequest) {
     NMIRequest = false;
     DoNMI();
+  }
+
+  if (powerSaveRequest) {
+    powerSaveRequest = false;
+    if (SYSTEM_POWERED == 1) {
+      PowerOffSeq();
+    }
+    powerSaveMode(); // This function will hang
   }
 
   // Process Keyboard Initiated Reset and NMI Requests
@@ -304,7 +330,7 @@ void DoPowerToggle() {
     PowerOnSeq();
   }
   else {                                      // If On, turn off
-    PowerOffSeq();
+    powerSaveRequest = true;
   }
 }
 
@@ -366,6 +392,7 @@ void PowerOnSeq() {
   
   if ((PWR_ON_MIN_MS > TimeDelta) || (PWR_ON_MAX_MS < TimeDelta)) {
     PowerOffSeq();                          // FAULT! Turn off supply
+    powerSaveRequest = true;
     // insert error handler, flash activity light & Halt?   IE, require hard power off before continue?
   }
   else {
@@ -374,6 +401,64 @@ void PowerOnSeq() {
     SYSTEM_POWERED = 1;                     // Global Power state On
   }
   deassertReset();
+}
+
+void powerSaveMode() {
+  // This function will stop the microcontroller and reduce power consumption.
+  // It will be waked up on interrupts, which is limited to button press.
+
+  cli();
+
+  // Disable all timer interrupts during powerSave
+  uint8_t oldMask = TIMSK;
+  TIMSK = 0;
+
+  // Disable USI interrupts
+  USICR &= 0x3F;
+
+  // Enable pin change interrupt for power button (PA4) and pwr_ok (PA3)
+  PCMSK0 = (1 << PCINT3) | (1 << PCINT4);
+  PCMSK1 = 0;
+  GIMSK = (1 << PCIE1); // also disables int0/int1, used for ps2 clock
+
+  // Clear any pending interrupt flag
+  GIFR = 0xE0; // pin change
+  USISR = 0xF0; // usi
+  TIFR = 0xFE; // timer
+
+  PRR = 0x0F; // Disable power to peripherals (tim1, tim0, usi, adc)
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_enable();
+  sleep_bod_disable();
+  sei();
+
+  // this executes the SLEEP instruction. The CPU will wake up and resume on interrupt.
+  sleep_cpu();
+
+  // The CPU have waken up after a pin change interrupt
+
+  cli();
+
+  sleep_disable();
+
+  // Enable power to peripherals
+  PRR = 0x00;
+
+  // Restore TIMSK
+  TIMSK = oldMask;
+
+  // Stop pin change interrupt, also activate int0/int1 for ps2
+  GIMSK = 0xC0;
+
+  // Restore USI interrupts
+  USICR |= 0xC0;
+
+  // Clear any pending interrupt flag
+  GIFR = 0xE0; // pin change
+  USISR = 0xF0; // usi
+  TIFR = 0xFE; // timer
+
+  sei();
 }
 
 void HardReboot() {
@@ -717,6 +802,10 @@ void evaluateButtonCombination() {
   }
 }
 
+ISR(PCINT_vect) {
+  // Pin Change Interrupt
+  // Dummy handler, needed to wake up after power save mode
+}
 
 // ----------------------------------------------------------------
 // Timer Intterupt
