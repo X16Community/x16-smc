@@ -52,8 +52,7 @@ class SmcButton{
       else{
         //Click
         if (pinValue==0 && state == BUTTON_STATE_RELEASED){
-          state = BUTTON_STATE_CLICKED;
-          counter = BUTTON_LONG_DELAY;
+          startOfClickDetected();
         }
         //Release
         else if (pinValue == 1 && state == BUTTON_STATE_CLICKED){
@@ -68,6 +67,11 @@ class SmcButton{
           counter = BUTTON_LONG_DELAY;
         }
       }
+    }
+
+    void startOfClickDetected() {
+      state = BUTTON_STATE_CLICKED;
+      counter = BUTTON_LONG_DELAY;
     }
 
     void attachClick(void (*callback)()){
