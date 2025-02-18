@@ -453,6 +453,13 @@ void powerSaveMode() {
   // Restore USI interrupts
   USICR |= 0xC0;
 
+  // If pin change interrupt, and it most likely was caused by power button:
+  // Trigger "start of click" logic
+  // This is because waking cpu takes some time (?)
+  // If this is not done, short clicks are not detected
+  // (TODO: Call POW_BUT.tick() here instead?)
+  POW_BUT.startOfClickDetected();
+
   // Clear any pending interrupt flag
   GIFR = 0xE0; // pin change
   USISR = 0xF0; // usi
