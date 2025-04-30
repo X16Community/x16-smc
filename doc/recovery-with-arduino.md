@@ -19,7 +19,7 @@ You will need the following:
   
 - It is recommended that you use an anti-static wristband during the procedure to protect the circuits
 
-Some revisions of the Arduino Uno may also require a 10 uF elctrolytic capacitor. 
+Some revisions of the Arduino Uno may also require a 10 uF electrolytic capacitor. 
 
 Even though the risk of damaging the X16 or the SMC is small, there is as always a risk. Follow the
 instructions below to minimize that risk.
@@ -121,7 +121,7 @@ Now do the following:
 
 <img width="814" alt="Making connections" src="https://github.com/user-attachments/assets/458ce10b-69ec-48f0-8e91-1abecedc64a4">
 
-Some revisions of the Arduino Uno may also require a 10 uF elctrolytic capacitor installed between RESET and GND on the bottom pin row shown in the above picture.
+Some revisions of the Arduino Uno may also require a 10 uF electrolytic capacitor installed between RESET and GND on the bottom pin row shown in the above picture.
 Connect the negative terminal of the capacitor to GND, and the positive terminal to RESET. The capacitor prevents the Arduino Uno from being reset during the
 update procedure.
 
