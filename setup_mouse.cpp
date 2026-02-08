@@ -104,6 +104,7 @@ void mouseTick() {
     if (!SYSTEM_POWERED && state != MOUSE_STATE_OFF) {
         Mouse.flush();
         state = MOUSE_STATE_OFF;
+        mouse_id = PS2_BAT_FAIL;
         watchdog = WATCHDOG_DISABLE;
         return;
     }

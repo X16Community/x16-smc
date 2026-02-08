@@ -1,3 +1,3 @@
-version_major = 47
-version_minor = 2
-version_patch = 3
+version_major = 48
+version_minor = 1
+version_patch = 0
