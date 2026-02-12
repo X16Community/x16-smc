@@ -53,12 +53,12 @@ The Arduino Uno does not by default work as a programmer. You need to upload som
 
 The SMC is an ATtiny861 microcontroller, which is not supported in the IDE by default. 
 
-To add support for it, open the Preferences dialog, and add the following text to the Additional Boards Manager URLs: http://drazzy.com/package_drazzy.com_index.json.
+To add support for it, open the Preferences dialog, and add the following text to the Additional Boards Manager URLs: https://drazzy.com/package_drazzy.com_index.json.
 
 While you are there, also tick the option Show verbose output during compilation and upload.
 
 Go to Tools/Manage Libraries... and select ATTinyCore. Click install. If you cannot see the
-ATTinyCore library, you may need to restart the IDE.
+ATTinyCore library, you may need to restart the IDE or install the library manually (check instructions [here](https://github.com/SpenceKonde/ATTinyCore/blob/v2.0.0-devThis-is-the-head-submit-PRs-against-this/Installation.md))
 
 
 ## Make a dry test upload
