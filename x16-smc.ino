@@ -51,6 +51,7 @@
 #include "setup_ps2.h"
 
 #include <avr/boot.h>
+#include <avr/eeprom.h>
 #include <util/delay.h>
 
 // ----------------------------------------------------------------
@@ -111,6 +112,8 @@
 #define I2C_CMD_READ_FLASH            0x91
 #define I2C_CMD_WRITE_FLASH           0x92
 #define I2C_CMD_SELF_PROGRAMMING_MODE 0x93
+#define I2C_CMD_READ_EEPROM           0x94
+#define I2C_CMD_WRITE_EEPROM          0x95
 
 // Bootloader
 #define FLASH_SIZE            (0x2000)
@@ -551,6 +554,10 @@ void I2C_Receive(int) {
         buttonCombinationTimer = 0;
       }
       break;
+
+    case I2C_CMD_WRITE_EEPROM: // from 7100 to 7164
+      eeprom_write_byte(flash_read_offset++, I2C_Data[1]);
+      break;
   }
   
   I2C_Data[0] = defaultRequest;
@@ -643,6 +650,10 @@ void I2C_Send() {
 
     case I2C_CMD_READ_FLASH: // Raw read from flash
       smcWire.write(pgm_read_byte(flash_read_offset++));
+      break;
+
+    case I2C_CMD_READ_EEPROM: // Raw read from eeprom (from 7048 to 7100)
+      smcWire.write(eeprom_read_byte(flash_read_offset++));
       break;
 
     case I2C_CMD_SELF_PROGRAMMING_MODE: // Check if self programming mode is activated
